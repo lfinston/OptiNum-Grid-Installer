@@ -1,0 +1,142 @@
+%% 00INFO
+
+%% Created by Laurence D. Finston (LDF) Tue Dec 22 11:01:48 CET 2009
+
+%% $Id: 00INFO 7389 2012-02-28 16:49:27Z finston $
+
+%% * (1) Top
+
+%% ** (2) Moved DOC directory.
+
+LDF 2012.01.13.
+
+%% ** (2) Running simple Globus jobs
+
+LDF 2010.07.07.
+
+. ~/globus_conf.sh 
+
+grid-proxy-init
+
+gsissh -p 2222 faui3cluster.informatik.uni-erlangen.de
+
+gsissh -p 2222 optinum-srv.gwdg.de
+
+%% *** (3) Batch jobs
+
+globusrun-ws -submit -batch -o myjob.epr -F optinum-srv.gwdg.de -Ft PBS -s -c /bin/hostname
+
+globusrun-ws -status -j myjob.epr
+
+globusrun-ws -kill -j myjob.epr
+
+globusrun-ws -monitor -j myjob.epr
+
+
+
+%% ** (2) 
+
+LDF 2010.04.29.
+
+On `optinum-srv.gwdg.de':
+
+Must use /usr/bin/automake
+in /home/lfinsto/installer_package/dbsrvcli/.
+
+Otherwise, I get this error:
+
+lfinsto@optinum-srv:~/installer_package/dbsrvcli> aclocal && autoconf && autoheader && automake
+configure.ac:15: version mismatch.  This is Automake 1.10.3,
+configure.ac:15: but the definition used by this AM_INIT_AUTOMAKE
+configure.ac:15: comes from Automake 1.9.6.  You should recreate
+configure.ac:15: aclocal.m4 with aclocal and run automake again.
+src/Makefile.am:114: `:='-style assignments are not portable
+
+It doesn't work to change the invocation of AM_INIT_AUTOMAKE.
+
+
+LDF 2010.04.29.
+
+I also had problems with these macro invocations:
+
+AC_CHECK_SIZEOF([int])
+AC_CHECK_SIZEOF([long int])
+AC_CHECK_SIZEOF([void*])
+
+However, at one point, I didn't have problems with them.  I could comment them
+out, since they're not being used at present.
+
+The preprocessor macros that they're used to define, namely SIZEOF_VOIDP,
+etc., are used in `optcnfg.h' to define PTR_SIZE_INT, PTR_SIZE_LONG, etc.
+However, the latter are not used for anything, at present.
+
+%% ** (2) Calling `configure' on `optinum-srv'
+
+
+LDF 2010.04.26.
+LDF 2010.04.28.
+LDF 2010.05.11.
+LDF 2011.07.21.
+
+Call `configure' on `optinum-srv' with `--prefix=/opt/optinum/dbsrvcli',
+with option `--with-is-optinum-srv' and with variables set as follows:
+
+./configure --prefix=`pwd` --with-is-optinum-srv CXXFLAGS=-I/opt/optinum/dbsrvcli/include \
+            LDFLAGS=-L/opt/optinum/dbsrvcli/lib \
+            LIBS='-lgcrypt -lgpg-error' CFLAGS=-I/opt/optinum/dbsrvcli/include
+
+The option `--with-is-optinum-srv' causes the preprocessor macro 
+`IS_OPTINUM_SRV' to be defined with the value 1 in `config.h'.
+Otherwise, it has the value 0.
+
+`IS_OPTINUM_SRV' is used for conditionally-compiled code.  
+
+%% ** (2)
+
+autoconf && autoheader && automake
+
+%% ** (2)
+
+LDF 2010.07.23.
+
+I've added a branch for this.  It's in `../dbsrvcli_test_0'.  Don't do this in
+this directory (for the present).
+
+For my installation (LDF):
+
+Call `configure' like this:
+
+LDF 2012.02.28.
+
+Use these, if mysql devel. library is available.  
+Leave out, if not.
+It doesn't need to be available for the "client-only" version.
+
+MYSQL_CXXFLAGS="-I/usr/include/mysql"
+MYSQL_LDFLAGS="-lmysqlclient"  
+
+configure --prefix=`pwd` GNUTLS_LDFLAGS="-Wl,-rpath -Wl,/home/lfinsto/gnutls_dev/gnutls_master/lib" \
+           MYSQL_CXXFLAGS="-I/usr/include/mysql" \
+           MYSQL_LDFLAGS="-lmysqlclient" \
+           GNUTLS_INCLUDE_FLAGS="-I/home/lfinsto/gnutls_dev/gnutls_master/include/gnutls" 
+
+This way, my installation of GNUTLS is used.  I hope that the correct header files are found.
+I think they are.  If `configure' is called without setting 
+`GNUTLS_LDFLAGS' and `GNUTLS_INCLUDE_FLAGS', the normal installation of the GNUTLS
+is used.  (It must be installed!)
+
+
+%% ** (2)
+
+
+%% * (1) Local Variables for Emacs 
+
+%% Local Variables: 
+%% eval:(display-time) 
+%% eval:(read-abbrev-file) 
+%% indent-tabs-mode:nil 
+%% eval:(outline-minor-mode) 
+%% outline-regexp:"%% *\\*+" 
+%% End: 
+
+%% * (1) End of 00INFO
