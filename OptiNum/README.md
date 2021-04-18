@@ -6,7 +6,7 @@ OptiNum-Grid
 Optimierung technischer Systeme und naturwissenschaftlicher Modelle mit 
 Hilfe numerischer Simulationen im Grid
 
-http://www.optinum.de
+(Dead link) http://www.optinum.de
 
 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen
 Am Fassberg 11
