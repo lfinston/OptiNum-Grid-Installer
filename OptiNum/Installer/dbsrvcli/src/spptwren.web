@@ -1,0 +1,2154 @@
+@q spptwren.web  @>
+@q Created by Laurence D. Finston (LDF) Fri Jan 13 09:58:37 CET 2012 @>
+
+@q * (1) Top @>
+
+@q * (1) Copyright and License.@>
+
+@q This file is part of the OptiNum Grid Installer @>
+@q Copyright (C) 2010, 2011, 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen @>
+
+@q The OptiNum Grid Installer is free software; you can redistribute it and/or modify @>
+@q it under the terms of the GNU General Public License as published by @>
+@q the Free Software Foundation; either version 3 of the License, or @>
+@q (at your option) any later version.  @>
+
+@q The OptiNum Grid Installer is distributed in the hope that it will be useful, @>
+@q but WITHOUT ANY WARRANTY; without even the implied warranty of @>
+@q MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the @>
+@q GNU General Public License for more details.  @>
+
+@q You should have received a copy of the GNU General Public License          @>
+@q along with the OptiNum Grid Installer; if not, write to the Free Software                    @>
+@q Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA @>
+
+@q ("@@" stands for a single at-sign in the following paragraph.) @>
+
+@q Please send bug reports to Laurence.Finston@@gwdg.de@>
+
+@q Laurence D. Finston                                                   @>
+@q Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen  @>
+@q Am Fassberg 11         					         @>
+@q 37077 Goettingen              					 @>
+@q Germany                           					 @>                                
+
+@q Laurence.Finston@@gwdg.de (@@ stands for a single "at" sign.)@>
+
+@q ** (2)  spptwren.web @>
+@ {\bf Scan\_Parse\_Parameter\_Type::write\_entries} definition.
+
+@q ** (2) Include files  @>
+
+@ Include files.
+
+@<Include files@>=
+#include <stdlib.h>  /* Standard Library for C  */
+#include <stdio.h>
+#include <errno.h>
+#include <unistd.h>
+
+#include <algorithm> /* Standard Template Library (STL) for C++  */
+#include <fstream> 
+#include <iomanip>
+#include <ios>
+#include <iostream>
+#include <map>
+#include <string>
+#include <time.h>
+#include <math.h>
+#include <sstream>  
+
+#include <set>
+#include <vector>
+#include <deque>
+
+#include <pthread.h>  /* POSIX threads  */
+
+#include <gcrypt.h> /* for |gcry_control| */
+#include <gnutls/gnutls.h>
+
+#if HAVE_CONFIG_H
+#include <config.h>
+#endif 
+
+#if IS_ROCKS_GOEGRID
+#undef HAVE_LIBMYSQLCLIENT
+#endif 
+
+#if HAVE_LIBMYSQLCLIENT
+#include <mysql.h>
+#endif 
+
+#include "entries.h++"  /* Headers generated from CWEB files belonging to this package  */
+#include "dstngnmt.h++"
+
+#include "glblvrbl.h++"  
+#include "glblfncs.h++"
+#include "utilfncs.h++"
+#include "parser.h++"    
+#include "scanner.h++"
+#include "x509cert.h++"
+#include "rspnstp.h++"
+#include "thrdfncs.h++"
+#include "sssndttp.h++"
+#include "glsinftp.h++"
+#include "scprpmtp.h++"
+
+@q **** (4) Write entries to database.@>
+
+@ Write entries to database.
+\initials{LDF 2009.10.12.}
+
+\LOG
+\initials{LDF 2009.10.12.}
+Added this function.
+
+\initials{LDF 2009.12.28.}
+Removed code for initializing |this->mysql_ptr|, connecting it to the ``optinum'' 
+database and closing it.  This is now done elsewhere.
+
+\initials{LDF 2010.09.02.}
+Added code for writing ``created'' timestamp to the ``Entries'' database.
+
+\initials{LDF 2012.01.13.}
+Moved the definition of this function from \filename{scprpmtp.web} to this file 
+(\filename{spptwren.web}).
+\ENDLOG
+
+@q ***** (5) Definition  @>
+@
+@<|Scan_Parse_Parameter_Type::write_entries| definition@>=
+
+#if HAVE_LIBMYSQLCLIENT
+
+int
+Scan_Parse_Parameter_Type::write_entries(void)
+{
+@q ****** (6) @>
+
+    int status = 0;
+
+    bool DEBUG = false;  /* |true|  */
+
+    set_debug_level(DEBUG);
+
+    stringstream sql_strm;
+
+    stringstream temp_strm;
+
+    int curr_entry_id = -1;
+
+    bool duplicate_flag = false;
+  
+    unsigned int curr_user_id = 0;
+
+    FILE *fp = 0;
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex();  
+        cerr << get_datestamp() << " [Thread " << thread_ctr << "] "
+             << "Entering `Scan_Parse_Parameter_Type::write_entries'."
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */ 
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::write_entries| definition@>=
+
+    if (entries.size() == 0)
+    {
+        lock_cerr_mutex();
+        cerr << get_datestamp() << " [Thread " << thread_ctr << "] "
+             << "WARNING!  In `Scan_Parse_Parameter_Type::write_entries':"
+             << endl 
+             << "No entries.  Exiting function successfully with return value 0."
+             << endl;
+        unlock_cerr_mutex(); 
+
+        return 0;
+
+    }    /* |if (entries.size())|  */
+ 
+    else if (DEBUG)
+    {
+        lock_cerr_mutex();
+        cerr << "[Thread " << thread_ctr << "] "
+             << "In `Scan_Parse_Parameter_Type::write_entries':"
+             << endl 
+             << entries.size() << " entries."
+             << endl;
+
+#if 0    
+        entries[0].show();
+#endif 
+
+        unlock_cerr_mutex(); 
+
+    }  /* |else if (DEBUG)|  */
+
+@q ****** (6) Check |user_name|.  @>
+@ Check |user_name|.  
+@<|Scan_Parse_Parameter_Type::write_entries| definition@>=
+
+   if (user_name == "")
+   {
+        lock_cerr_mutex();
+        cerr << get_datestamp() << " [Thread " << thread_ctr << "] "
+             << "ERROR!  In `Scan_Parse_Parameter_Type::write_entries':"
+             << endl 
+             << "`this->user_name' is empty.  Can't write entries to database."
+             << endl  
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+        unlock_cerr_mutex(); 
+
+        return 1;
+
+   }  /* |if (user_name == "")|  */
+
+   else if (DEBUG)
+   {
+        lock_cerr_mutex();
+        cerr << "[Thread " << thread_ctr << "] "
+             << "In `Scan_Parse_Parameter_Type::write_entries':"
+             << endl 
+             << "`this->user_name' == " << user_name
+             << endl;
+        unlock_cerr_mutex(); 
+
+   }  /* |else if (DEBUG)|  */ 
+
+@q ****** (6) Check |user_id|.  @>
+@ Check |user_id|.  
+@<|Scan_Parse_Parameter_Type::write_entries| definition@>=
+
+   if (user_id == 0)
+   {
+        lock_cerr_mutex();
+        cerr << get_datestamp() << " [Thread " << thread_ctr << "] "
+             << "ERROR!  In `Scan_Parse_Parameter_Type::write_entries':"
+             << endl 
+             << "`this->user_id' == 0.  Can't write entries to database."
+             << endl  
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+        unlock_cerr_mutex(); 
+
+        return 1;
+
+   }  /* |if (user_id == 0)|  */
+
+   else if (DEBUG)
+   {
+        lock_cerr_mutex();
+        cerr << "[Thread " << thread_ctr << "] "
+             << "In `Scan_Parse_Parameter_Type::write_entries':"
+             << endl 
+             << "`this->user_id' == " << user_id
+             << endl;
+        unlock_cerr_mutex(); 
+
+   }  /* |else if (DEBUG)|  */ 
+
+@q ****** (6) Find @>
+@
+@<|Scan_Parse_Parameter_Type::write_entries| definition@>=
+
+    MYSQL_RES *result;
+    MYSQL_ROW curr_row;
+
+    unsigned int row_ctr = 0;
+    unsigned int field_ctr = 0;
+
+@q ****** (6) Main loop for processing |entries|.  @>
+
+@ Main loop for processing |entries|.  
+\initials{LDF 2009.10.13.}
+
+\LOG
+\initials{LDF 2009.10.13.}
+Added this section.
+
+\initials{LDF 2010.05.25.}
+Added |bool curr_private_flag|.
+
+\initials{LDF 2010.09.03.}
+Added |char curr_created[32]| and |char curr_last_modified[32]|.
+
+\initials{LDF 2011.01.27.}
+Added |bool curr_encrypted_flag| and the |string| variables 
+|curr_download_url_encrypted|, |curr_download_command_encrypted|, 
+|curr_installation_script_encrypted| and |curr_owner|.
+
+\initials{LDF 2011.05.06.}
+Added |string curr_authorization|.
+\ENDLOG
+
+@<|Scan_Parse_Parameter_Type::write_entries| definition@>=
+
+    string curr_package_name;
+    string curr_package_version;
+
+    string curr_download_url;
+    string curr_download_command;
+    string curr_installation_script;
+
+    string curr_maintainer_name;
+    string curr_maintainer_email_address;
+
+    bool curr_private_flag;
+
+    bool curr_encrypted_flag;
+   
+    string curr_owner;
+    string curr_key_name;
+
+    string curr_download_url_encrypted;
+    string curr_download_command_encrypted;
+    string curr_installation_script_encrypted;
+
+    string curr_authorization;
+
+    char curr_created[32];
+    char curr_last_modified[32];
+
+    strcpy(curr_created, "");
+    strcpy(curr_last_modified, "");
+
+@q ******* (7) The loop itself.  @>
+
+@ The loop itself.
+\initials{LDF 2009.10.13.}
+
+@<|Scan_Parse_Parameter_Type::write_entries| definition@>=
+
+    for (vector<Entry_Type>::iterator curr_entry = entries.begin();
+         curr_entry != entries.end();
+         ++curr_entry)
+    {
+@q ******** (8) @>
+
+        curr_package_name                  = curr_entry->package_name;
+        curr_package_version               = curr_entry->package_version;
+        curr_download_url                  = curr_entry->download_url;
+        curr_download_url_encrypted        = curr_entry->download_url_encrypted;
+        curr_authorization                 = curr_entry->authorization;
+        curr_download_command              = curr_entry->download_command;
+        curr_download_command_encrypted    = curr_entry->download_command_encrypted;
+        curr_installation_script           = curr_entry->installation_script;
+        curr_installation_script_encrypted = curr_entry->installation_script_encrypted;
+        curr_maintainer_name               = curr_entry->maintainer_name;
+        curr_maintainer_email_address      = curr_entry->maintainer_email_address;
+        curr_private_flag                  = curr_entry->private_flag;
+        curr_encrypted_flag                = curr_entry->encrypted_flag;
+        curr_owner                         = curr_entry->owner;
+
+
+@q ******** (8) @>
+
+        if (DEBUG)
+        {
+            lock_cerr_mutex(); 
+            cerr << "[Thread " << thread_ctr << "]:  "
+                 << "In `Scan_Parse_Parameter_Type::write_entries':"
+                 << endl 
+                 << "`curr_package_name'             == " << curr_package_name
+                 << endl 
+                 << "`curr_package_version'          == " << curr_package_version
+                 << endl 
+                 << "`curr_download_url'             == " << curr_download_url
+                 << endl 
+                 << "`curr_download_url_encrypted'   == " << curr_download_url_encrypted
+                 << endl 
+                 << "`curr_download_command'             == " << curr_download_command
+                 << endl 
+                 << "`curr_download_command_encrypted'   == " << curr_download_command_encrypted
+                 << endl 
+                 << "`curr_authorization'                == " << curr_authorization
+                 << endl 
+                 << "`curr_installation_script'      == " << curr_installation_script
+                 << endl 
+                 << "`curr_maintainer_name'          == " << curr_maintainer_name
+                 << endl 
+                 << "`curr_maintainer_email_address' == " << curr_maintainer_email_address
+                 << endl 
+                 << "`curr_private_flag` == " << curr_private_flag
+                 << endl 
+                 << "`curr_encrypted_flag` == " << curr_encrypted_flag
+                 << endl
+                 << "`curr_owner` == " << curr_owner
+                 << endl;
+            unlock_cerr_mutex(); 
+
+        }  /* |if (DEBUG)|  */      
+    
+@q ******** (8) Check |user_name|.  @>
+
+@ Check whether there's an entry for |user_name| in the \.{Users} database table.
+\initials{LDF 2009.10.13.}
+
+@<|Scan_Parse_Parameter_Type::write_entries| definition@>=
+
+        duplicate_flag = false;
+
+        sql_strm.str("");
+        sql_strm << "select * from Users where user_name = '" 
+                 << user_name << "'";
+
+        if (DEBUG)
+        {
+            lock_cerr_mutex(); 
+            cerr << "[Thread " << thread_ctr << "]:  "
+                 << "In `Scan_Parse_Parameter_Type::write_entries':"
+                 << endl 
+                 << "`sql_strm.str()' == " << sql_strm.str()
+                 << endl;
+            unlock_cerr_mutex(); 
+
+        }  /* |if (DEBUG)| */
+
+        status = submit_mysql_query(sql_strm.str(),
+                                    result, 
+                                    &row_ctr, 
+                                    &field_ctr);
+
+        if (status)
+        {
+            lock_cerr_mutex(); 
+            cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+                 << "WARNING!  In `Scan_Parse_Parameter_Type::write_entries':"
+                 << endl 
+                 << "`Scan_Parse_Parameter_Type::submit_mysql_query' failed, returning " 
+                 << status << "."
+                 << endl
+                 << "Exiting function unsuccessfully with return value 1."
+                 << endl;
+            unlock_cerr_mutex(); 
+
+           if (result) 
+              mysql_free_result(result);
+
+           return 1;
+
+
+        }  /* |if (status)|  */
+
+        else if (DEBUG)
+        {
+            lock_cerr_mutex(); 
+            cerr << "[Thread " << thread_ctr << "]:  "
+                 << "In `Scan_Parse_Parameter_Type::write_entries':"
+                 << endl 
+                 << "`Scan_Parse_Parameter_Type::submit_mysql_query' succeeded."
+                 << endl;
+            unlock_cerr_mutex(); 
+
+        }  /* |if (DEBUG)|  */
+
+@q ******** (8) @>
+
+        if (DEBUG)
+        {
+            lock_cerr_mutex(); 
+            cerr << "[Thread " << thread_ctr << "]:  "
+                 << "In `Scan_Parse_Parameter_Type::write_entries':"
+                 << endl 
+                 << "row_ctr == " << row_ctr 
+                 << endl
+                 << "field_ctr == " << field_ctr 
+                 << endl;
+            unlock_cerr_mutex(); 
+
+        }  /* |if (DEBUG)|  */
+
+@q ******** (8) |user_name| unknown.@>
+
+@ |user_name| unknown.
+\initials{LDF 2009.10.13.}
+
+@<|Scan_Parse_Parameter_Type::write_entries| definition@>=
+
+        if (row_ctr == 0)  /* |user_name| unknown  */
+        {
+            lock_cerr_mutex(); 
+            cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+                 << "ERROR!  In `Scan_Parse_Parameter_Type::write_entries':  "
+                 << "`user_name' is unknown."
+                 << endl 
+                 << "Exiting function unsuccessfully with return value 1."
+                 << endl;
+            unlock_cerr_mutex(); 
+
+            if (result)
+               mysql_free_result(result);
+
+            return 1;
+
+       }  /* |if (row_ctr == 0)| (|user_name| unknown)  */
+
+@q ******** (8) @>
+@
+\LOG
+\initials{LDF 2010.07.01.}
+Now setting |curr_user_id = user_id|.  It might be set to |effective_user_id| below,
+if the |user_name| is inserting entries on behalf of another user |effective_user_name|.
+\ENDLOG 
+
+@<|Scan_Parse_Parameter_Type::write_entries| definition@>=
+
+        else /* |row_ctr > 0| (|user_name| known)  */
+        {
+           if (DEBUG)
+           {
+               lock_cerr_mutex(); 
+               cerr << "[Thread " << thread_ctr << "]:  "
+                    << "In `Scan_Parse_Parameter_Type::write_entries':  "
+                    << "`user_name' known."
+                    << endl;
+               unlock_cerr_mutex(); 
+
+           }  /* |if (DEBUG)|  */
+
+           if (result)
+           {
+              mysql_free_result(result);
+              result = 0;
+           }
+
+        }  /* |else| (|row_ctr > 0|, |user_name| known)  */
+
+        curr_user_id = user_id;
+
+
+@q ******** (8) Error handling.  @>
+
+@ Error handling.  
+\initials{LDF 2010.07.01.}
+
+\LOG
+\initials{LDF 2010.07.01.}
+Added this section.
+\ENDLOG
+
+@<|Scan_Parse_Parameter_Type::write_entries| definition@>=
+
+
+       if (   (effective_user_name.empty() && effective_user_id > 0)
+           || (!effective_user_name.empty() && effective_user_id <= 0))
+       {
+            lock_cerr_mutex(); 
+            cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+                 << "ERROR!  In `Scan_Parse_Parameter_Type::write_entries':"
+                 << endl 
+                 << "`effective_user_name' is non-empty and `effective_user_id' > 0 "
+                 << "or `effective_user_name' is empty and `effective_user_id' <= 0."
+                 << endl 
+                 << "effective_user_name == " << effective_user_name << endl
+                 << "effective_user_id == " << effective_user_id << endl
+                 << endl 
+                 << "Can't check for \"effective user\" in the database."
+                 << endl 
+                 << "Exiting function unsuccessfully with return value 1."
+                 << endl;
+            unlock_cerr_mutex(); 
+
+            return 1;
+
+       }  /* |if|  */
+
+
+@q ******** (8) Check database for the ``effective user'',  @>
+@q ******** (8) if |this->effective_user_name| is set.      @>
+
+@ Check database for the ``effective user'',  if |this->effective_user_name| 
+is set.      
+
+\LOG
+\initials{LDF 2010.07.01.}
+Added this section.
+\ENDLOG
+
+@<|Scan_Parse_Parameter_Type::write_entries| definition@>=
+
+        if (!effective_user_name.empty() && effective_user_id > 0)
+        {
+@q ********* (9) @>
+
+            if (DEBUG)
+            {
+                lock_cerr_mutex(); 
+                cerr << "[Thread " << thread_ctr << "]:  "
+                     << "In `Scan_Parse_Parameter_Type::write_entries':"
+                     << endl 
+                     << "`effective_user_name' == " << effective_user_name
+                     << endl 
+                     << "`effective_user_id' == " << effective_user_id
+                     << endl 
+                     << "Checking database for entry in `Users' table."
+                     << endl;
+                unlock_cerr_mutex(); 
+
+
+            }  /* |if (DEBUG)|  */ 
+
+
+            sql_strm.str("");
+            sql_strm << "select * from Users where user_name = '" 
+                     << effective_user_name << "'";
+
+            if (DEBUG)
+            {
+                lock_cerr_mutex(); 
+                cerr << "[Thread " << thread_ctr << "]:  "
+                     << "In `Scan_Parse_Parameter_Type::write_entries':"
+                     << endl 
+                     << "`sql_strm.str()' == " << sql_strm.str()
+                     << endl;
+                unlock_cerr_mutex(); 
+
+            }  /* |if (DEBUG)| */
+
+            status = submit_mysql_query(sql_strm.str(),
+                                        result, 
+                                        &row_ctr, 
+                                        &field_ctr);
+
+            if (status)
+            {
+                lock_cerr_mutex(); 
+                cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+                     << "WARNING!  In `Scan_Parse_Parameter_Type::write_entries':"
+                     << endl 
+                     << "`Scan_Parse_Parameter_Type::submit_mysql_query' failed, returning " 
+                     << status << "."
+                     << endl
+                     << "Exiting function unsuccessfully with return value 1."
+                     << endl;
+                unlock_cerr_mutex(); 
+
+               if (result) 
+                  mysql_free_result(result);
+
+               return 1;
+
+
+            }  /* |if (status)|  */
+
+            else if (DEBUG)
+            {
+                lock_cerr_mutex(); 
+                cerr << "[Thread " << thread_ctr << "]:  "
+                     << "In `Scan_Parse_Parameter_Type::write_entries':"
+                     << endl 
+                     << "`Scan_Parse_Parameter_Type::submit_mysql_query' succeeded."
+                     << endl;
+                unlock_cerr_mutex(); 
+
+            }  /* |if (DEBUG)|  */
+
+@q ********* (9) @>
+
+            if (DEBUG)
+            {
+                lock_cerr_mutex(); 
+                cerr << "[Thread " << thread_ctr << "]:  "
+                     << "In `Scan_Parse_Parameter_Type::write_entries':"
+                     << endl 
+                     << "row_ctr == " << row_ctr 
+                     << endl
+                     << "field_ctr == " << field_ctr 
+                     << endl;
+                unlock_cerr_mutex(); 
+
+            }  /* |if (DEBUG)|  */
+
+@q ********* (9) |effective_user_name| unknown.@>
+
+@ |effective_user_name| unknown.
+\initials{LDF 2010.07.01.}
+
+@<|Scan_Parse_Parameter_Type::write_entries| definition@>=
+
+            if (row_ctr == 0)  /* |effective_user_name| unknown  */
+            {
+                lock_cerr_mutex(); 
+                cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+                     << "ERROR!  In `Scan_Parse_Parameter_Type::write_entries':  "
+                     << "`effective_user_name' is unknown."
+                     << endl 
+                     << "Exiting function unsuccessfully with return value 1."
+                     << endl;
+                unlock_cerr_mutex(); 
+
+                if (result)
+                   mysql_free_result(result);
+
+                return 1;
+
+           }  /* |if (row_ctr == 0)| (|effective_user_name| unknown)  */
+
+@q ********* (9) @>
+@
+@<|Scan_Parse_Parameter_Type::write_entries| definition@>=
+
+           else /* |row_ctr > 0| (|effective_user_name| known)  */
+           {
+              if (DEBUG)
+              {
+                  lock_cerr_mutex(); 
+                  cerr << "[Thread " << thread_ctr << "]:  "
+                       << "In `Scan_Parse_Parameter_Type::write_entries':  "
+                       << "`effective_user_name' known."
+                       << endl;
+                  unlock_cerr_mutex(); 
+
+              }  /* |if (DEBUG)|  */
+
+              if (result)
+              {
+                 mysql_free_result(result);
+                 result = 0;
+              }
+
+              curr_user_id = effective_user_id;
+
+           }  /* |else| (|row_ctr > 0|, |effective_user_name| known)  */
+
+
+@q ********* (9) @>
+
+        }  /* |if (!effective_user_name.empty() && effective_user_id > 0)|  */
+
+@q ******** (8) @>
+
+@ It's not really necessary to have a |user_id| field in the ``Entries'' table.  It would
+be possible to associate entries with users by means of an association table 
+``\.{Users\_Entries}''.   Using a |user_id| field means that we may have duplication of 
+packages, however, this may be convenient and if it is, the convenience might be worth
+the price of storing more information than we really need to.  
+\initials{LDF 2009.12.29.}
+
+Prerequisites are not taken into account when determining whether an entry 
+is a duplicate.  Prerequisites should therefore not be added to an entry 
+by overwriting it, but by the ``\.{ADD PREREQUISITE}'' command.  If an entry 
+is a duplicate, the items in the \.{Prerequisites} table for the old entry
+are deleted.
+\par
+Alternatively, one could add error handling for the case that an entry already exists, 
+check whether the prerequisites differ,  and so on.  However, I don't believe this 
+would be worthwhile.
+\initials{LDF 2010.02.26.}
+\initials{LDF 2010.09.02.}
+\initials{LDF 2010.09.03.}
+
+\begingroup
+\parindent=0pt
+\obeylines
+|curr_package_name|
+|curr_package_version|
+|curr_download_url|
+|curr_download_command|
+|curr_installation_script|
+|curr_maintainer_name|
+|curr_maintainer_email_address|
+|curr_private_flag|
+|curr_encrypted_flag|
+|curr_owner|
+|curr_created|
+|curr_last_modified|
+\vskip\baselineskip
+
+Table {\bf Entries}:
+\vskip\baselineskip
+
+|user_id| int not null references Users(|user_id|)
+|entry_id| int primary key,
+|package_name| varchar(256) not null,
+|package_version| varchar(256),
+|version_ctr| int default null,
+|download_url| varchar(256),
+|download_command| varchar(256),
+|installation_script| mediumtext,
+|maintainer_name| varchar(256),
+|maintainer_email_address| varchar(256)
+|private| boolean not null default true,
+|encrypted| boolean not null default true,
+|owner| varchar(32) not null default true,
+|checked_by_admin| boolean not null default false
+|created| datetime default null
+|last_modified| datetime default null
+|timezone| char(3) default 'UTC'
+\endgroup
+
+\LOG
+\initials{LDF 2010.01.08.}
+Removed the code referencing the |installation_script| field.  This field 
+has the type {\bf mediumtext} and its contents can therefore not be compared easily.
+
+\initials{LDF 2010.05.20.}
+Now only checking |user_id|, |package_name| and |package_version|.  If an entry with identical 
+values for these columns already exists, it's replaced.
+\ENDLOG 
+
+@:NOTE@> !! PLEASE NOTE:  It is possible to replace an entry with an identical entry.
+Since some of the columns are of ``text'' types such as \.{blob} or \.{mediumtext}, 
+it does not seem that it would be worth it to compare their contents with the data supplied by 
+the user, even if the latter were available at this point.  This, however, is not the case, since
+data contained in files on the client-side is sent separately.
+\initials{LDF 2012.05.04.}
+
+@<|Scan_Parse_Parameter_Type::write_entries| definition@>=
+
+        sql_strm.str("");
+
+        sql_strm << "select entry_id, created from Entries where user_id = " 
+                 << curr_user_id
+                 << " and package_name = '" << curr_package_name << "'";
+
+        if (curr_package_version.empty())
+           sql_strm << " and package_version is NULL";
+        else
+           sql_strm << " and package_version = '" << curr_package_version << "'";
+
+        if (DEBUG)
+        {
+            lock_cerr_mutex(); 
+            cerr << "[Thread " << thread_ctr << "]:  "
+                 << "In `Scan_Parse_Parameter_Type::write_entries':"
+                 << endl 
+                 << "`sql_strm.str()' == " << sql_strm.str()
+                 << endl;
+            unlock_cerr_mutex();        
+
+        }  /* |if (DEBUG)|  */ 
+
+@q ******** (8) @>
+@
+@<|Scan_Parse_Parameter_Type::write_entries| definition@>=
+
+        if (result)
+        {
+           mysql_free_result(result);
+           result = 0;
+        }
+
+        status = submit_mysql_query(sql_strm.str(),
+                                    result, 
+                                    &row_ctr, 
+                                    &field_ctr);
+
+        if (status)
+        {
+            lock_cerr_mutex(); 
+            cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+                 << "WARNING!  In `Scan_Parse_Parameter_Type::write_entries':"
+                 << endl 
+                 << "`Scan_Parse_Parameter_Type::submit_mysql_query' failed, returning " 
+                 << status << "."
+                 << endl
+                 << "Exiting function unsuccessfully with return value 1."
+                 << endl;
+            unlock_cerr_mutex(); 
+
+           if (result) 
+              mysql_free_result(result);
+
+           return 1;
+
+
+        }  /* |if (status)|  */
+
+        else if (DEBUG)
+        {
+            lock_cerr_mutex(); 
+            cerr << "[Thread " << thread_ctr << "]:  "
+                 << "In `Scan_Parse_Parameter_Type::write_entries':"
+                 << endl 
+                 << "`Scan_Parse_Parameter_Type::submit_mysql_query' succeeded."
+                 << endl;
+            unlock_cerr_mutex(); 
+
+        }  /* |if (DEBUG)|  */
+
+@q ******** (8) @>
+
+        if (DEBUG)
+        {
+            lock_cerr_mutex(); 
+            cerr << "[Thread " << thread_ctr << "]:  "
+                 << "In `Scan_Parse_Parameter_Type::write_entries':"
+                 << endl 
+                 << "row_ctr == " << row_ctr 
+                 << endl
+                 << "field_ctr == " << field_ctr 
+                 << endl;
+            unlock_cerr_mutex(); 
+
+        }  /* |if (DEBUG)|  */
+
+@q ******** (8) Duplicate entry.  Replace  @>
+
+@ Duplicate entry.  Replace.
+\initials{LDF 2010.01.08.}
+
+\LOG
+\initials{LDF 2010.03.15.}
+Added code for sending a response to the client.
+\ENDLOG
+
+@<|Scan_Parse_Parameter_Type::write_entries| definition@>=
+
+        if (row_ctr > 0)
+        {
+
+            if (DEBUG)
+            {
+                lock_cerr_mutex(); 
+                cerr << "[Thread " << thread_ctr << "]:  "
+                     << "In `Scan_Parse_Parameter_Type::write_entries':"
+                     << endl 
+                     << "Duplicate entry.  Replacing."
+                     << endl;
+                unlock_cerr_mutex(); 
+
+            }  /* |if (DEBUG)|  */
+
+            duplicate_flag = true;
+
+            Response_Type response; 
+      
+            response.type = Response_Type::COMMAND_ONLY_TYPE;       
+            response.entry_id = curr_entry_id;  
+
+            temp_strm.str("");
+            temp_strm << "REPLACING DUPLICATE ENTRY "
+                      << " <" << curr_package_name << ">";
+
+            if (!curr_package_version.empty())
+               temp_strm << " <" << curr_package_version << ">";
+
+            response.command = temp_strm.str();
+ 
+            pthread_mutex_lock(&response_deque_mutex);
+            response_deque.push_front(response);
+            pthread_mutex_unlock(&response_deque_mutex);
+
+            temp_strm.str("");
+
+@q ********* (9) @>
+@
+\LOG
+\initials{LDF 2010.05.20.}
+Added this section.
+\ENDLOG
+
+@<|Scan_Parse_Parameter_Type::write_entries| definition@>=
+
+            if ((curr_row = mysql_fetch_row(result)) == 0)
+            {
+                lock_cerr_mutex(); 
+                cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+                     << "ERROR!  In `Scan_Parse_Parameter_Type::write_entries':"
+                     << endl 
+                     << "`mysql_fetch_row' failed:"
+                     << endl
+                     << mysql_error(mysql_ptr)
+                     << endl 
+                     << "Exiting function unsuccessfully with return value 1."
+                     << endl;
+                unlock_cerr_mutex(); 
+
+                if (result)
+                   mysql_free_result(result);
+
+                return 1;
+
+            }  /* |if (curr_row = mysql_fetch_row(result) == 0)|  */
+
+@q ********* (9) @>
+@
+\LOG
+\initials{LDF 2010.05.20.}
+Added this section.
+\ENDLOG
+@<|Scan_Parse_Parameter_Type::write_entries| definition@>=
+
+            if (DEBUG)
+            {
+                lock_cerr_mutex(); 
+                cerr << "[Thread " << thread_ctr << "]:  "
+                     << "In `Scan_Parse_Parameter_Type::write_entries':"
+                     << endl 
+                     << "`curr_row[0]' == " << curr_row[0]
+                     << endl 
+                     << "`curr_row[1]' == " << curr_row[1]
+                     << endl;
+                unlock_cerr_mutex(); 
+
+            }  /* |if (DEBUG)|  */
+
+
+@q ********* (9) @>
+
+            if (curr_row[0])
+            {
+               sscanf(curr_row[0], "%d", &curr_entry_id);
+            }
+            else 
+            {
+                lock_cerr_mutex(); 
+                cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+                      << "ERROR!  In `Scan_Parse_Parameter_Type::write_entries':"
+                      << endl 
+                      << "`curr_row[0]' == NULL."
+                      << endl 
+                      << "Exiting function unsuccessfully with return value 1."
+                      << endl;
+                unlock_cerr_mutex(); 
+
+                if (result)
+                   mysql_free_result(result);
+
+                return 1;
+
+            }  /* |else|  */
+
+
+@q ********* (9) @>
+
+            if (curr_row[1])
+            {
+               sscanf(curr_row[1], "%19c", curr_created);
+            }
+            else 
+               strcpy(curr_created, "");
+
+@q ********* (9) @>
+
+            if (DEBUG)
+            {
+                lock_cerr_mutex(); 
+                cerr << "[Thread " << thread_ctr << "]:  "
+                     << "In `Scan_Parse_Parameter_Type::write_entries':"
+                     << endl 
+                     << "`curr_entry_id' == " << curr_entry_id
+                     << endl 
+                     << "`curr_created' == " << curr_created
+                     << endl;
+                unlock_cerr_mutex(); 
+
+            }  /* |if (DEBUG)|  */ 
+
+            mysql_free_result(result);
+            result = 0;
+
+@q ********* (9) Delete old entry and prerequisites.  @>
+
+@ Delete old entry and prerequisites.  
+
+\LOG
+\initials{LDF 2010.05.20.}
+Added this section.
+\ENDLOG
+
+@<|Scan_Parse_Parameter_Type::write_entries| definition@>=
+
+@q ********** (10) @>
+
+          status = lock_table("Entries");
+
+          if (status != 0)
+          {
+              lock_cerr_mutex(); 
+              cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+                   << "WARNING!  In `Scan_Parse_Parameter_Type::write_entries':"
+                   << endl
+                   << "Failed to lock database table `Entries'."
+                   << endl
+                   << "Will try to continue."
+                   << endl;
+              unlock_cerr_mutex(); 
+
+
+          }  /* |if (status != 0)|  */
+
+          else if (DEBUG)
+          {
+              lock_cerr_mutex(); 
+              cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+                   << "In `Scan_Parse_Parameter_Type::write_entries':"
+                   << endl
+                   << "Locked database table `Entries' successfully."
+                   << endl;
+              unlock_cerr_mutex(); 
+
+          }  /* |else if (DEBUG)|  */ 
+                 
+@q ********** (10) @>
+
+
+          sql_strm.str("");
+
+          sql_strm << "delete from Entries where entry_id = " << curr_entry_id;
+
+          if (DEBUG) 
+          {
+              lock_cerr_mutex(); 
+              cerr << "[Thread " << thread_ctr << "]:  "
+                   << "In `Scan_Parse_Parameter_Type::write_entries':"
+                   << endl 
+                   << "`sql_strm.str()' == " 
+                   << endl 
+                   << sql_strm.str()
+                   << endl;
+              unlock_cerr_mutex();              
+
+          }  /* |if (DEBUG)|  */
+
+          status = submit_mysql_query(sql_strm.str(),
+                                      result);
+
+          if (status)
+          {
+              lock_cerr_mutex(); 
+              cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+                   << "WARNING!  In `Scan_Parse_Parameter_Type::write_entries':"
+                   << endl 
+                   << "`Scan_Parse_Parameter_Type::submit_mysql_query' failed, returning " 
+                   << status << "."
+                   << endl
+                   << "Exiting function unsuccessfully with return value 1."
+                   << endl;
+              unlock_cerr_mutex(); 
+
+              unlock_tables();
+
+             if (result) 
+                mysql_free_result(result);
+
+             return 1;
+
+
+          }  /* |if (status)|  */
+
+          else if (DEBUG)
+          {
+              lock_cerr_mutex(); 
+              cerr << "[Thread " << thread_ctr << "]:  "
+                   << "In `Scan_Parse_Parameter_Type::write_entries':"
+                   << endl 
+                   << "`Scan_Parse_Parameter_Type::submit_mysql_query' succeeded."
+                   << endl;
+              unlock_cerr_mutex(); 
+
+          }  /* |if (DEBUG)|  */
+
+          mysql_free_result(result);
+
+@q ********** (10) @>
+
+          sql_strm.str("");
+
+          sql_strm << "delete from Prerequisites where entry_id = " << curr_entry_id;
+
+          if (DEBUG) 
+          {
+              lock_cerr_mutex(); 
+              cerr << "[Thread " << thread_ctr << "]:  "
+                   << "In `Scan_Parse_Parameter_Type::write_entries':"
+                   << endl 
+                   << "`sql_strm.str()' == " 
+                   << endl 
+                   << sql_strm.str()
+                   << endl;
+              unlock_cerr_mutex();              
+
+          }  /* |if (DEBUG)|  */
+
+          status = submit_mysql_query(sql_strm.str(),
+                                      result);
+
+          if (status)
+          {
+              lock_cerr_mutex(); 
+              cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+                   << "WARNING!  In `Scan_Parse_Parameter_Type::write_entries':"
+                   << endl 
+                   << "`Scan_Parse_Parameter_Type::submit_mysql_query' failed, returning " 
+                   << status << "."
+                   << endl
+                   << "Exiting function unsuccessfully with return value 1."
+                   << endl;
+              unlock_cerr_mutex(); 
+
+              unlock_tables();
+
+             if (result) 
+                mysql_free_result(result);
+
+             return 1;
+
+
+          }  /* |if (status)|  */
+
+          else if (DEBUG)
+          {
+              lock_cerr_mutex(); 
+              cerr << "[Thread " << thread_ctr << "]:  "
+                   << "In `Scan_Parse_Parameter_Type::write_entries':"
+                   << endl 
+                   << "`Scan_Parse_Parameter_Type::submit_mysql_query' succeeded."
+                   << endl;
+              unlock_cerr_mutex(); 
+
+          }  /* |if (DEBUG)|  */
+
+          mysql_free_result(result);
+          result = 0;
+
+@q ********** (10) @>
+
+@q ********* (9) @>
+
+      }  /* |if (row_ctr > 0)| */
+
+
+@q ******** (8) Not a duplicate entry.  Get new |entry_id|.    @>
+
+@ Not a duplicate entry.  Get new |entry_id|.
+\initials{LDF 2010.01.08.}
+
+
+@<|Scan_Parse_Parameter_Type::write_entries| definition@>=
+
+       else /* |row_ctr == 0|  */   
+       {
+
+           if (DEBUG)
+           {
+               lock_cerr_mutex(); 
+               cerr << "[Thread " << thread_ctr << "]:  "
+                    << "In `Scan_Parse_Parameter_Type::write_entries':"
+                    << endl 
+                    << "Not a duplicate entry.  Getting new `entry_id'."
+                    << endl;
+               unlock_cerr_mutex(); 
+
+           }  /* |if (DEBUG)|  */
+
+@q ********* (9) Get the highest |entry_id| value in the ``Entries'' table.  @>
+@ Get the highest |entry_id| value in the ``Entries'' table.  
+\initials{LDF 2010.01.08.}
+
+One could use a sequence for the |entry_id| field, but it's easy to end up large gaps 
+and large numbers when testing, so I prefer to set the numbers ``by hand''.  This requires 
+locking |pthread_mutex entry_table_mutex|, so that another thread doesn't try to insert 
+into the ``Entries'' table before we're done.
+\initials{LDF 2010.01.08.}
+
+@<|Scan_Parse_Parameter_Type::write_entries| definition@>=
+
+          status = lock_table("Entries");
+
+          if (status != 0)
+          {
+              lock_cerr_mutex(); 
+              cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+                   << "WARNING!  In `Scan_Parse_Parameter_Type::write_entries':"
+                   << endl
+                   << "Failed to lock database table `Entries'."
+                   << endl
+                   << "Will try to continue."
+                   << endl;
+              unlock_cerr_mutex(); 
+
+
+          }  /* |if (status != 0)|  */
+
+          else if (DEBUG)
+          {
+              lock_cerr_mutex(); 
+              cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+                   << "In `Scan_Parse_Parameter_Type::write_entries':"
+                   << endl
+                   << "Locked database table `Entries' successfully."
+                   << endl;
+              unlock_cerr_mutex(); 
+
+          }  /* |else if (DEBUG)|  */ 
+
+          mysql_free_result(result);
+
+          sql_strm.str("");
+
+          sql_strm << "select entry_id from Entries order by entry_id desc limit 1";
+
+          if (DEBUG) 
+          {
+              lock_cerr_mutex(); 
+              cerr << "[Thread " << thread_ctr << "]:  "
+                   << "In `Scan_Parse_Parameter_Type::write_entries':"
+                   << endl 
+                   << "`sql_strm.str()' == " 
+                   << endl 
+                   << sql_strm.str()
+                   << endl;
+              unlock_cerr_mutex();              
+
+          }  /* |if (DEBUG)|  */
+
+
+          status = submit_mysql_query(sql_strm.str(),
+                                      result, 
+                                      &row_ctr, 
+                                      &field_ctr);
+
+          if (status)
+          {
+              lock_cerr_mutex(); 
+              cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+                   << "WARNING!  In `Scan_Parse_Parameter_Type::write_entries':"
+                   << endl 
+                   << "`Scan_Parse_Parameter_Type::submit_mysql_query' failed, returning " 
+                   << status << "."
+                   << endl
+                   << "Exiting function unsuccessfully with return value 1."
+                   << endl;
+              unlock_cerr_mutex(); 
+
+             if (result) 
+                mysql_free_result(result);
+
+             unlock_tables();
+
+             return 1;
+
+
+          }  /* |if (status)|  */
+
+          else if (DEBUG)
+          {
+              lock_cerr_mutex(); 
+              cerr << "[Thread " << thread_ctr << "]:  "
+                   << "In `Scan_Parse_Parameter_Type::write_entries':"
+                   << endl 
+                   << "`Scan_Parse_Parameter_Type::submit_mysql_query' succeeded."
+                   << endl;
+              unlock_cerr_mutex(); 
+
+          }  /* |if (DEBUG)|  */
+
+@q ******** (8) @>
+
+        if (DEBUG)
+        {
+            lock_cerr_mutex(); 
+            cerr << "[Thread " << thread_ctr << "]:  "
+                 << "In `Scan_Parse_Parameter_Type::write_entries':"
+                 << endl 
+                 << "row_ctr == " << row_ctr 
+                 << endl
+                 << "field_ctr == " << field_ctr 
+                 << endl;
+            unlock_cerr_mutex(); 
+
+        }  /* |if (DEBUG)|  */
+
+        if ((curr_row = mysql_fetch_row(result)) == 0)
+        {
+            lock_cerr_mutex(); 
+            cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+                 << "ERROR!  In `Scan_Parse_Parameter_Type::write_entries':"
+                 << endl 
+                 << "`mysql_fetch_row' failed:"
+                 << endl
+                 << mysql_error(mysql_ptr)
+                 << endl 
+                 << "Exiting function unsuccessfully with return value 1."
+                 << endl;
+            unlock_cerr_mutex(); 
+
+            if (result)
+               mysql_free_result(result);
+
+            unlock_tables();
+
+            return 1;
+
+        }  /* |if (curr_row = mysql_fetch_row(result) == 0)|  */
+
+@q ********* (9) @>
+@
+@<|Scan_Parse_Parameter_Type::write_entries| definition@>=
+
+        if (DEBUG)
+        {
+            lock_cerr_mutex(); 
+            cerr << "[Thread " << thread_ctr << "]:  "
+                 << "In `Scan_Parse_Parameter_Type::write_entries':"
+                 << endl 
+                 << "`curr_row[0]' == " << curr_row[0]
+                 << endl;
+            unlock_cerr_mutex(); 
+
+        }  /* |if (DEBUG)|  */
+
+
+@q ********* (9) @>
+
+        if (curr_row[0])
+        {
+           sscanf(curr_row[0], "%d", &curr_entry_id);
+           ++curr_entry_id;
+
+        }
+        else 
+           curr_entry_id = 1;
+
+        if (DEBUG)
+        {
+            lock_cerr_mutex(); 
+            cerr << "[Thread " << thread_ctr << "]:  "
+                 << "In `Scan_Parse_Parameter_Type::write_entries':"
+                 << endl 
+                 << "`curr_entry_id' == " << curr_entry_id
+                 << endl;
+            unlock_cerr_mutex(); 
+
+
+        }  /* |if (DEBUG)|  */ 
+
+    }  /* |else| (|row_ctr == 0|) (Not a duplicate entry)  */   
+
+@q ********* (9) Insert an entry into the ``Entries'' table.  @>
+
+@ Insert an entry into the ``Entries'' table.
+\initials{LDF 2010.01.08.}
+
+|curr_installation_script| must be inserted into the ``Entries'' table separately!
+\initials{LDF 2010.01.08.}
+
+\LOG
+\initials{LDF 2010.09.03.}
+Now keeping the \.{created} value and adding a value for \.{last\_modified} when 
+replacing a duplicate entry.
+
+\initials{LDF 2010.09.15.}
+Now setting |curr_last_modified| for new entries:  
+It receives the same value as |curr_created|.  This makes it possible to 
+sort entries by the |last_modified| field.
+\ENDLOG 
+
+@<|Scan_Parse_Parameter_Type::write_entries| definition@>=
+   
+    if (duplicate_flag)
+    {
+       strcpy(curr_last_modified, "");
+       status = get_date_time(&curr_entry->last_modified, curr_last_modified);
+    }
+    else
+    {
+       strcpy(curr_last_modified, "");
+       strcpy(curr_created, "");
+       status = get_date_time(&curr_entry->created, curr_created);
+       strcpy(curr_last_modified, curr_created);
+    }
+
+    if (status != 0)
+    {
+        lock_cerr_mutex(); 
+        cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+             << "ERROR!  In `Scan_Parse_Parameter_Type::write_entries':"
+             << endl 
+             << "`get_date_time failed returning " << status << "."
+             << endl 
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+        unlock_cerr_mutex(); 
+
+        if (result)
+           mysql_free_result(result);
+
+        unlock_tables();
+
+        return 1;
+
+    }  /* |if (status != 0)|  */
+
+    else if (DEBUG)
+    {
+
+       lock_cerr_mutex(); 
+       cerr << "[Thread " << thread_ctr << "]:  "
+            << "In `Scan_Parse_Parameter_Type::write_entries':"
+            << endl 
+            << "`curr_entry->created' == " << curr_entry->created 
+            << endl
+            << "`curr_entry->last_modified' == " << curr_entry->last_modified
+            << endl;
+       unlock_cerr_mutex(); 
+
+    }  /* |else if (DEBUG)|  */ 
+
+    mysql_free_result(result);
+
+@q ********** (10) @>
+
+@ Check value of |curr_entry->encrypted_flag|.  If it's |true|, 
+the encrypted fields must be used.
+\initials{LDF 2011.01.27.}
+
+\LOG
+\initials{LDF 2011.01.27.}
+Added this section.  
+
+\initials{LDF 2011.04.20.}
+Modified this code due to changes in the way encrypted items are handled.
+\ENDLOG
+
+@<|Scan_Parse_Parameter_Type::write_entries| definition@>=
+
+    sql_strm.str("");
+
+    sql_strm << "insert into Entries (user_id, entry_id, package_name, package_version, "
+             << "download_url, download_command, "
+             << "maintainer_name, maintainer_email_address, private, "
+             << "created, last_modified, encrypted, owner) values "
+             << "(" << curr_user_id << ", " << curr_entry_id << ", '"
+             << curr_package_name << "', ";
+
+@q ")" This closing parenthesis prevents Emacs from becoming confused.  LDF 2010.09.02.  @>
+
+    if (curr_package_version.empty())
+       sql_strm << "NULL, ";
+    else
+       sql_strm << "'" << curr_package_version << "', ";
+
+    if (curr_encrypted_flag || curr_download_url.empty())
+       sql_strm << "NULL, ";
+    else
+       sql_strm << "'" << curr_download_url << "', ";
+
+    if (curr_encrypted_flag || curr_download_command.empty())
+       sql_strm << "NULL, ";
+    else
+       sql_strm << "'" << curr_download_command << "', ";
+
+    if (curr_maintainer_name.empty())
+       sql_strm << "NULL, ";
+    else
+       sql_strm << "'" << curr_maintainer_name << "', ";
+
+    if (curr_maintainer_email_address.empty())
+       sql_strm << "NULL, ";
+    else
+       sql_strm << "'" << curr_maintainer_email_address << "', ";
+
+    if (curr_private_flag)
+       sql_strm << " true, ";
+    else 
+    {
+       sql_strm << " false, ";
+    }
+
+    if (strcmp(curr_created, ""))
+       sql_strm << "'" << curr_created << "', ";
+    else
+       sql_strm << "NULL, ";
+
+    if (strcmp(curr_last_modified, ""))
+       sql_strm << "'" << curr_last_modified << "', ";
+    else
+       sql_strm << "NULL, ";
+
+    if (curr_encrypted_flag)
+       sql_strm << "true, " << endl;
+    else
+       sql_strm << "false, " << endl;
+
+    if (curr_owner.empty())
+        sql_strm << "NULL";
+    else 
+       sql_strm << "'" << curr_owner << "'";
+
+@q "(" This open parenthesis prevents Emacs from becoming confused.  LDF 2010.01.08.  @>
+
+    sql_strm << ")";
+
+    if (DEBUG) 
+    {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "In `Scan_Parse_Parameter_Type::write_entries':"
+             << endl 
+             << "`sql_strm.str()' == " 
+             << endl 
+             << sql_strm.str()
+             << endl;
+        unlock_cerr_mutex();              
+
+    }  /* |if (DEBUG)|  */
+
+@q ********* (9) @>
+@
+@<|Scan_Parse_Parameter_Type::write_entries| definition@>=
+
+    status = submit_mysql_query(sql_strm.str(),
+                                result);
+
+
+    if (status)
+    {
+        lock_cerr_mutex(); 
+        cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+             << "WARNING!  In `Scan_Parse_Parameter_Type::write_entries':"
+             << endl 
+             << "`Scan_Parse_Parameter_Type::submit_mysql_query' failed, returning " 
+             << status << "."
+             << endl
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+        unlock_cerr_mutex(); 
+
+        unlock_tables();
+
+       if (result) 
+          mysql_free_result(result);
+
+       return 1;
+
+    }  /* |if (status)|  */
+
+    else if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "In `Scan_Parse_Parameter_Type::write_entries':"
+             << endl 
+             << "`Scan_Parse_Parameter_Type::submit_mysql_query' succeeded."
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */
+
+    unlock_tables();
+
+@q ********* (9) Request installation script.  @>
+
+@ Request installation script.  
+\initials{LDF 2011.04.21.}
+
+This works for both encrypted and unencrypted installation scripts.
+\initials{LDF 2011.04.21.}
+
+@<|Scan_Parse_Parameter_Type::write_entries| definition@>=
+
+    if (!(curr_installation_script.empty() && curr_installation_script_encrypted.empty()))
+    {
+
+        Response_Type response; 
+    
+        response.type = Response_Type::COMMAND_ONLY_TYPE; 
+
+        response.entry_id = curr_entry_id; /* Not needed at present.  
+                                              \initials{LDF 2010.01.22.}  */
+
+        temp_strm.str(""); 
+
+        temp_strm << "SEND INSTALLATION_SCRIPT";
+
+        if (curr_encrypted_flag)
+           temp_strm << "_ENCRYPTED <" << curr_installation_script_encrypted;
+        else 
+           temp_strm << " <" << curr_installation_script;
+ 
+        temp_strm << "> FOR ENTRY " 
+                  << curr_entry_id << " <" << curr_package_name << ">";
+
+        if(!curr_package_version.empty())
+           temp_strm << " <" << curr_package_version << ">";
+
+        response.command = temp_strm.str();
+
+        pthread_mutex_lock(&response_deque_mutex);
+        response_deque.push_back(response);
+        pthread_mutex_unlock(&response_deque_mutex);
+
+
+        temp_strm.str("");
+
+    }  /* |if (!(   curr_installation_script.empty()
+                 && curr_installation_script_encrypted.empty()))| */
+
+@q ********* (9) Request encrypted download URL.  @>
+
+@ Request encrypted download URL.  
+\initials{LDF 2011.04.21.}
+
+\LOG
+\initials{LDF 2011.04.21.}
+Added this section.
+\ENDLOG
+
+@<|Scan_Parse_Parameter_Type::write_entries| definition@>=
+
+    if (curr_encrypted_flag && !curr_download_url_encrypted.empty())
+    {
+
+        if (DEBUG) 
+        {
+            lock_cerr_mutex(); 
+            cerr << "curr_download_url_encrypted == " << curr_download_url_encrypted << endl;
+            unlock_cerr_mutex(); 
+        }
+
+        Response_Type response; 
+    
+        response.type = Response_Type::COMMAND_ONLY_TYPE; 
+
+        response.entry_id = curr_entry_id; /* Not needed at present.  
+                                              \initials{LDF 2010.01.22.}  */
+
+        temp_strm.str(""); 
+
+        temp_strm << "SEND DOWNLOAD_URL_ENCRYPTED <"
+                  << curr_download_url_encrypted
+                  << "> FOR ENTRY " 
+                  << curr_entry_id << " <" << curr_package_name << ">";
+
+        if(!curr_package_version.empty())
+           temp_strm << " <" << curr_package_version << ">";
+
+        response.command = temp_strm.str();
+
+        pthread_mutex_lock(&response_deque_mutex);
+        response_deque.push_back(response);
+        pthread_mutex_unlock(&response_deque_mutex);
+ 
+        temp_strm.str("");
+
+    }  /* |if (curr_encrypted_flag && !curr_download_url_encrypted.empty())|  */
+
+@q ********* (9) Request authorization.  @>
+
+@ Request authorization.
+\initials{LDF 2011.05.06.}
+
+\LOG
+\initials{LDF 2011.05.06.}
+Added this section.
+\ENDLOG
+
+@<|Scan_Parse_Parameter_Type::write_entries| definition@>=
+
+    if (curr_encrypted_flag && !curr_authorization.empty())
+    {
+
+        if (DEBUG) 
+        {
+            lock_cerr_mutex(); 
+            cerr << "curr_authorization == " << curr_authorization << endl;
+            unlock_cerr_mutex(); 
+        }
+
+        Response_Type response; 
+    
+        response.type = Response_Type::COMMAND_ONLY_TYPE; 
+
+        response.entry_id = curr_entry_id; /* Not needed at present.  
+                                              \initials{LDF 2010.01.22.}  */
+
+        temp_strm.str(""); 
+
+        temp_strm << "SEND AUTHORIZATION <"
+                  << curr_authorization
+                  << "> FOR ENTRY " 
+                  << curr_entry_id << " <" << curr_package_name << ">";
+
+        if(!curr_package_version.empty())
+           temp_strm << " <" << curr_package_version << ">";
+
+        response.command = temp_strm.str();
+
+        pthread_mutex_lock(&response_deque_mutex);
+        response_deque.push_back(response);
+        pthread_mutex_unlock(&response_deque_mutex);
+
+        temp_strm.str("");
+
+    }  /* |if (curr_encrypted_flag && !curr_authorization.empty())|  */
+
+
+
+@q ********* (9) Request encrypted download command.  @>
+
+@ Request encrypted download command.  
+\initials{LDF 2011.04.21.}
+
+\LOG
+\initials{LDF 2011.04.21.}
+Added this section.
+\ENDLOG
+
+@<|Scan_Parse_Parameter_Type::write_entries| definition@>=
+
+    if (curr_encrypted_flag && !curr_download_command_encrypted.empty())
+    {
+
+        if (DEBUG) 
+        {
+            lock_cerr_mutex(); 
+            cerr << "curr_download_command_encrypted == " 
+                 << curr_download_command_encrypted << endl;
+            unlock_cerr_mutex(); 
+
+        }
+
+        Response_Type response; 
+    
+        response.type = Response_Type::COMMAND_ONLY_TYPE; 
+
+        response.entry_id = curr_entry_id; /* Not needed at present.  
+                                              \initials{LDF 2010.01.22.}  */
+
+        temp_strm.str(""); 
+
+        temp_strm << "SEND DOWNLOAD_COMMAND_ENCRYPTED <"
+                  << curr_download_command_encrypted
+                  << "> FOR ENTRY " 
+                  << curr_entry_id << " <" << curr_package_name << ">";
+
+        if(!curr_package_version.empty())
+           temp_strm << " <" << curr_package_version << ">";
+
+        response.command = temp_strm.str();
+
+        pthread_mutex_lock(&response_deque_mutex);
+        response_deque.push_back(response);
+        pthread_mutex_unlock(&response_deque_mutex);
+
+
+        temp_strm.str("");
+
+    }  /* |if (curr_encrypted_flag && !curr_download_command_encrypted.empty())|  */
+
+@q ******** (8) Handle Prerequisites.  @>
+
+@ Handle Prerequisites.  
+\initials{LDF 2010.02.26.}
+
+\LOG
+\initials{LDF 2010.02.26.}
+Added this section.
+
+\initials{LDF 2010.05.20.}
+Now replacing prerequisites for duplicate entries.
+\ENDLOG
+
+@<|Scan_Parse_Parameter_Type::write_entries| definition@>=
+ 
+@q ********* (9) @>
+
+    if (DEBUG)
+    {
+
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "In `Scan_Parse_Parameter_Type::write_entries':"
+             << endl 
+             << "curr_entry->prerequisites.size() == " 
+             << curr_entry->prerequisites.size() 
+             << endl;
+
+        cerr << endl;
+        unlock_cerr_mutex(); 
+ 
+    }  /* |if (DEBUG)|  */   
+
+@q ********* (9) @>
+
+    if (curr_entry_id > 0)
+    {
+        if (DEBUG)
+        {
+           lock_cerr_mutex(); 
+           cerr << "[Thread " << thread_ctr << "]:  "
+                << "In `Scan_Parse_Parameter_Type::write_entries':"
+                << endl 
+                << "`curr_entry_id' > 0:  " << curr_entry_id
+                << endl;
+           unlock_cerr_mutex(); 
+
+        }  /* |if (DEBUG)|  */ 
+
+@q ********** (10) @>
+
+        for (vector<Entry_Type>::const_iterator prereq_iter 
+                = curr_entry->prerequisites.begin();
+             prereq_iter != curr_entry->prerequisites.end();
+             ++prereq_iter)
+        {
+@q *********** (11) @>
+
+             status = add_prerequisite(curr_entry_id, *prereq_iter);
+
+@q *********** (11) @>
+
+             if (status == 2)
+             {
+                 lock_cerr_mutex(); 
+                 cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+                      << "WARNING!  In `Scan_Parse_Parameter_Type::write_entries':"
+                      << endl 
+                      << "`Scan_Parse_Parameter_Type::add_prerequisite' "
+                      << "returned 2:"
+                      << endl  
+                      << "No row in the `Entries' database table corresponding to "
+                      << "`" << prereq_iter->package_name << "'."
+                      << endl 
+                      << "Continuing."
+                      << endl;
+                 unlock_cerr_mutex(); 
+
+                 Response_Type response; 
+      
+                 response.type = Response_Type::COMMAND_ONLY_TYPE;       
+
+                 temp_strm.str("");
+                 temp_strm << "PREREQUISITE <"
+                           << prereq_iter->package_name << "> ";
+  
+                 if (!prereq_iter->package_version.empty())
+                    temp_strm << "<" << prereq_iter->package_version << "> ";
+
+                 temp_strm << "FOR ENTRY " 
+                           << " <" << curr_package_name << ">";
+
+                 if(!curr_package_version.empty())
+                    temp_strm << " <" << curr_package_version << ">";
+
+                 temp_strm << "NOT_FOUND";
+
+                 response.command = temp_strm.str();
+
+                 pthread_mutex_lock(&response_deque_mutex);
+                 response_deque.push_back(response);
+                 pthread_mutex_unlock(&response_deque_mutex);
+
+                 temp_strm.str(""); 
+
+             }  /* |if (status == 2)|  */
+
+@q *********** (11) @>
+@
+\LOG
+\initials{LDF 2010.03.04.}
+Added this section.
+\ENDLOG
+
+@<|Scan_Parse_Parameter_Type::write_entries| definition@>=
+
+             else if (status == 4)
+             {
+                 lock_cerr_mutex(); 
+                 cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+                      << "WARNING!  In `Scan_Parse_Parameter_Type::write_entries':"
+                      << endl 
+                      << "`Scan_Parse_Parameter_Type::add_prerequisite' "
+                      << "returned 4:"
+                      << endl  
+                      << "Row already exists in the `Entries' database table."
+                      << endl
+                      << "Not adding duplicate."
+                      << endl 
+                      << "Continuing."
+                      << endl;
+                 unlock_cerr_mutex(); 
+
+                 Response_Type response; 
+      
+                 response.type = Response_Type::COMMAND_ONLY_TYPE;       
+
+                 temp_strm.str("");
+                 temp_strm << "DUPLICATE PREREQUISITE <"
+                           << prereq_iter->package_name << "> ";
+  
+                 if (!prereq_iter->package_version.empty())
+                    temp_strm << "<" << prereq_iter->package_version << "> ";
+
+                 temp_strm << "FOR ENTRY " 
+                           << " <" << curr_package_name << ">";
+
+                 if(!curr_package_version.empty())
+                    temp_strm << " <" << curr_package_version << ">";
+
+                 response.command = temp_strm.str();
+
+                 pthread_mutex_lock(&response_deque_mutex);
+                 response_deque.push_back(response);
+                 pthread_mutex_unlock(&response_deque_mutex);
+
+                 temp_strm.str(""); 
+
+
+             }  /* |if (status == 4)|  */
+
+@q *********** (11) @>
+@
+@<|Scan_Parse_Parameter_Type::write_entries| definition@>=
+
+             else if (status != 0)
+             {
+                 lock_cerr_mutex(); 
+                 cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+                      << "ERROR!  In `Scan_Parse_Parameter_Type::write_entries':"
+                      << endl 
+                      << "`Scan_Parse_Parameter_Type::add_prerequisite' failed, "
+                      << "returning " << status
+                      << endl  
+                      << "Continuing."
+                      << endl;
+                 unlock_cerr_mutex(); 
+
+                 Response_Type response; 
+      
+                 response.type = Response_Type::COMMAND_ONLY_TYPE;       
+
+                 temp_strm.str("");
+                 temp_strm << "FAILED TO ADD PREREQUISITE <"
+                           << prereq_iter->package_name << "> ";
+  
+                 if (!prereq_iter->package_version.empty())
+                    temp_strm << "<" << prereq_iter->package_version << "> ";
+
+                 temp_strm << "FOR ENTRY " 
+                           << " <" << curr_package_name << ">";
+
+                 if(!curr_package_version.empty())
+                    temp_strm << " <" << curr_package_version << ">";
+
+                 response.command = temp_strm.str();
+
+                 pthread_mutex_lock(&response_deque_mutex);
+                 response_deque.push_back(response);
+                 pthread_mutex_unlock(&response_deque_mutex);
+
+                 temp_strm.str(""); 
+
+             }  /* |if (status != 0)|  */
+
+@q *********** (11) @>
+
+             else if (DEBUG)  /* |status == 0|  */
+             {
+                 lock_cerr_mutex(); 
+                 cerr << "[Thread " << thread_ctr << "]:  "
+                      << "In `Scan_Parse_Parameter_Type::write_entries':"
+                      << endl 
+                      << "`Scan_Parse_Parameter_Type::add_prerequisite' succeeded."
+                      << endl;
+                 unlock_cerr_mutex(); 
+
+             }  /* |else if (DEBUG)| (|status == 0|)  */ 
+
+@q *********** (11) @>
+
+          }  /* |for|  */
+
+@q ********** (10) @>
+
+      }  /* |if (curr_entry_id > 0)|  */
+
+@q ********* (9) @>
+
+      else if (curr_entry->prerequisites.size() > 0)  /* |curr_entry_id <= 0|  */
+      {
+
+          lock_cerr_mutex(); 
+          cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+               << "WARNING!  In `Scan_Parse_Parameter_Type::write_entries':"
+               << endl
+               << "`curr_entry_id' <= 0:  " << curr_entry_id
+               << endl
+               << "Not adding prerequisites."
+               << endl;
+          unlock_cerr_mutex(); 
+
+      } /* |else if (curr_entry->prerequisites.size() > 0)| 
+           (|curr_entry_id <= 0|)  */
+
+@q ********* (9) @>
+
+@q ******** (8) @>
+
+    }  /* |for|  (Main loop for processing |entries|)  */
+
+@q ******* (7) @>
+
+@q ****** (6) Exit |Scan_Parse_Parameter_Type::write_entries| successfully.  @>
+@ Exit |Scan_Parse_Parameter_Type::write_entries| successfully.  
+\initials{LDF 2009.10.12.}
+
+@<|Scan_Parse_Parameter_Type::write_entries| definition@>=
+
+    return 0;
+
+}  /* End of |Scan_Parse_Parameter_Type::write_entries| definition   */
+
+#endif 
+
+@q **** (4) @>
+@
+@<Garbage@>=
+
+@q **** (4) @>
+
+@q *** (3) Putting `spptwren.web.web' together.  @>
+
+@ Putting {\tt spptwren.web\PERIOD web} together.
+
+@q **** (4) This is what's compiled.  @>
+@ This is what's compiled.
+@c
+@<Include files@>@;@/
+using namespace std;
+@<|Scan_Parse_Parameter_Type::write_entries| definition@>@;@/
+
+#if 0 
+@<Garbage@>@;@/
+#endif 
+
+@q **** (4) This is what's written to the header file `spptwren.h'.  @>
+
+@ This is what's written to the header file \filename{spptwren.h}.
+
+That is, no {\CPLUSPLUS/} code is written to the header file, but it's helpful 
+for it to exist, so that this CWEB file can be handled in exactly the same 
+way as the others.
+\initials{LDF 2012.01.13.}
+
+@(spptwren.h@>=
+#ifndef SPPTWREN.WEB_H
+#define SPPTWREN.WEB_H 1
+/* Empty  */
+#endif 
+
+@q * (1) Emacs-Lisp code for use in indirect buffers  @>
+
+@q (progn (cweb-mode) (outline-minor-mode))                          @>
+
+@q * (1) Local variables for Emacs @>
+
+@q * Local variables for Emacs.@>
+@q Local Variables: @>
+@q mode:CWEB @>
+@q eval:(display-time) @>
+@q abbrev-mode:t @>
+@q eval:(read-abbrev-file) @>
+@q indent-tabs-mode:nil @>
+@q eval:(outline-minor-mode) @>
+@q fill-column:80 @>
+@q End: @>

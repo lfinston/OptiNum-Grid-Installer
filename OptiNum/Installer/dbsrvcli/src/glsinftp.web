@@ -1,0 +1,294 @@
+@q glsinftp.web  @>
+
+@q Created by Laurence D. Finston (LDF) Wed Apr 11 14:15:15 CEST 2012  @>
+
+@q * (1) Top @>
+
+@q * (1) Copyright and License.@>
+
+@q This file is part of the OptiNum Grid Installer @>
+@q Copyright (C) 2010, 2011, 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen @>
+
+@q The OptiNum Grid Installer is free software; you can redistribute it and/or modify @>
+@q it under the terms of the GNU General Public License as published by @>
+@q the Free Software Foundation; either version 3 of the License, or @>
+@q (at your option) any later version.  @>
+
+@q The OptiNum Grid Installer is distributed in the hope that it will be useful, @>
+@q but WITHOUT ANY WARRANTY; without even the implied warranty of @>
+@q MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the @>
+@q GNU General Public License for more details.  @>
+
+@q You should have received a copy of the GNU General Public License          @>
+@q along with the OptiNum Grid Installer; if not, write to the Free Software                    @>
+@q Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA @>
+
+@q ("@@" stands for a single at-sign in the following paragraph.) @>
+
+@q Please send bug reports to Laurence.Finston@@gwdg.de@>
+
+@q Laurence D. Finston                                                   @>
+@q Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen  @>
+@q Am Fassberg 11         					         @>
+@q 37077 Goettingen              					 @>
+@q Germany                           					 @>                                
+
+@q Laurence.Finston@@gwdg.de (@@ stands for a single "at" sign.)@>
+
+@q * (0) |class Globus_Site_Info_Type| (glsinftp.web).  @>
+
+@*  {\bf class Globus\_Site\_Info\_Type} (glsinftp\PERIOD web).
+
+@ Version control identifier.
+@<Version control identifier@>=
+static char version_control_id[] 
+   = "$Id: glsinftp.web 8356 2012-05-25 08:01:31Z finston $";
+  
+@q ** (2) Include files  @>
+
+@ Include files.
+
+@<Include files@>=
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include <iomanip>
+#include <ios>
+#include <iostream>
+#include <map>
+#include <string>
+
+#if HAVE_CONFIG_H
+#include <config.h>
+#endif
+
+#if IS_ROCKS_GOEGRID
+#undef HAVE_LIBMYSQLCLIENT
+#endif 
+
+#if HAVE_LIBMYSQLCLIENT
+#include <mysql.h>
+#endif 
+
+#ifndef _XOPEN_SOURCE
+#define _XOPEN_SOURCE
+#endif 
+
+#include <parser.h++>
+#include <scanner.h++>
+
+
+@q ** (2) |class Globus_Site_Info_Type| declaration.  @>
+
+@ {\bf class Globus\_Site\_Info\_Type} declaration.
+\initials{LDF 2012.04.11.}
+
+\LOG
+\initials{LDF 2012.04.11.}
+Added this |class| declaration.
+
+\initials{LDF 2012.04.12.}
+Replaced |friend| declaration for |init_globus_site_info_map| with one for |check_globus_site|.
+
+\initials{LDF 2012.04.12.}
+Added |bool replace|.
+
+\initials{LDF 2012.04.12.}
+Added |friend| declaration for |class Scan_Parse_Parameter_Type|.
+
+\initials{LDF 2012.05.03.}
+Changed the type of |enabled| from |bool| to |signed short|.  This makes it possible
+to determine whether it's been set or not.
+\ENDLOG
+
+@<|class Globus_Site_Info_Type| declaration@>=
+
+class Globus_Site_Info_Type
+{
+
+   friend int main(int, char*[]);
+
+   friend class Scan_Parse_Parameter_Type;
+
+#ifndef IS_STRTINST
+   friend int yyparse(yyscan_t);
+#endif 
+
+#if HAVE_LIBMYSQLCLIENT
+   friend int check_globus_site(MYSQL *, string, Globus_Site_Info_Type &);
+#endif    
+
+    int globus_site_id;
+    string hostname;
+ 
+    string ip_address;
+    string interactive_node_name;
+    string interactive_node_ip_address;
+    string append_ld_library_path;
+    string append_path;
+    string optdbcli_path;
+
+    signed short enabled;
+
+    bool replace;
+
+    public: 
+
+       @<|Globus_Site_Info_Type| function declarations@>@;@/ 
+
+};
+
+@q ** (2) Default constructor.  @>
+@ Default constructor.
+\initials{LDF 2012.04.11.}
+
+\LOG
+\initials{LDF 2012.04.11.}
+Added this function.
+\ENDLOG
+
+@q *** (3) Declaration  @>
+
+@<|Globus_Site_Info_Type| function declarations@>=
+
+Globus_Site_Info_Type(void);
+
+@q *** (3) Definition  @>
+@
+@<|Globus_Site_Info_Type| default constructor definition@>=
+
+Globus_Site_Info_Type::Globus_Site_Info_Type(void)
+{
+
+   globus_site_id = -1;
+   enabled        = 0;
+   replace        = false;
+
+}
+
+@q ** (2) Clear.  @>
+@ Clear.  
+\initials{LDF 2012.04.12.}
+
+\LOG
+\initials{LDF 2012.04.12.}
+Added this function.
+\ENDLOG
+
+@q *** (3) Declaration  @>
+
+@<|Globus_Site_Info_Type| function declarations@>=
+void
+clear(void);
+
+@q *** (3) Definition  @>
+@
+@<|Globus_Site_Info_Type::clear| definition@>=
+void
+Globus_Site_Info_Type::clear(void)
+{
+   globus_site_id              = -1;  
+
+   hostname                    = "";
+   ip_address                  = "";
+   interactive_node_name       = ""; 
+   interactive_node_ip_address = "";
+   append_ld_library_path      = "";
+   append_path                 = "";
+   optdbcli_path               = "";
+
+   enabled                     = 0;
+   replace                     = false;
+
+   return;
+
+}  /* End of |Globus_Site_Info_Type::clear| definition  */
+
+
+@q ** (2) Show.  @>
+@ Show.  
+\initials{LDF 2012.04.11.}
+
+\LOG
+\initials{LDF 2012.04.11.}
+Added this function.
+\ENDLOG
+
+@q *** (3) Declaration  @>
+
+@<|Globus_Site_Info_Type| function declarations@>=
+void
+show(string s = "Globus_Site_Info_Type:") const;
+
+@q *** (3) Definition  @>
+@
+@<|Globus_Site_Info_Type::show| definition@>=
+void
+Globus_Site_Info_Type::show(string s) const
+{
+    if (!s.empty())
+       cerr << s << endl;
+
+    cerr << "globus_site_id ==              " << globus_site_id
+         << endl 
+         << "hostname ==                    " << hostname
+         << endl 
+         << "ip_address ==                  " << ip_address
+         << endl 
+         << "interactive_node_name  ==      " << interactive_node_name         
+         << endl          
+         << "interactive_node_ip_address == " << interactive_node_ip_address
+         << endl 
+         << "append_ld_library_path ==      " << append_ld_library_path
+         << endl 
+         << "append_path ==                 " << append_path
+         << endl 
+         << "optdbcli_path ==               " << optdbcli_path
+         << endl 
+         << "enabled ==                     " << enabled
+         << endl
+         << "replace ==                     " << replace
+         << endl;
+  
+     return;
+
+}  /* |Globus_Site_Info_Type::show|  */
+
+
+@q ** (2) Putting |class Globus_Site_Info_Type| together.@>
+
+@ Putting |class Globus_Site_Info_Type| together.
+\initials{LDF 2010.04.21.}
+
+@c
+using namespace std;
+@<Include files@>@;@/
+@<Version control identifier@>@;@/
+@<|class Globus_Site_Info_Type| declaration@>@;@/ 
+@<|Globus_Site_Info_Type| default constructor definition@>@;@/
+@<|Globus_Site_Info_Type::show| definition@>@;@/
+@<|Globus_Site_Info_Type::clear| definition@>@;@/
+
+@
+@(glsinftp.h@>=
+#ifndef GLSINFTP_H
+#define GLSINFTP_H 1
+@<|class Globus_Site_Info_Type| declaration@>@;@/ 
+#endif 
+
+@q (progn (cweb-mode) (outline-minor-mode))   @>
+
+@q * (1) Local variables for Emacs @>
+
+@q * Local variables for Emacs.@>
+@q Local Variables: @>
+@q mode:CWEB @>
+@q eval:(display-time) @>
+@q abbrev-mode:t @>
+@q eval:(read-abbrev-file) @>
+@q indent-tabs-mode:nil @>
+@q eval:(outline-minor-mode) @>
+@q fill-column:80 @>
+@q End: @>

@@ -1,0 +1,4977 @@
+@q connect.web  @>
+@q Created by Laurence D. Finston (LDF) Tue Dec  8 18:38:46 CET 2009 @>
+
+@q * (1) Top @>
+
+@q * (1) Copyright and License.@>
+
+@q This file is part of the OptiNum Grid Installer @>
+@q Copyright (C) 2010, 2011, 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen @>
+
+@q The OptiNum Grid Installer is free software; you can redistribute it and/or modify @>
+@q it under the terms of the GNU General Public License as published by @>
+@q the Free Software Foundation; either version 3 of the License, or @>
+@q (at your option) any later version.  @>
+
+@q The OptiNum Grid Installer is distributed in the hope that it will be useful, @>
+@q but WITHOUT ANY WARRANTY; without even the implied warranty of @>
+@q MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the @>
+@q GNU General Public License for more details.  @>
+
+@q You should have received a copy of the GNU General Public License          @>
+@q along with the OptiNum Grid Installer; if not, write to the Free Software                    @>
+@q Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA @>
+
+@q ("@@" stands for a single at-sign in the following paragraph.) @>
+
+@q Please send bug reports to Laurence.Finston@@gwdg.de@>
+
+@q Laurence D. Finston                                                   @>
+@q Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen  @>
+@q Am Fassberg 11         					         @>
+@q 37077 Goettingen              					 @>
+@q Germany                           					 @>                                
+
+@q Laurence.Finston@@gwdg.de (@@ stands for a single "at" sign.)@>
+
+
+@q ** (2)  connect.web  @>
+@@ Connection functions.
+
+@ Version control identifier.
+@<Version control identifier@>=
+static char version_control_id[] 
+   = "$Id: connect.web 8397 2012-05-31 11:54:22Z finston $";
+  
+@q ** (2) Include files  @>
+
+@ Include files.
+
+@<Include files@>=
+#include <stdlib.h>  /* Standard Library for C  */
+#include <stdio.h>
+
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif 
+
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <signal.h>
+
+#include <fstream> /* Standard Template Library (STL) for C++  */
+#include <iomanip>
+#include <ios>
+#include <iostream>
+#include <map>
+#include <string>
+#include <time.h>
+#include <math.h>
+#include <sstream>  
+
+#include <algorithm>
+#include <set>
+#include <vector>
+#include <deque>
+
+#include <pthread.h>      /* POSIX threads  */
+
+
+#include <gcrypt.h> /* for |gcry_control| */
+#include <gnutls/gnutls.h>
+
+#if HAVE_CONFIG_H
+#include "config.h"
+#endif
+
+#if IS_ROCKS_GOEGRID
+#undef HAVE_LIBMYSQLCLIENT
+#endif 
+
+#if HAVE_LIBMYSQLCLIENT
+#include <mysql.h>
+#endif
+
+#include "entries.h++"
+#include "dstngnmt.h++"
+#include "glblvrbl.h++"
+#include "glblfncs.h++"
+
+#include "x509cert.h++"
+#include "gntlsfnc.h++"  /* Headers generated from CWEB files belonging to this package  */
+
+#include "parser.h++"
+#include "scanner.h++"
+#include "rspnstp.h++"
+#include "glsinftp.h++"
+#include "scprpmtp.h++"
+#include "thrdfncs.h++"
+
+#include "ex_verify.h++"
+
+#include "prsrfncs.h++"
+
+#include "utilfncs.h++"
+
+
+
+@q ** (2) Connect function with authentication.  @>
+
+@ Connect function with authentication.
+\initials{LDF 2009.12.08.}
+
+\LOG
+\initials{LDF 2009.12.08.}
+Added this function.
+
+\initials{LDF 2011.06.29.}
+Removed calls to |delete_fifos|.  FIFOs are currently not being used.
+\ENDLOG
+
+@q *** (3) Declaration  @>
+
+@<Declare |connect_func|@>=
+void*
+connect_func(void* v);
+
+@q *** (3) Definition   @>
+@
+@<Define |connect_func|@>=
+void*
+connect_func(void* v)
+{
+#if HAVE_LIBMYSQLCLIENT
+
+@q **** (4) @>
+
+   bool DEBUG = false;  /* |true|  */
+   set_debug_level(DEBUG);
+
+   int status = 0;
+
+   Scan_Parse_Parameter_Type* param = static_cast<Scan_Parse_Parameter_Type*>(v); 
+
+   if (param == 0 || param->cert_cred_ptr == 0)
+   {
+      lock_cerr_mutex(); 
+      cerr << "[Thread ?] ERROR!  In `connect_func':"
+           << endl
+           << "`Scan_Parse_Parameter_Type* param' or `param->cert_cred_ptr'== 0"
+           << endl 
+           << "Exiting thread unsuccessfully with return value 0."
+           << endl;
+      unlock_cerr_mutex(); 
+
+      delete param;
+      param = 0;
+
+      if (!save_temp_files)
+         delete_temp_files();
+
+      pthread_exit(0);
+
+   }  /* |if (param == 0 || cert_cred_ptr == 0)|  */
+
+   string thread_ctr_str;
+
+   {
+      stringstream s;
+      s << "[Thread " << param->thread_ctr << "]: ";
+      
+      thread_ctr_str = s.str();
+   }
+
+   if (DEBUG)
+   {
+      lock_cerr_mutex(); 
+      cerr << thread_ctr_str << "*** Entering `connect_func'." << endl;
+      unlock_cerr_mutex(); 
+
+   }  /* |if (DEBUG)|  */ 
+
+   gnutls_certificate_credentials_t cert_cred = *param->cert_cred_ptr;
+
+   gnutls_session_t session;
+
+@q **** (4) @>
+@
+\LOG
+\initials{LDF 2012.03.22.}
+Now using |reinterpret_cast| in call to |gnutls_transport_set_ptr|.  This 
+prevents a warning because of a ``cast to pointer from integer of different size 
+[-Wint-to-pointer-cast]'' on 64-bit machines.
+\ENDLOG 
+
+@<Define |connect_func|@>=
+
+   session = initialize_tls_session (cert_cred);
+
+   gnutls_transport_set_ptr (session, 
+                             reinterpret_cast<gnutls_transport_ptr_t>(param->fd));
+
+   status = gnutls_handshake (session);
+
+@q ***** (5) @>
+
+   if (status < 0)
+   {
+
+      lock_cerr_mutex(); 
+      cerr << thread_ctr_str
+           << "ERROR!  In `connect_func':  *** Handshake has failed:"
+           << endl;
+      gnutls_strerror (status);
+      cerr << "Exiting thread unsuccessfully with return value 0."
+           << endl;
+      unlock_cerr_mutex(); 
+
+      close (param->fd);
+      gnutls_deinit (session);
+
+      delete param;
+      param = 0;
+
+      if (!save_temp_files)
+         delete_temp_files();
+
+      pthread_exit(0);
+
+   }  /* |if (status < 0)| */
+
+@q ***** (5) @>
+
+   if (DEBUG)
+   {
+       lock_cerr_mutex(); 
+       cerr << thread_ctr_str << "In `connect_func':  Handshake was completed" << endl
+            << "*** About to print info:"
+            << endl;
+
+       print_info(session);  
+
+       cerr << thread_ctr_str << "In `connect_func':  Finished printing info." << endl;
+       unlock_cerr_mutex(); 
+
+       lock_cerr_mutex(); 
+       cerr << thread_ctr_str << "In `connect_func':  About to verify certificate:"
+            << endl;
+       unlock_cerr_mutex(); 
+
+   }  /* |if (DEBUG)|  */ 
+
+@q ***** (5) @>
+@
+@<Define |connect_func|@>=
+
+   status = gnutls_record_get_max_size(session);
+
+   if (DEBUG)
+   {
+      lock_cerr_mutex(); 
+      cerr << "param->MAX_BUFFER == " << param->MAX_BUFFER << endl;
+      cerr << "gnutls_record_get_max_size returned " << status << endl;
+      unlock_cerr_mutex(); 
+
+   }  /* |if (DEBUG)|  */ 
+
+   if (status < param->MAX_BUFFER)
+      param->MAX_BUFFER = status;
+
+
+   char buffer[param->MAX_BUFFER + 1];
+
+   const gnutls_datum_t * cert_chain;
+   int cert_chain_length = 0;
+
+   cert_chain = gnutls_certificate_get_peers (session, (unsigned int*) &cert_chain_length);
+
+   if (DEBUG) 
+   {
+       lock_cerr_mutex(); 
+       cerr << thread_ctr_str << "In `connect_func':  `cert_chain_length' == " 
+            << cert_chain_length 
+            << endl;
+       unlock_cerr_mutex(); 
+
+   }  /* |if (DEBUG)|  */
+
+@
+\LOG
+\initials{LDF 2010.03.26.}
+Added code for sending a byte and an alert to the client.  It's necessary to call
+|gnutls_record_send| in order for the client to be able to receive the alert.
+\ENDLOG 
+@<Define |connect_func|@>=
+
+   /* !! TODO: LDF 2011.10.28.  Find out why I get this warning.  I think it's
+      only when using the web application.  Perhaps |DEFAULT_CA_CERTIFICATE| isn't set
+      on `optinum.de'.   
+
+      I think I've fixed this.  Test.
+      LDF 2011.12.15.
+   
+   */
+
+   if (cert_chain == NULL || cert_chain_length == 0)
+   {
+      lock_cerr_mutex(); 
+      cerr << thread_ctr_str << "WARNING!  In `connect_func':  No certificate was found!" 
+           << endl
+           << "Exiting function."
+           << endl;
+      unlock_cerr_mutex(); 
+
+      gnutls_alert_send(session, GNUTLS_AL_FATAL, GNUTLS_A_BAD_CERTIFICATE);
+ 
+
+
+      memset(buffer, 0, param->MAX_BUFFER + 1);
+      buffer[0] = EOF;
+      gnutls_record_send(session, buffer, 1);
+
+      gnutls_bye (session, GNUTLS_SHUT_WR);
+      close (param->fd);
+      gnutls_deinit (session);
+
+      delete param;
+      param = 0;
+
+      if (!save_temp_files)
+         delete_temp_files();
+
+      pthread_exit(0);
+   }
+
+@ 
+@<Define |connect_func|@>=
+
+   else if (cert_chain_length == 1 && DEBUG)
+   {
+      lock_cerr_mutex(); 
+      cerr << thread_ctr_str << "In `connect_func':  1 certificate was found." << endl;
+      unlock_cerr_mutex(); 
+   }
+   else if (DEBUG) 
+   {
+      lock_cerr_mutex(); 
+      cerr << thread_ctr_str << "In `connect_func':  " << cert_chain_length 
+           << " certificates were found." 
+           << endl;
+      unlock_cerr_mutex(); 
+   }
+
+   X509_Cert_Type user_cert;
+   X509_Cert_Type issuer_cert;
+
+@ |verify_certificate_chain| is defined in \filename{ex\_verify.web}.
+\initials{LDF 2010.08.04.}
+
+
+\LOG
+\initials{LDF 2011.08.10.}
+@:BUG FIX@> BUG FIX:  Added error-handling code for the case that 
+|verify_certificate_chain| fails.
+\ENDLOG 
+
+@<Define |connect_func|@>=
+
+   status = verify_certificate_chain(session, 
+                                     owner_certificate.c_str(),
+                                     cert_chain, 
+                                     cert_chain_length,
+                                     param->ca_list,
+                                     param->ca_list_size,
+                                     &user_cert,
+                                     &issuer_cert,       
+                                     param);
+   if (status != 0)
+   {
+      lock_cerr_mutex(); 
+      cerr << thread_ctr_str << "ERROR!  In `connect_func':  Failed to verify certificate!" 
+           << endl
+           << "`verify_certificate_chain' failed, returning " << status << endl
+           << "Exiting thread function unsuccessfully with exit status 0."
+           << endl;
+      unlock_cerr_mutex(); 
+
+      gnutls_alert_send(session, GNUTLS_AL_FATAL, GNUTLS_A_BAD_CERTIFICATE);
+ 
+      memset(buffer, 0, param->MAX_BUFFER + 1);
+      buffer[0] = EOF;
+      gnutls_record_send(session, buffer, 1);
+
+      gnutls_bye (session, GNUTLS_SHUT_WR);
+      close (param->fd);
+      gnutls_deinit (session);
+
+      delete param;
+      param = 0;
+
+      if (!save_temp_files)
+         delete_temp_files();
+
+      pthread_exit(0);
+
+   }  /* |if (status != 0)|  */
+
+   else if (DEBUG)
+   {
+      lock_cerr_mutex(); 
+      cerr << thread_ctr_str << "In `connect_func':  *** Finished verifying certificate:" 
+           << endl;
+
+
+      user_cert.show("user_cert:");
+      unlock_cerr_mutex(); 
+  
+   }  /* |if (DEBUG)|  */ 
+
+@q **** (4) @>
+
+@ |Scan_Parse_Parameter_Type::get_database_username| also sets 
+|Scan_Parse_Parameter_Type::user_id|.
+\initials{LDF 2010.01.19.}
+
+\LOG
+\initials{LDF 2010.01.08.}
+Now setting |param->session = &session|.
+
+\initials{LDF 2010.04.29.}
+Now sending an alert to the client if certificate is ``unknown''.  This can occur 
+if the certificate is valid but there's no entry for it in the database and the 
+ corresponding distinguished name isn't in the grid-mapfile.  
+\ENDLOG 
+
+@<Define |connect_func|@>=
+
+   param->session = &session;
+   param->anon_client_cred_ptr = 0;
+   param->anon_server_cred_ptr = 0;
+
+   param->get_database_username(user_cert);
+
+   if (param->user_name == "")
+   {
+      lock_cerr_mutex(); 
+      cerr << thread_ctr_str << "ERROR! `connect_func':  "
+           << "`Scan_Parse_Parameter_Type::get_database_username' failed to set " 
+           << "`param->user_name'."
+           << endl
+           << "Exiting thread unsuccessfully with exit value 0."
+           << endl;
+      unlock_cerr_mutex(); 
+
+      gnutls_alert_send(session, GNUTLS_AL_FATAL, GNUTLS_A_CERTIFICATE_UNKNOWN);
+ 
+      memset(buffer, 0, param->MAX_BUFFER + 1);
+      buffer[0] = EOF;
+      gnutls_record_send(session, buffer, 1);
+      
+
+      gnutls_bye (session, GNUTLS_SHUT_WR);
+      close (param->fd);
+      gnutls_deinit (session);
+
+      delete param;
+      param = 0;
+
+      if (!save_temp_files)
+         delete_temp_files();
+
+      pthread_exit(0);
+
+   }  /* |if (param->user_name == "")|  */
+
+   else if (DEBUG)
+   {
+      lock_cerr_mutex(); 
+      cerr << thread_ctr_str << "In `connect_func':  "
+           << "`Scan_Parse_Parameter_Type::get_database_username' succeeded." 
+           << endl
+           << "`param->user_name' == " << param->user_name
+           << endl;
+      unlock_cerr_mutex(); 
+ 
+   }  /* |else if (DEBUG)|  */
+ 
+
+@q **** (4) @>
+@
+\LOG
+\initials{LDF 2010.03.26.}
+Added code for sending a byte to the client.  This is needed because the client 
+is waiting for data from the server.  It needs to check whether there has been an 
+alert for some reason.  At present, this will only happen if the client hasn't provided
+a valid certificate.
+\ENDLOG 
+@<Define |connect_func|@>=
+
+   memset(buffer, 0, param->MAX_BUFFER + 1);
+   buffer[0] = EOF;
+   gnutls_record_send(session, buffer, 1);
+
+#if 1 /* 0   */
+
+/* LDF 2012.03.28.  Testing */
+
+    Response_Type response;
+    response.type = Response_Type::COMMAND_ONLY_TYPE;
+
+    response.command = "SERVER DISTINGUISHED_NAME VALIDATED";
+
+    pthread_mutex_lock(&param->response_deque_mutex);
+    param->response_deque.push_front(response);
+    pthread_mutex_unlock(&param->response_deque_mutex);
+
+    param->server_finished = false;
+
+#endif 
+
+   status = exchange_data_with_client(param);
+
+   if (status != 0)
+   {
+       lock_cerr_mutex(); 
+       cerr << thread_ctr_str << "ERROR!  In `connect_func':  "
+            << "`exchange_data_with_client' failed, returning "
+            << status
+            << endl
+            << "Exiting thread unsuccessfully with exit status 0."
+            << endl;
+       unlock_cerr_mutex(); 
+
+       close (param->fd);
+       gnutls_deinit (session);
+
+       delete param;
+       param = 0;
+
+       if (!save_temp_files)
+          delete_temp_files();
+
+       pthread_exit(0);      
+
+   } /* |if (status != 0)| */
+
+@q **** (4) @>
+
+   else if (DEBUG)
+   {
+       lock_cerr_mutex(); 
+       cerr << thread_ctr_str << "In `connect_func':  "
+            << "`exchange_data_with_client' succeeded."
+            << endl;
+       unlock_cerr_mutex(); 
+
+   }  /* |else if (DEBUG)|  */ 
+
+@q **** (4) @>
+
+   stringstream temp_strm;
+
+   temp_strm << thread_ctr_str << "In `connect_func':  "
+             << "Connection to " << param->remote_ip_address << ", port " 
+             << param->remote_port << " closed." << endl;
+
+   lock_cerr_mutex(); 
+   cout << temp_strm.str();
+   if (DEBUG) 
+      cerr << temp_strm.str();
+   unlock_cerr_mutex(); 
+
+   temp_strm.str("");
+
+  if (DEBUG)
+  {
+     lock_cerr_mutex(); 
+     cerr << thread_ctr_str
+          << "*** Exiting `connect_func' successfully with return value 0." 
+          << endl;
+     unlock_cerr_mutex(); 
+
+  }  /* |if (DEBUG)|  */ 
+
+
+  close (param->fd);
+  gnutls_deinit (session);
+
+  if (!save_temp_files)
+     delete_temp_files();
+
+  delete param;
+  param = 0;
+
+@q **** (4) @>
+
+#endif /* |HAVE_LIBMYSQLCLIENT|  */
+
+  pthread_exit(0);
+
+
+}  /* End of |connect_func| definition  */
+
+@q ** (2) Connect function without authentication.  @>
+
+@ Connect function without authentication.
+\initials{LDF 2010.02.10.}
+
+\LOG
+\initials{LDF 2010.02.10.}
+Added this function.
+
+\initials{LDF 2011.06.29.}
+Removed calls to |delete_fifos|.  FIFOs are currently not being used.
+\ENDLOG
+
+@q *** (3) Declaration  @>
+
+@<Declare |connect_func_non_auth|@>=
+void*
+connect_func_non_auth(void* v);
+
+@q *** (3) Definition   @>
+@
+@<Define |connect_func_non_auth|@>=
+void*
+connect_func_non_auth(void* v)
+{
+#if HAVE_LIBMYSQLCLIENT
+
+@q **** (4) @>
+
+   bool DEBUG = false;  /* |true|  */
+   set_debug_level(DEBUG);
+
+   int status = 0;
+
+
+
+   gnutls_session_t session;
+
+   if (DEBUG)
+   {
+      cerr << "save_temp_files == " << save_temp_files << endl;
+
+   }  /* |if (DEBUG)|  */ 
+
+@q **** (4) @>
+
+   Scan_Parse_Parameter_Type* param = static_cast<Scan_Parse_Parameter_Type*>(v); 
+
+   if (param == 0 || param->anon_server_cred_ptr == 0)
+   {
+      lock_cerr_mutex(); 
+      cerr << "[Thread ?] ERROR!  In `connect_func_non_auth':"
+           << endl
+           << "`Scan_Parse_Parameter_Type* param' or `param->cert_cred_ptr'== 0"
+           << endl 
+           << "Exiting thread unsuccessfully with return value 0."
+           << endl;
+      unlock_cerr_mutex(); 
+
+      delete param;
+      param = 0;
+
+      if (!save_temp_files)
+         delete_temp_files();
+
+      pthread_exit(0);
+
+   }  /* |if (param == 0 || cert_cred_ptr == 0)|  */
+
+@q **** (4) @>
+
+   string thread_ctr_str;
+
+   {
+      stringstream s;
+      s << "[Thread " << param->thread_ctr << "]: ";
+      
+      thread_ctr_str = s.str();
+   }
+
+   if (DEBUG)
+   {
+      lock_cerr_mutex(); 
+      cerr << thread_ctr_str << "*** Entering `connect_func_non_auth'." << endl;
+      unlock_cerr_mutex(); 
+
+   }  /* |if (DEBUG)|  */ 
+
+@q **** (4) @>
+@
+\LOG
+\initials{LDF 2012.03.22.}
+Now using |reinterpret_cast| in call to |gnutls_transport_set_ptr|.  This 
+prevents a warning because of a ``cast to pointer from integer of different size 
+[-Wint-to-pointer-cast]'' on 64-bit machines.
+\ENDLOG 
+
+@<Define |connect_func_non_auth|@>=
+
+   session = initialize_tls_session_non_auth(*param->anon_server_cred_ptr);
+
+   gnutls_transport_set_ptr (session, 
+                             reinterpret_cast<gnutls_transport_ptr_t>(param->fd));
+
+   status = gnutls_handshake (session);
+
+   if (status < 0)
+   {
+
+       lock_cerr_mutex(); 
+       cerr << thread_ctr_str << "ERROR!  In `connect_func_non_auth':  "
+            << "*** Handshake has failed."
+            << gnutls_strerror (status)
+            << endl
+            << "Exiting thread unsuccessfully with exit status 0."
+            << endl;
+       unlock_cerr_mutex(); 
+
+       close (param->fd);
+       gnutls_deinit(session);
+
+       delete param;
+       param = 0;
+
+       if (!save_temp_files)
+          delete_temp_files();
+
+       pthread_exit(0);
+   }
+
+   else if (DEBUG)
+   {
+      lock_cerr_mutex(); 
+      cerr << thread_ctr_str 
+           << "In `connect_func_non_auth':  Handshake was completed."
+           << endl;
+      unlock_cerr_mutex(); 
+
+   }  /* |else if (DEBUG)|  */ 
+
+@q **** (4) @>
+
+   if (DEBUG)
+   {
+      lock_cerr_mutex(); 
+      cerr << thread_ctr_str
+           << "In `connect_func_non_auth':  Printing session info:"
+           << endl;
+      print_info(session);
+      unlock_cerr_mutex(); 
+   
+   }  /* |if (DEBUG)|  */ 
+
+
+@q **** (4) @>
+
+   param->session = &session;
+   param->cert_cred_ptr = 0;
+   param->anon_client_cred_ptr = 0;
+
+@q **** (4) @>
+
+   status = gnutls_record_get_max_size(session);
+
+   if (DEBUG) 
+   {
+      lock_cerr_mutex(); 
+      cerr << "param->MAX_BUFFER == " << param->MAX_BUFFER << endl;
+      cerr << "gnutls_record_get_max_size returned " << status << endl;
+      unlock_cerr_mutex(); 
+
+   }  /* |if (DEBUG)|  */ 
+
+   if (status < param->MAX_BUFFER)
+      param->MAX_BUFFER = status;
+
+   status = exchange_data_with_client(param);
+
+   if (status != 0)
+   {
+       lock_cerr_mutex(); 
+       cerr << thread_ctr_str << "ERROR!  In `connect_func_non_auth':  "
+            << "`exchange_data_with_client' failed, returning "
+            << status
+            << endl
+            << "Exiting thread unsuccessfully with exit status 0."
+            << endl;
+       unlock_cerr_mutex(); 
+
+       close (param->fd);
+       gnutls_deinit (session);
+
+       delete param;
+       param = 0;
+
+       if (!save_temp_files)
+          delete_temp_files();
+
+       pthread_exit(0);      
+
+   } /* |if (status != 0)| */
+
+@q **** (4) @>
+
+   else if (DEBUG)
+   {
+       lock_cerr_mutex(); 
+       cerr << thread_ctr_str << "In `connect_func_non_auth':  "
+            << "`exchange_data_with_client' succeeded."
+            << endl;
+       unlock_cerr_mutex(); 
+
+   }  /* |else if (DEBUG)|  */ 
+
+@q **** (4) @>
+
+   stringstream temp_strm;
+
+   temp_strm << thread_ctr_str << "In `connect_func_non_auth':  "
+             << "Connection to " << param->remote_ip_address << ", port " 
+             << param->remote_port << " closed." << endl;
+
+   lock_cerr_mutex(); 
+   cout << temp_strm.str();
+   if (DEBUG) 
+      cerr << temp_strm.str();
+   unlock_cerr_mutex(); 
+
+   temp_strm.str("");
+
+   if (DEBUG)
+   {
+      lock_cerr_mutex(); 
+      cerr << thread_ctr_str
+           << "*** Exiting `connect_func_non_auth' successfully with return value 0." 
+           << endl;
+      unlock_cerr_mutex(); 
+
+   }  /* |if (DEBUG)|  */ 
+
+   close (param->fd);
+   gnutls_deinit (session);
+
+   delete param;
+   param = 0;
+
+   if (!save_temp_files)
+      delete_temp_files();
+
+@q **** (4) @>
+
+#endif /* |HAVE_LIBMYSQLCLIENT|  */
+
+   pthread_exit(0);
+
+}  /* End of |connect_func_non_auth| definition  */
+
+@q ** (2) Exchange data with client.  @>
+@ Exchange data with client.
+\initials{LDF 2010.02.11.}
+
+\LOG
+\initials{LDF 2010.02.11.}
+Added this function.
+
+\initials{LDF 2011.06.29.}
+Removed calls to |delete_fifos|.  FIFOs are currently not being used.
+\ENDLOG
+
+@q *** (3) Declaration  @>
+
+@<|exchange_data_with_client| declaration@>=
+int
+exchange_data_with_client(Scan_Parse_Parameter_Type* param);
+
+
+@q *** (3) Definition  @>
+@
+@<|exchange_data_with_client| definition@>=
+int
+exchange_data_with_client(Scan_Parse_Parameter_Type* param)
+{
+@q **** (4) @>
+
+#if HAVE_LIBMYSQLCLIENT
+
+    bool DEBUG = false;  /* |true|  */
+    set_debug_level(DEBUG);
+
+    string thread_ctr_str;
+
+    stringstream temp_strm;
+
+    char c;
+
+    {
+       stringstream s;
+       s << "[Thread " << param->thread_ctr << "]: ";
+       
+       thread_ctr_str = s.str();
+    }
+
+
+@q **** (4) @>
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << thread_ctr_str << "*** Entering `exchange_data_with_client'."
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */ 
+
+
+@q **** (4) @>
+@
+@<|exchange_data_with_client| definition@>=
+
+    int status = 0;
+
+    char temp_filename[14];
+
+    memset(temp_filename, 0, 14);
+
+    char buffer[param->MAX_BUFFER + 1];
+
+    int temp_fd;
+
+    ofstream out_strm;
+
+    FILE* fp = 0;
+
+    int loop_ctr = 0;
+
+    bool client_closed_connection = false;
+
+    Response_Type response;
+
+@q **** (4) @>
+@
+@<|exchange_data_with_client| definition@>=
+
+    YY_BUFFER_STATE zz_buffer_state;
+
+    bool wrote_data_to_out_strm;
+  
+    c = 0;
+
+READ_CLIENT_DATA:
+
+    wrote_data_to_out_strm = false;
+
+    if (client_closed_connection)
+    {
+         if (DEBUG)
+
+         {
+            lock_cerr_mutex(); 
+            cerr << thread_ctr_str << "In `exchange_data_with_client':  "
+                 << "Client closed connection."
+                 << endl;
+            unlock_cerr_mutex(); 
+
+         }  /* |if (DEBUG)|  */ 
+
+       goto END_CONNECT;
+
+    }  /* |if (client_closed_connection)| */
+
+@q **** (4) @>
+@
+@<|exchange_data_with_client| definition@>=
+
+   for (;;)
+   {
+@q ***** (5) @>
+
+       memset (buffer, 0, param->MAX_BUFFER + 1);
+       status = gnutls_record_recv (*param->session, buffer, param->MAX_BUFFER);
+
+@q ***** (5) @>
+
+       if (status == 0)
+       {
+           lock_cerr_mutex(); 
+           cerr << thread_ctr_str 
+                << "In `exchange_data_with_client':  Peer has closed the GNUTLS connection."
+                << endl;
+           unlock_cerr_mutex(); 
+
+           client_closed_connection = true;
+
+           break;
+       }
+
+@q ***** (5) @>
+
+       else if (status < 0)
+       {
+         lock_cerr_mutex(); 
+         cerr << thread_ctr_str << "In `exchange_data_with_client':  "
+              << "*** Received corrupted data ("
+              << status << "). Closing the connection."
+              << endl;
+         unlock_cerr_mutex(); 
+
+         client_closed_connection = true;
+
+         break;
+       }
+
+@q ***** (5) @>
+
+       else if (status > 0)
+       {
+@q ****** (6) @>
+
+          if (DEBUG)
+          {
+             lock_cerr_mutex(); 
+             cerr << thread_ctr_str
+                  << "In `exchange_data_with_client':  Received following text from client:"
+                  << endl
+                  << buffer
+                  << endl;
+             unlock_cerr_mutex(); 
+   
+          }  /* |if (DEBUG)|  */ 
+
+@q ****** (6) @>
+
+        if (status == param->MAX_BUFFER)
+        {
+@q ******* (7) @>
+
+            if (!wrote_data_to_out_strm)
+            {
+@q ******** (8) @>
+@
+\LOG
+\initials{LDF 2010.04.07.}
+Now creating temporary file in \.{/tmp/}.
+
+\initials{LDF 2010.04.12.}
+Moved this code.  Formerly, |mkstemp| was called above, outside the |for| loop.  
+Now, it's only called if a temporary file is needed.
+\ENDLOG
+
+
+@<|exchange_data_with_client| definition@>=
+
+                 if (temp_filename[0] == 0)
+                 {
+@q ********* (9) @>
+                     strcpy(temp_filename, "/tmp/BBXXXXXX");
+
+                     temp_fd = mkstemp(temp_filename);
+
+                     if (temp_fd == -1)
+                     {
+
+                         lock_cerr_mutex(); 
+                         cerr << thread_ctr_str << "ERROR!  In `exchange_data_with_client':  "
+                              << "`mkstemp' failed, returning -1:"
+                              << endl;
+                         perror("Error:");
+                         cerr << "Exiting function (and thread) unsuccessfully with exit value 0.";
+                         unlock_cerr_mutex(); 
+
+                         gnutls_bye (*param->session, GNUTLS_SHUT_WR);
+                         close (param->fd);
+                         param->fd = -1;
+                         gnutls_deinit (*param->session);
+
+                         delete param;
+                         param = 0;
+
+                         if (!save_temp_files)
+                            delete_temp_files();
+
+                         pthread_exit(0);
+
+                     }   /* |if (temp_fd == -1)| (|mkstemp| failed)  */
+
+@q ********* (9) @>
+
+@ Close the file descriptor.  We don't need it, we just need the name.  
+This is a somewhat roundabout way of doing things, but the functions for generating 
+a unique filename only are deprecated and we want to open a {\CPLUSPLUS/} output 
+file stream (|ofstream|).
+\initials{LDF 2009.10.05.}
+
+@<|exchange_data_with_client| definition@>=
+
+                     close(temp_fd);
+
+@q ********* (9) @>
+
+                }  /* |if (temp_filename[0] == 0)|  */
+
+                out_strm.open(temp_filename);
+        
+@q ******** (8) @>
+
+                if (!out_strm)
+                {
+@q ********* (9) @>
+                    cerr << thread_ctr_str
+                         << "ERROR!  In `exchange_data_with_client':  "
+                         << "Failed to open output stream."
+                         << endl
+                         << "Exiting thread unsuccessfully with return value 0."
+                         << endl;
+                    unlock_cerr_mutex(); 
+
+                    gnutls_bye (*param->session, GNUTLS_SHUT_WR);
+                    close (param->fd);
+                    gnutls_deinit (*param->session);
+
+                    delete param;
+                    param = 0;
+
+                    if (!save_temp_files)
+                       delete_temp_files();
+
+                    pthread_exit(0);
+
+@q ********* (9) @>
+
+                }  /* |if (!out_strm)|  */
+
+                wrote_data_to_out_strm = true;
+
+@q ******** (8) @>
+
+            } /* |if (!wrote_data_to_out_strm)| */
+
+@q ******* (7) @>
+
+            out_strm << buffer;  /* Write contents of |buffer| to |out_strm|  */              
+   
+@q ******* (7) @>
+
+          }  /* |if (status == param->MAX_BUFFER)|  */      
+
+          else if (status < param->MAX_BUFFER)
+          {
+ 
+             if (DEBUG)
+             {
+                lock_cerr_mutex(); 
+                cerr << thread_ctr_str << "In `exchange_data_with_client':  "
+                     << "`status' < `param->MAX_BUFFER'.  "
+                     << "No more data.  Breaking." 
+                     << endl;
+                unlock_cerr_mutex(); 
+
+             }  /* |if (DEBUG)|  */ 
+
+             if (wrote_data_to_out_strm)  
+               out_strm << buffer;
+
+             break;
+
+          } /* |if (status < param->MAX_BUFFER)|  */
+
+@q ****** (6) @>
+
+       }
+
+@q ***** (5) @>
+
+   }  /* |for|  */
+
+   if (out_strm)
+      out_strm.close();
+
+@q **** (4) Call |parse_input|.  @>
+
+@ Call |parse_input|.  
+\initials{LDF 2010.02.11.}
+
+\LOG
+\initials{LDF 2010.03.04.}
+Now testing whether the temporary file is empty.
+If it is, we don't bother calling |parse_input|.
+(Apparently, |yyparse| used to be called below.  For some time, it has
+been |parse_input| that's called.  
+\initials{LDF 2012.05.31.})
+
+\initials{LDF 2010.04.16.}
+Now calling |pthread_exit| if |parse_input| fails.  This should cause the client 
+to exit, as well.
+\ENDLOG 
+
+@<|exchange_data_with_client| definition@>=
+
+    if (wrote_data_to_out_strm)
+    {
+       fp = fopen(temp_filename, "r");
+       c = fgetc(fp);
+    }
+
+@q ***** (5) @>
+
+    if (   (wrote_data_to_out_strm && c != EOF) 
+        || (!wrote_data_to_out_strm && buffer[0] != 0))
+
+    {
+
+      if (wrote_data_to_out_strm) 
+         ungetc(c, fp);
+      else
+         fp = 0;  /* |fp| won't have been opened in this case, so there's no
+                     need to close it. 
+                     \initials{LDF 2012.05.31.}  */
+
+       param->entries.clear();
+       param->client_finished = false;
+
+       status = parse_input(fp, buffer, param);
+
+@q ***** (5) @>
+@
+\LOG
+\initials{LDF 2010.06.30.}
+Added this section.
+\ENDLOG
+
+@<|exchange_data_with_client| definition@>=
+
+       if (status == 2)
+       {
+           lock_cerr_mutex(); 
+           cerr << thread_ctr_str
+                << "ERROR!  In `exchange_data_with_client':" 
+                << endl 
+                << "`parse_input' failed, returning " << status << "."
+                << endl 
+                << "Exiting thread unsuccessfully with return value 0."
+                << endl;
+           unlock_cerr_mutex(); 
+
+           memset(buffer, 0, param->MAX_BUFFER + 1);
+           strcpy(buffer, "SET EFFECTIVE_USER FAILED");
+           gnutls_record_send(*param->session, buffer, strlen(buffer));
+
+           if (wrote_data_to_out_strm)
+           {
+               fclose(fp);
+               fp = 0;
+           }
+
+           if(wrote_data_to_out_strm && !save_temp_files)
+           {
+              status = unlink(temp_filename);
+
+              if (status == -1)
+              {
+                  lock_cerr_mutex(); 
+                  cerr << thread_ctr_str
+                       << "WARNING!  In `exchange_data_with_client':" 
+                       << endl 
+                       << "`unlink' failed to removed temporary file `" 
+                       << temp_filename << "'."
+                       << endl;
+                  unlock_cerr_mutex(); 
+   
+              }  /* |if (status == -1)|  */
+
+           }          /* |if (wrote_data_to_out_strm && !save_temp_files)|  */
+
+           gnutls_bye (*param->session, GNUTLS_SHUT_WR);
+           close (param->fd);
+           gnutls_deinit (*param->session);
+
+           delete param;
+           param = 0;
+
+
+           if (!save_temp_files)
+              delete_temp_files();
+
+           pthread_exit(0);
+
+       }  /* |if (status == 2)| */
+
+@q ***** (5) @>
+@
+@<|exchange_data_with_client| definition@>=
+
+       else if (status != 0)
+       {
+           lock_cerr_mutex(); 
+           cerr << thread_ctr_str
+                << "ERROR!  In `exchange_data_with_client':" 
+                << endl 
+                << "`parse_input' failed, returning " << status << "."
+                << endl 
+                << "Exiting thread unsuccessfully with return value 0."
+                << endl;
+           unlock_cerr_mutex(); 
+
+           memset(buffer, 0, param->MAX_BUFFER + 1);
+           strcpy(buffer, "SERVER PARSE ERROR");
+           gnutls_record_send(*param->session, buffer, strlen(buffer));
+
+           if (wrote_data_to_out_strm)
+           {
+               fclose(fp);
+               fp = 0;
+           }
+
+           if(wrote_data_to_out_strm && !save_temp_files)
+           {
+              status = unlink(temp_filename);
+
+              if (status == -1)
+              {
+                  lock_cerr_mutex(); 
+                  cerr << thread_ctr_str
+                       << "WARNING!  In `exchange_data_with_client':" 
+                       << endl 
+                       << "`unlink' failed to removed temporary file `" 
+                       << temp_filename << "'."
+                       << endl;
+                  unlock_cerr_mutex(); 
+   
+              }  /* |if (status == -1)|  */
+
+           }          /* |if (wrote_data_to_out_strm && !save_temp_files)|  */
+
+
+           gnutls_bye (*param->session, GNUTLS_SHUT_WR);
+           close (param->fd);
+           gnutls_deinit (*param->session);
+
+           delete param;
+           param = 0;
+
+           if (!save_temp_files)
+              delete_temp_files();
+
+           pthread_exit(0);
+
+       }  /* |if (status != 0)| */
+
+       else if (DEBUG)
+       {
+           lock_cerr_mutex(); 
+           cerr << thread_ctr_str
+                << "In `exchange_data_with_client':" 
+                << endl 
+                << "`parse_input' succeeded."
+                << endl;
+           unlock_cerr_mutex(); 
+
+       }  /* |else if (DEBUG)|  */ 
+
+   }  /* |if (c != EOF)|  */
+
+@q ***** (5) @>
+
+   else if (DEBUG) 
+   {
+       lock_cerr_mutex(); 
+       cerr << thread_ctr_str
+            << "In `exchange_data_with_client':" 
+            << endl 
+            << "No input.  Not calling `parse_input'."
+            << endl 
+            << "Continuing."
+            << endl;
+       unlock_cerr_mutex(); 
+
+   }  /* |else if (DEBUG)|  */
+
+@q ***** (5) @>
+
+   if (wrote_data_to_out_strm)
+   {
+      fclose(fp);
+      fp = 0;
+   }
+
+   if(wrote_data_to_out_strm && !save_temp_files)
+   {
+      status = unlink(temp_filename);
+
+      if (status == -1)
+      {
+          lock_cerr_mutex(); 
+          cerr << thread_ctr_str
+               << "WARNING!  In `exchange_data_with_client':" 
+               << endl 
+               << "`unlink' failed to removed temporary file `" 
+               << temp_filename << "'."
+               << endl 
+               << "Continuing."
+               << endl;
+          unlock_cerr_mutex(); 
+   
+      }  /* |if (status == -1)|  */
+
+  }  /* |if (wrote_data_to_out_strm && !save_temp_files)|  */
+
+@q **** (4) @>
+
+  if (DEBUG) 
+  {
+     lock_cerr_mutex(); 
+     pthread_mutex_lock(&param->response_deque_mutex);
+     cerr << thread_ctr_str
+           << "In `exchange_data_with_client':  `param->response_deque.size()' ==  " 
+           << param->response_deque.size()
+          << endl
+          << "`param->client_finished' == " << param->client_finished
+          << endl;
+     pthread_mutex_unlock(&param->response_deque_mutex);
+     unlock_cerr_mutex(); 
+
+  }  /* |if (DEBUG)| */
+
+@q **** (4) @>
+@
+@<|exchange_data_with_client| definition@>=
+
+  pthread_mutex_lock(&param->response_deque_mutex);
+  status = param->response_deque.size();
+  pthread_mutex_unlock(&param->response_deque_mutex);
+
+  if (status > 0)  /* |param->response_deque.size()|  */
+  {
+@q ***** (5) @>
+
+      pthread_mutex_lock(&param->response_deque_mutex);
+      response = param->response_deque.front();
+      param->response_deque.pop_front();
+      pthread_mutex_unlock(&param->response_deque_mutex);
+
+      if (DEBUG)
+      {
+          lock_cerr_mutex(); 
+          cerr << thread_ctr_str
+               << "In `exchange_data_with_client':"
+               << endl;
+          response.show("response");
+          unlock_cerr_mutex(); 
+
+      }  /* |if (DEBUG)|  */ 
+ 
+   
+@q ***** (5) Error handling code.  @>
+
+@ Error handling code.  
+|response.type == Response_Type::COMMAND_ONLY_TYPE|
+and |response.command.empty()|.  This can sometimes happen
+during development, if I forget to fill |response.command| 
+or put the latter onto |Scan_Parse_Parameter_Type::response_deque|.
+\initials{LDF 2012.03.26.}
+
+\LOG
+\initials{LDF 2012.03.26.}
+Added this section.
+\ENDLOG
+
+@<|exchange_data_with_client| definition@>=
+
+     if (   response.type == Response_Type::COMMAND_ONLY_TYPE
+         && response.command.empty())
+     {
+         lock_cerr_mutex(); 
+         cerr << thread_ctr_str
+              << "WARNING!  In `exchange_data_with_client':"
+              << endl 
+              << "`response.type' == `Response_Type::COMMAND_ONLY_TYPE' "
+              << "and `response.command' is empty."
+              << endl 
+              << "This shouldn't happen.  Will try to continue."
+              << endl;
+ 
+     }  /* |if|  */
+
+
+@q ***** (5) @>
+
+@ @:NOTE@> !! Please Note: At this point, the client is waiting for the server
+to send it a message, so if |response.command| is empty, it's necessary to send
+|EOF| so that the client can stop waiting.  Depending on |response.type|, a
+function will be called, which ultimately will cause the server to send a
+message to the client.  However, the functions don't call |gnutls_record_send|
+directly, but rather push a |Response_Type| object onto |response_deque|.
+\par
+It seems safer and clearer to me to send |EOF| at this point instead of 
+requiring that all of the functions called below call |gnutls_record_send|, 
+even if it seems a bit wasteful to send empty messages to the client.
+\initials{LDF 2010.03.04.}
+
+@<|exchange_data_with_client| definition@>=
+
+      if (response.command == "")
+      {
+         memset (buffer, 0, param->MAX_BUFFER + 1);
+         buffer[0] = EOF;
+
+         if (DEBUG) 
+         {
+
+            lock_cerr_mutex(); 
+            cerr << thread_ctr_str
+                 << "In `exchange_data_with_client':"
+                 << endl
+                 << "Sending EOF to client."
+                 << endl;
+            unlock_cerr_mutex(); 
+
+         }  /* |if (DEBUG)|  */
+
+         status = gnutls_record_send(*param->session, buffer, 1);
+      }
+
+@q ***** (5) @>
+@
+@<|exchange_data_with_client| definition@>=
+
+      else 
+      {
+
+         memset (buffer, 0, param->MAX_BUFFER + 1);
+         strcpy(buffer, response.command.c_str());      
+          
+         if (DEBUG)
+         {
+             lock_cerr_mutex(); 
+             cerr << thread_ctr_str
+                  << "In `exchange_data_with_client':  "
+                  << "Sending `buffer' to client.  `buffer' == "
+                  << endl
+                  << buffer
+                  << endl;
+             unlock_cerr_mutex(); 
+
+
+         }  /* |if (DEBUG)|  */ 
+
+         status = gnutls_record_send(*param->session, buffer, strlen (buffer));
+
+      }  /* |else|  */
+
+@q ***** (5) @>
+@
+@<|exchange_data_with_client| definition@>=
+
+      if (response.type == Response_Type::INSTALLATION_SCRIPT_TYPE)
+      {
+          status = param->send_data_to_peer(response, !save_temp_files);
+
+          if (status != 0)
+          {
+               lock_cerr_mutex(); 
+               cerr << "ERROR!  In `exchange_data_with_client':  "
+                    << "`Scan_Parse_Parameter_Type::send_data_to_peer' failed, returning "
+                    << status
+                    << endl 
+                    << "Continuing."
+                    << endl;              
+               unlock_cerr_mutex(); 
+
+
+          }  /* |if (status != 0)|  */
+
+          else if (DEBUG)
+          {
+               lock_cerr_mutex(); 
+               cerr << thread_ctr_str << "In `exchange_data_with_client':  "
+                    << endl
+                    << "`Scan_Parse_Parameter_Type::send_data_to_peer' succeeded."
+                    << endl;
+               unlock_cerr_mutex(); 
+
+          }  /* |if (DEBUG)|  */ 
+
+
+      }  /* |if (response.type == Response_Type::INSTALLATION_SCRIPT_TYPE)|  */
+
+
+@q ***** (5) @>
+@
+\LOG
+\initials{LDF 2011.02.10.}
+Added this section.
+\ENDLOG
+
+@<|exchange_data_with_client| definition@>=
+
+      else if (   response.type == Response_Type::DOWNLOAD_URL_ENCRYPTED_TYPE
+               || response.type == Response_Type::DOWNLOAD_COMMAND_ENCRYPTED_TYPE
+               || response.type == Response_Type::AUTHORIZATION_TYPE
+              )
+         
+      {
+
+
+          if (DEBUG) 
+             response.show("response:");
+
+          status = param->send_data_to_peer(response, !save_temp_files);
+
+          if (status != 0)
+          {
+               lock_cerr_mutex(); 
+               cerr << "ERROR!  In `exchange_data_with_client':  "
+                    << "`Scan_Parse_Parameter_Type::send_data_to_peer' failed, returning "
+                    << status
+                    << endl 
+                    << "Continuing."
+                    << endl;              
+               unlock_cerr_mutex(); 
+
+
+          }  /* |if (status != 0)|  */
+
+          else if (DEBUG)
+          {
+               lock_cerr_mutex(); 
+               cerr << thread_ctr_str << "In `exchange_data_with_client':  "
+                    << endl
+                    << "`Scan_Parse_Parameter_Type::send_data_to_peer' succeeded."
+                    << endl;
+               unlock_cerr_mutex(); 
+
+          }  /* |if (DEBUG)|  */ 
+
+      }  /* |else if (   response.type == Response_Type::DOWNLOAD_URL_ENCRYPTED_TYPE
+                      || response.type == Response_Type::DOWNLOAD_COMMAND_ENCRYPTED_TYPE)|  
+         */
+
+@q ***** (5) @>
+@
+@<|exchange_data_with_client| definition@>=
+
+      else if (response.type == Response_Type::FETCH_INSTALLATION_SCRIPT_TYPE)
+      {
+          status = param->fetch_installation_script(response);
+
+          if (status != 0)
+          {
+               lock_cerr_mutex(); 
+               cerr << "ERROR!  In `exchange_data_with_client':  "
+                    << "`Scan_Parse_Parameter_Type::fetch_installation_script' failed, returning "
+                    << status
+                    << endl 
+                    << "Continuing."
+                    << endl;              
+               unlock_cerr_mutex(); 
+
+
+          }  /* |if (status != 0)|  */
+
+          else if (DEBUG)
+          {
+               lock_cerr_mutex(); 
+               cerr << thread_ctr_str << "In `exchange_data_with_client':  "
+                    << endl
+                    << "`Scan_Parse_Parameter_Type::fetch_installation_script' succeeded."
+                    << endl;
+               unlock_cerr_mutex(); 
+
+          }  /* |if (DEBUG)|  */ 
+
+
+      }  /* |else if (response.type == Response_Type::FETCH_INSTALLATION_SCRIPT_TYPE)|  */
+
+@q ***** (5) |response.type == Response_Type::FETCH_DOWNLOAD_INFO_TYPE|.  @>
+
+@ |response.type == Response_Type::FETCH_DOWNLOAD_INFO_TYPE|.  
+\initials{LDF Undated.}
+
+@<|exchange_data_with_client| definition@>=
+
+      else if (response.type == Response_Type::FETCH_DOWNLOAD_INFO_TYPE)
+      {
+          status = param->fetch_download_info(response);
+
+          if (status != 0)
+          {
+               lock_cerr_mutex(); 
+               cerr << "ERROR!  In `exchange_data_with_client':  "
+                    << "`Scan_Parse_Parameter_Type::fetch_download_info' failed, returning "
+                    << status
+                    << endl 
+                    << "Continuing."
+                    << endl;              
+               unlock_cerr_mutex(); 
+
+
+          }  /* |if (status != 0)|  */
+
+          else if (DEBUG)
+          {
+               lock_cerr_mutex(); 
+               cerr << thread_ctr_str << "In `exchange_data_with_client':  "
+                    << endl
+                    << "`Scan_Parse_Parameter_Type::fetch_download_info' succeeded."
+                    << endl;
+               unlock_cerr_mutex(); 
+
+          }  /* |if (DEBUG)|  */ 
+
+      }  /* |else if (response.type == Response_Type::FETCH_DOWNLOAD_INFO_TYPE)|  */
+
+
+@q ***** (5) |response.type == Response_Type::FETCH_AUTHORIZATION_TYPE|.  @>
+
+@ |response.type == Response_Type::FETCH_AUTHORIZATION_TYPE|.  
+\initials{LDF 2011.05.06.}
+
+\LOG
+\initials{LDF 2011.05.06.}
+Added this section.
+
+\initials{LDF 2011.07.06.}
+Now only issuing error message if |status| is neither 0 nor 2.  
+|Scan_Parse_Parameter_Type::fetch_authorization| now returns 2 if there's no 
+authorization.  This isn't an error:  Non-encrypted entries don't have
+authorizations, but it's not known whether an entry is encrypted or not at the time 
+\.{optdbcli} creates the response that causes this function to be called.
+\par
+@:TODO@> !! TODO: 
+It would be possible to change the behavior of the programs so that an 
+authorization is only requested once it's been determined that an entry is 
+encrypted, but this doesn't have a high priority.
+\ENDLOG
+
+@<|exchange_data_with_client| definition@>=
+
+      else if (response.type == Response_Type::FETCH_AUTHORIZATION_TYPE)
+      {
+          status = param->fetch_authorization(response);
+
+          if (!(status == 0 || status == 2))
+          {
+               lock_cerr_mutex(); 
+               cerr << "ERROR!  In `exchange_data_with_client':  "
+                    << "`Scan_Parse_Parameter_Type::fetch_authorization' failed, returning "
+                    << status
+                    << endl 
+                    << "Continuing."
+                    << endl;              
+               unlock_cerr_mutex(); 
+
+
+          }  /* |if (!(status == 0 || status == 2))|  */
+
+          else if (DEBUG)
+          {
+               lock_cerr_mutex(); 
+               cerr << thread_ctr_str << "In `exchange_data_with_client':  "
+                    << endl
+                    << "`Scan_Parse_Parameter_Type::fetch_authorization' succeeded."
+                    << endl;
+               unlock_cerr_mutex(); 
+
+          }  /* |if (DEBUG)|  */ 
+
+      }  /* |else if (response.type == Response_Type::FETCH_AUTHORIZATION_TYPE)|  */
+
+@q ***** (5) |response.type == Response_Type::FETCH_ENVIRONMENT_SHELLSCRIPT_TYPE|.  @>
+
+@ |response.type == Response_Type::FETCH_ENVIRONMENT_SHELLSCRIPT_TYPE|.  
+\initials{LDF 2012.03.19.}
+
+\LOG
+\initials{LDF 2012.03.19.}
+Added this section.
+\ENDLOG
+
+@<|exchange_data_with_client| definition@>=
+
+      else if (response.type == Response_Type::FETCH_ENVIRONMENT_SHELLSCRIPT_TYPE)
+      {
+
+#if 1 /* 0 */
+bool save_DEBUG = DEBUG;
+DEBUG = false; /* |true|  */
+#endif 
+
+          status = param->fetch_environment_shellscripts(response);
+
+          if (!(status == 0 || status == 2))
+          {
+               lock_cerr_mutex(); 
+               cerr << "ERROR!  In `exchange_data_with_client':  "
+                    << "`Scan_Parse_Parameter_Type::fetch_environment_shellscripts' "
+                    << "failed, returning " << status << "."
+                    << endl 
+                    << "Continuing."
+                    << endl;              
+               unlock_cerr_mutex(); 
+
+
+          }  /* |if (status != 0)|  */
+
+          else if (DEBUG)
+          {
+               lock_cerr_mutex(); 
+               cerr << thread_ctr_str << "In `exchange_data_with_client':  "
+                    << endl
+                    << "`Scan_Parse_Parameter_Type::fetch_environment_shellscripts' succeeded."
+                    << endl;
+
+               if (status == 2)
+                    cerr << "No environment shellscripts found." << endl;
+               else if (status == 0)
+                    cerr << "At least one environment shellscript found." << endl;
+
+               unlock_cerr_mutex(); 
+
+          }  /* |if (DEBUG)|  */ 
+
+#if 1 /* 0 */
+DEBUG = save_DEBUG; 
+#endif 
+
+      }  /* |else if (response.type == Response_Type::FETCH_ENVIRONMENT_SHELLSCRIPT_TYPE)|  */
+
+
+@q ***** (5) @>
+@
+\LOG
+\initials{LDF 2012.03.20.}
+Added this section.
+\ENDLOG
+
+@<|exchange_data_with_client| definition@>=
+
+      else if (response.type == Response_Type::RETURN_ENVIRONMENT_SHELLSCRIPT_TYPE)
+      {
+
+          if (DEBUG)
+          {
+               lock_cerr_mutex(); 
+               cerr << "In `exchange_data_with_client':  "
+                    << "`response.type' == `Response_Type::RETURN_ENVIRONMENT_SHELLSCRIPT_TYPE'."
+                    << endl;              
+               unlock_cerr_mutex(); 
+
+          }  /* |if (DEBUG)|  */ 
+
+          status = param->send_data_to_peer(response, !save_temp_files);
+
+          if (status != 0)
+          {
+               lock_cerr_mutex(); 
+               cerr << "ERROR!  In `exchange_data_with_client':  "
+                    << "`Scan_Parse_Parameter_Type::send_data_to_peer' failed, returning "
+                    << status
+                    << endl 
+                    << "Continuing."
+                    << endl;              
+               unlock_cerr_mutex(); 
+
+
+          }  /* |if (status != 0)|  */
+
+          else if (DEBUG)
+          {
+               lock_cerr_mutex(); 
+               cerr << thread_ctr_str << "In `exchange_data_with_client':  "
+                    << endl
+                    << "`Scan_Parse_Parameter_Type::send_data_to_peer' succeeded."
+                    << endl;
+               unlock_cerr_mutex(); 
+
+          }  /* |if (DEBUG)|  */ 
+
+      }  /* |if (response.type == Response_Type::RETURN_ENVIRONMENT_SHELLSCRIPT_TYPE)|  */
+
+
+@q ***** (5) @>
+@
+@<|exchange_data_with_client| definition@>=
+
+      else if (response.type == Response_Type::FETCH_PREREQUISITES_TYPE)
+      {
+ 
+          if (DEBUG)
+          {
+             lock_cerr_mutex(); 
+             cerr << thread_ctr_str << "In `exchange_data_with_client':  "
+                  << endl
+                  << "`response.type' == `Response_Type::FETCH_PREREQUISITES_TYPE'."
+                  << endl;
+             unlock_cerr_mutex();  
+
+          }  /* |if (DEBUG)|  */ 
+
+          status = param->fetch_prerequisites(response);
+
+          if (status == 2)
+          {
+               if (DEBUG) 
+               {
+                  lock_cerr_mutex(); 
+                  cerr << "In `exchange_data_with_client':  "
+                       << "`Scan_Parse_Parameter_Type::fetch_prerequisites' returned 2:"
+                       << endl 
+                       << "No prerequisites found.  Continuing."
+                       << endl;              
+                  unlock_cerr_mutex(); 
+
+               }  /* |if (DEBUG)|  */
+
+          }  /* |if (status == 2)|  */
+
+          else if (status != 0)
+          {
+               lock_cerr_mutex(); 
+               cerr << "ERROR!  In `exchange_data_with_client':  "
+                    << "`Scan_Parse_Parameter_Type::fetch_prerequisites' failed, returning "
+                    << status
+                    << endl 
+                    << "Continuing."
+                    << endl;              
+               unlock_cerr_mutex(); 
+
+
+          }  /* |else if (status != 0)|  */
+
+          else if (DEBUG)
+          {
+               lock_cerr_mutex(); 
+               cerr << thread_ctr_str << "In `exchange_data_with_client':  "
+                    << endl
+                    << "`Scan_Parse_Parameter_Type::fetch_prerequisites' succeeded:"
+                    << endl 
+                    << "Prerequisites found."
+                    << endl;
+               unlock_cerr_mutex(); 
+
+          }  /* |if (DEBUG)|  */ 
+
+      }  /* |else if (response.type == Response_Type::FETCH_PREREQUISITES_TYPE)|  */
+
+@q ***** (5) |response.type == Response_Type::FETCH_KEY_PAIR_TYPE|.  @>
+
+@ |response.type == Response_Type::FETCH_KEY_PAIR_TYPE|.  
+\initials{LDF 2011.11.10.}
+
+\LOG
+\initials{LDF 2011.11.10.}
+Added this section.
+\ENDLOG
+
+@:NOTE@> !! PLEASE NOTE:  This code depends on the size of the secret key being less than
+|MAX_BUFFER|.  This shouldn't be a problem.
+\initials{LDF 2011.11.10.}
+
+@:??@> ??:  I don't know why it's necessary to send the command 
+|"SERVER SENDING KEY_PAIR"| specially to the client.  I think 
+|Scan_Parse_Parameter_Type::send_data_to_peer| should take care of this,
+but it doesn't.  
+%
+@:TODO@> !! TODO:  Check how this is handled for installation scripts and 
+encrypted files.
+\initials{LDF 2011.11.10.}
+
+@<|exchange_data_with_client| definition@>=
+
+      else if (response.type == Response_Type::FETCH_KEY_PAIR_TYPE)
+      {
+
+#if 1 /* 0 */
+bool save_DEBUG = DEBUG;
+DEBUG = false; /* |true|  */
+#endif 
+
+          Response_Type new_response;
+
+          status = param->fetch_key_pair(new_response);
+
+          if (DEBUG)
+          {
+              lock_cerr_mutex(); 
+              cerr << "In `exchange_data_with_client':  "
+                   << "After `fetch_key_pair':  status == " << status << endl;
+              unlock_cerr_mutex(); 
+
+          }  /* |if (DEBUG)|  */ 
+
+          if (status != 0)
+          {
+               lock_cerr_mutex(); 
+               cerr << "ERROR!  In `exchange_data_with_client':  "
+                    << "`Scan_Parse_Parameter_Type::fetch_key_pair' failed, returning "
+                    << status
+                    << endl 
+                    << "Continuing."
+                    << endl;              
+               unlock_cerr_mutex(); 
+
+               new_response.type    = Response_Type::COMMAND_ONLY_TYPE;
+               new_response.command = "SERVER NOT SENDING KEY_PAIR"; 
+
+          }  /* |if (status != 0)|  */
+
+          else 
+          {
+              if (DEBUG)
+              {
+                   lock_cerr_mutex(); 
+                   cerr << thread_ctr_str << "In `exchange_data_with_client':  "
+                        << endl
+                        << "`Scan_Parse_Parameter_Type::fetch_key_pair' succeeded."
+                        << endl;
+                   unlock_cerr_mutex(); 
+
+              }  /* |if (DEBUG)|  */ 
+
+
+          }  /* |else|  */
+
+
+          pthread_mutex_lock(&param->response_deque_mutex); 
+          param->response_deque.push_front(new_response);
+          pthread_mutex_unlock(&param->response_deque_mutex);
+
+#if 1 /* 0 */
+DEBUG = save_DEBUG; 
+#endif 
+
+
+      }  /* |else if (response.type == Response_Type::FETCH_KEY_PAIR_TYPE)|  */
+
+@q ***** (5) @>
+@
+\LOG
+\initials{LDF 2010.02.11.}
+Added this section.
+
+\initials{LDF 2010.04.27.}
+Now sending a message to the client and exiting with an 
+error if |Scan_Parse_Parameter_Type::validate_distinguished_name|
+fails.
+\ENDLOG
+
+@<|exchange_data_with_client| definition@>=
+
+      else if (response.type == Response_Type::VALIDATE_DISTINGUISHED_NAME_TYPE)
+      {
+@q ****** (6) @>
+
+          status = param->validate_distinguished_name(response);
+
+          if (status != 0)
+          {
+               lock_cerr_mutex(); 
+               cerr << "ERROR!  In `exchange_data_with_client':  "
+                    << "`Scan_Parse_Parameter_Type::validate_distinguished_name' "
+                    << "failed, returning "
+                    << status
+                    << endl 
+                    << "Exiting thread unsuccessfully with return value 0."
+                    << endl;
+               unlock_cerr_mutex(); 
+
+               memset(buffer, 0, param->MAX_BUFFER + 1);
+               strcpy(buffer, "SERVER DISTINGUISHED_NAME VALIDATION FAILED");
+
+               gnutls_record_send(*param->session, buffer, strlen(buffer));
+
+               gnutls_bye (*param->session, GNUTLS_SHUT_WR);
+
+               if (!save_temp_files)
+                    delete_temp_files();
+
+               pthread_exit(0);
+
+          }  /* |if (status != 0)|  */
+
+          else if (DEBUG)
+          {
+               lock_cerr_mutex(); 
+               cerr << thread_ctr_str << "In `exchange_data_with_client':  "
+                    << endl
+                    << "`Scan_Parse_Parameter_Type::validate_distinguished_name' succeeded."
+                    << endl;
+               unlock_cerr_mutex(); 
+
+          }  /* |if (DEBUG)|  */ 
+
+@q ****** (6) @>
+
+      }  /* |else if (response.type == Response_Type::VALIDATE_DISTINGUISHED_NAME_TYPE)|  */
+
+@q ***** (5) @>
+@
+@<|exchange_data_with_client| definition@>=
+            
+      else if (response.type == Response_Type::SHOW_ENTRIES_TYPE)
+      {
+@q ****** (6) @>
+
+          if (DEBUG)
+          {
+               lock_cerr_mutex(); 
+               cerr << "In `exchange_data_with_client':  "
+                    << "`response.type == Response_Type::SHOW_ENTRIES_TYPE'."
+                    << endl;
+               response.show("response:");
+               unlock_cerr_mutex(); 
+
+          }  /* |if (DEBUG)|  */ 
+
+@q ****** (6) @>
+@
+@<|exchange_data_with_client| definition@>=
+
+          char temp_buffer[param->MAX_BUFFER + 1];
+          memset(temp_buffer, 0, param->MAX_BUFFER + 1);
+
+          status = param->show_entries(response, temp_buffer);
+
+          if (DEBUG)
+          {
+               lock_cerr_mutex(); 
+               cerr << "In `exchange_data_with_client':  "
+                    << "temp_buffer == " << endl << temp_buffer << endl
+                    << "strlen(temp_buffer) == " << strlen(temp_buffer) << endl
+                    << "response.local_filename == " << response.local_filename << endl;
+               unlock_cerr_mutex(); 
+
+          }  /* |if (DEBUG)|  */ 
+
+
+@q ****** (6) @>
+
+          if (status == 0 && strlen(temp_buffer) > 0 && !response.local_filename.empty())
+          {
+               lock_cerr_mutex(); 
+               cerr << "ERROR!  In `exchange_data_with_client':  "
+                    << "`Scan_Parse_Parameter_Type::show_entries' "
+                    << "succeeded, but `strlen(temp_buffer)' > 0 "
+                    << "and `response.local_filename' is non-empty."
+                    << endl 
+                    << "This isn't supposed to happen."
+                    << endl 
+                    << "Continuing."
+                    << endl;
+               unlock_cerr_mutex(); 
+
+               memset(buffer, 0, param->MAX_BUFFER + 1);
+               strcpy(buffer, "SERVER SHOW ENTRIES FAILED");
+
+               gnutls_record_send(*param->session, buffer, strlen(buffer));
+    
+
+          }  /* |if|  */
+
+@q ****** (6) @>
+
+          else if (status == 0 && strlen(temp_buffer) == 0 && response.local_filename.empty())
+          {
+               lock_cerr_mutex(); 
+               cerr << "ERROR!  In `exchange_data_with_client':  "
+                    << "`Scan_Parse_Parameter_Type::show_entries' "
+                    << "succeeded, but `strlen(temp_buffer)' == 0 "
+                    << "and `response.local_filename' is empty."
+                    << endl 
+                    << "This isn't supposed to happen."
+                    << endl 
+                    << "Continuing."
+                    << endl;
+               unlock_cerr_mutex(); 
+
+               memset(buffer, 0, param->MAX_BUFFER + 1);
+               strcpy(buffer, "SERVER SHOW ENTRIES FAILED");
+
+               gnutls_record_send(*param->session, buffer, strlen(buffer));
+
+          }  /* |else if|  */
+
+@q ****** (6) @>
+
+          else if (status == 0)
+          {
+@q ******* (7) @>
+             
+               if (DEBUG) 
+               {
+                   lock_cerr_mutex(); 
+                   response.show("response:");
+                   unlock_cerr_mutex(); 
+               }
+
+
+               memset(buffer, 0, param->MAX_BUFFER + 1);
+               strcpy(buffer, response.command.c_str());
+
+               gnutls_record_send(*param->session, buffer, strlen(buffer));
+
+@q ******* (7) @>
+
+               if (strlen(temp_buffer) > 0)
+               {
+
+                   gnutls_record_send(*param->session, temp_buffer, strlen(temp_buffer));
+                   memset(temp_buffer, 0, param->MAX_BUFFER + 1);
+
+               }   /* |if (strlen(temp_buffer) > 0)|  */
+
+@q ******* (7) @>
+
+               else if (!response.local_filename.empty())
+               {
+@q ****** (6) @>
+
+                   status = param->send_data_to_peer(response, !save_temp_files);
+
+                   if (status != 0)
+                   {
+                        lock_cerr_mutex(); 
+                        cerr << "ERROR!  In `exchange_data_with_client':  "
+                             << "`Scan_Parse_Parameter_Type::send_data_to_peer' failed, returning "
+                             << status
+                             << endl 
+                             << "Continuing."
+                             << endl;              
+                        unlock_cerr_mutex(); 
+
+
+                   }  /* |if (status != 0)|  */
+
+                   else if (DEBUG)
+                   {
+                        lock_cerr_mutex(); 
+                        cerr << thread_ctr_str << "In `exchange_data_with_client':  "
+                             << endl
+                             << "`Scan_Parse_Parameter_Type::send_data_to_peer' succeeded."
+                             << endl;
+                        unlock_cerr_mutex(); 
+
+                   }  /* |if (DEBUG)|  */ 
+
+@q ****** (6) @>
+
+               } /* |else if (!response.local_filename.empty())|  */
+
+
+@q ***** (5) @>
+
+          }  /* |if (status == 0)|  */
+
+
+@q ***** (5) @>
+
+          else if (status == 2)  /* |Scan_Parse_Parameter_Type::show_entries| 
+                               succeeded, but there were no entries.  
+                               \initials{LDF 2010.05.21.}  */
+          {
+               memset(buffer, 0, param->MAX_BUFFER + 1);
+               strcpy(buffer, response.command.c_str());
+
+               gnutls_record_send(*param->session, buffer, strlen(buffer));
+
+          }
+
+
+@q ****** (6) @>
+
+          else 
+          {
+               lock_cerr_mutex(); 
+               cerr << "ERROR!  In `exchange_data_with_client':  "
+                    << "`Scan_Parse_Parameter_Type::show_entries' "
+                    << "failed, returning "
+                    << status
+                    << endl 
+                    << "Exiting thread unsuccessfully with return value 0."
+                    << endl;
+               unlock_cerr_mutex(); 
+
+               memset(buffer, 0, param->MAX_BUFFER + 1);
+               strcpy(buffer, "SERVER SHOW ENTRIES FAILED");
+
+               gnutls_record_send(*param->session, buffer, strlen(buffer));
+
+
+          }  /* |else| (|status != 0|)  */
+
+@q ****** (6) @>
+
+      }  /* |else if (response.type == Response_Type::SHOW_ENTRIES_TYPE)|  */
+
+@q ***** (5) @>
+@
+\LOG
+\initials{LDF 2010.10.27.}
+Added this section.
+\ENDLOG
+@<|exchange_data_with_client| definition@>=
+            
+      else if (response.type == Response_Type::SHOW_CERTIFICATES_TYPE)
+      {
+@q ****** (6) @>
+
+          if (DEBUG)
+          {
+               lock_cerr_mutex(); 
+               cerr << "In `exchange_data_with_client':  "
+                    << "`response.type == Response_Type::SHOW_CERTIFICATES_TYPE'."
+                    << endl;
+               unlock_cerr_mutex(); 
+
+          }  /* |if (DEBUG)|  */ 
+
+@q ****** (6) @>
+@
+@<|exchange_data_with_client| definition@>=
+
+          char temp_buffer[param->MAX_BUFFER + 1];
+          memset(temp_buffer, 0, param->MAX_BUFFER + 1);
+
+          status = param->show_certificates(response, temp_buffer);
+
+          if (DEBUG)
+          {
+               lock_cerr_mutex(); 
+               cerr << "In `exchange_data_with_client':  "
+                    << "temp_buffer == " << endl << temp_buffer << endl
+                    << "strlen(temp_buffer) == " << strlen(temp_buffer) << endl
+                    << "response.local_filename == " << response.local_filename << endl;
+               unlock_cerr_mutex(); 
+
+          }  /* |if (DEBUG)|  */ 
+
+
+@q ****** (6) @>
+
+          if (status == 0 && strlen(temp_buffer) > 0 && !response.local_filename.empty())
+          {
+               lock_cerr_mutex(); 
+               cerr << "ERROR!  In `exchange_data_with_client':  "
+                    << "`Scan_Parse_Parameter_Type::show_certificates' "
+                    << "succeeded, but `strlen(temp_buffer)' > 0 "
+                    << "and `response.local_filename' is non-empty."
+                    << endl 
+                    << "This isn't supposed to happen."
+                    << endl 
+                    << "Continuing."
+                    << endl;
+               unlock_cerr_mutex(); 
+
+               memset(buffer, 0, param->MAX_BUFFER + 1);
+ 
+               if (response.certificates_all)
+                  strcpy(buffer, "SERVER SHOW CERTIFICATES FAILED 4");
+               else 
+                  strcpy(buffer, "SERVER SHOW CERTIFICATE FAILED 4");
+
+               gnutls_record_send(*param->session, buffer, strlen(buffer));
+    
+
+          }  /* |if|  */
+
+
+@q ****** (6) @>
+@
+@<|exchange_data_with_client| definition@>=
+
+          else if (status == 0 && strlen(temp_buffer) == 0 && response.local_filename.empty())
+          {
+               lock_cerr_mutex(); 
+               cerr << "ERROR!  In `exchange_data_with_client':  "
+                    << "`Scan_Parse_Parameter_Type::show_certificates' "
+                    << "succeeded, but `strlen(temp_buffer)' == 0 "
+                    << "and `response.local_filename' is empty."
+                    << endl 
+                    << "This isn't supposed to happen."
+                    << endl 
+                    << "Continuing."
+                    << endl;
+               unlock_cerr_mutex(); 
+
+               memset(buffer, 0, param->MAX_BUFFER + 1);
+
+               if (response.certificates_all)
+                  strcpy(buffer, "SERVER SHOW CERTIFICATES FAILED 5");
+               else 
+                  strcpy(buffer, "SERVER SHOW CERTIFICATE FAILED 5");
+
+
+               gnutls_record_send(*param->session, buffer, strlen(buffer));
+
+          }  /* |else if|  */
+
+@q ****** (6) |Scan_Parse_Parameter_Type::show_certificates| succeeded.  @>
+@ |Scan_Parse_Parameter_Type::show_certificates| succeeded.  
+\initials{LDF Date unknown.}
+
+@<|exchange_data_with_client| definition@>=
+
+          else if (status == 0)
+          {
+
+@q ******* (7) @>
+@ 
+\LOG
+\initials{LDF 2010.11.04.}
+Now, if |string response.command| is empty, a single null byte is sent to the peer.
+\ENDLOG 
+
+@<|exchange_data_with_client| definition@>=
+             
+               if (DEBUG) 
+               {
+                   lock_cerr_mutex(); 
+                   response.show("response:");
+                   unlock_cerr_mutex(); 
+               }
+
+               memset(buffer, 0, param->MAX_BUFFER + 1);
+
+               if (response.command.empty())
+                  gnutls_record_send(*param->session, buffer, 1);
+               else
+               {
+                  strcpy(buffer, response.command.c_str());
+                  gnutls_record_send(*param->session, buffer, strlen(buffer));
+               }
+
+@q ******* (7) @>
+
+               if (strlen(temp_buffer) > 0)
+               {
+
+                   gnutls_record_send(*param->session, temp_buffer, strlen(temp_buffer));
+                   memset(temp_buffer, 0, param->MAX_BUFFER + 1);
+
+               }   /* |if (strlen(temp_buffer) > 0)|  */
+
+@q ******* (7) @>
+
+               else if (!response.local_filename.empty())
+               {
+@q ******** (8) @>
+
+                   status = param->send_data_to_peer(response, !save_temp_files);
+
+                   if (status != 0)
+                   {
+                        lock_cerr_mutex(); 
+                        cerr << "ERROR!  In `exchange_data_with_client':  "
+                             << "`Scan_Parse_Parameter_Type::send_data_to_peer' failed, returning "
+                             << status
+                             << endl 
+                             << "Continuing."
+                             << endl;              
+                        unlock_cerr_mutex(); 
+
+
+                   }  /* |if (status != 0)|  */
+
+                   else if (DEBUG)
+                   {
+                        lock_cerr_mutex(); 
+                        cerr << thread_ctr_str << "In `exchange_data_with_client':  "
+                             << endl
+                             << "`Scan_Parse_Parameter_Type::send_data_to_peer' succeeded."
+                             << endl;
+                        unlock_cerr_mutex(); 
+
+                   }  /* |if (DEBUG)|  */ 
+
+@q ******** (8) @>
+
+               } /* |else if (!response.local_filename.empty())|  */
+
+
+@q ******* (7) @>
+
+          }  /* |if (status == 0)|  */
+
+@q ****** (6) @>
+
+@ |Scan_Parse_Parameter_Type::show_certificates| succeeded, but there 
+were no certificates to view.   This should never occur.  However, if it does,
+|Scan_Parse_Parameter_Type::show_certificates| will have set |response.command|.
+\initials{LDF 2010.05.21.}
+\initials{LDF 2010.11.04.}
+\initials{LDF 2012.05.09.}
+                                    
+@<|exchange_data_with_client| definition@>=
+
+          else if (status == 2)  
+          {
+               memset(buffer, 0, param->MAX_BUFFER + 1);
+               strcpy(buffer, response.command.c_str());
+
+               gnutls_record_send(*param->session, buffer, strlen(buffer));
+
+          }
+
+@q ****** (6) @>
+
+          else 
+          {
+               lock_cerr_mutex(); 
+               cerr << "ERROR!  In `exchange_data_with_client':  "
+                    << "`Scan_Parse_Parameter_Type::show_certificates' "
+                    << "failed, returning "
+                    << status
+                    << endl 
+                    << "Exiting thread unsuccessfully with return value 0."
+                    << endl;
+               unlock_cerr_mutex(); 
+
+               memset(buffer, 0, param->MAX_BUFFER + 1);
+
+               if (response.command.size() > 0)
+                   strcpy(buffer, response.command.c_str());
+               else
+               {
+
+                   if (response.certificates_all)
+                      strcpy(buffer, "SERVER SHOW CERTIFICATES FAILED 6");
+                   else 
+                      strcpy(buffer, "SERVER SHOW CERTIFICATE FAILED 6");
+               }
+
+               gnutls_record_send(*param->session, buffer, strlen(buffer));
+
+
+          }  /* |else| (|status != 0|)  */
+
+@q ****** (6) @>
+
+      }  /* |else if (response.type == Response_Type::SHOW_CERTIFICATES_TYPE)|  */
+
+@q ***** (5) Show environment shellscripts.  @>
+@ Show environment shellscripts.  
+\initials{LDF 2012.03.22.}
+
+\LOG
+\initials{LDF 2012.03.22.}
+Added this section.
+\ENDLOG
+
+@<|exchange_data_with_client| definition@>=
+            
+      else if (response.type == Response_Type::SHOW_ENVIRONMENT_SHELLSCRIPTS_TYPE)
+      {
+@q ****** (6) @>
+
+#if 1 /* 0 */
+bool save_DEBUG = DEBUG;
+DEBUG = false; /* |true|  */
+#endif 
+
+          if (DEBUG)
+          {
+               lock_cerr_mutex(); 
+               cerr << "In `exchange_data_with_client':  "
+                    << "`response.type == "
+                    << "Response_Type::SHOW_ENVIRONMENT_SHELLSCRIPTS_TYPE'."
+                    << endl;
+               unlock_cerr_mutex(); 
+
+          }  /* |if (DEBUG)|  */ 
+
+@q ****** (6) @>
+@
+@<|exchange_data_with_client| definition@>=
+
+          char temp_buffer[param->MAX_BUFFER + 1];
+          memset(temp_buffer, 0, param->MAX_BUFFER + 1);
+
+          status = param->show_environment_shellscripts(response, temp_buffer);
+
+          if (DEBUG)
+          {
+               lock_cerr_mutex(); 
+               cerr << "In `exchange_data_with_client':  "
+                    << "temp_buffer == " << endl << temp_buffer << endl
+                    << "strlen(temp_buffer) == " << strlen(temp_buffer) << endl
+                    << "response.local_filename == " << response.local_filename << endl;
+               unlock_cerr_mutex(); 
+
+          }  /* |if (DEBUG)|  */ 
+
+
+@q ****** (6) @>
+
+          if (status == 0 && strlen(temp_buffer) > 0 && !response.local_filename.empty())
+          {
+               lock_cerr_mutex(); 
+               cerr << "ERROR!  In `exchange_data_with_client':  "
+                    << "`Scan_Parse_Parameter_Type::show_environment_shellscripts' "
+                    << "succeeded, but `strlen(temp_buffer)' > 0 "
+                    << "and `response.local_filename' is non-empty."
+                    << endl 
+                    << "This isn't supposed to happen."
+                    << endl 
+                    << "Continuing."
+                    << endl;
+               unlock_cerr_mutex(); 
+
+               memset(buffer, 0, param->MAX_BUFFER + 1);
+ 
+               strcpy(buffer, "SERVER SHOW ENVIRONMENT SHELLSCRIPTS FAILED");
+
+               gnutls_record_send(*param->session, buffer, strlen(buffer));
+    
+
+          }  /* |if|  */
+
+
+@q ****** (6) @>
+@
+@<|exchange_data_with_client| definition@>=
+
+          else if (   status == 0 && strlen(temp_buffer) == 0 
+                   && response.local_filename.empty())
+          {
+               lock_cerr_mutex(); 
+               cerr << "ERROR!  In `exchange_data_with_client':  "
+                    << "`Scan_Parse_Parameter_Type::show_environment_shellscripts' "
+                    << "succeeded, but `strlen(temp_buffer)' == 0 "
+                    << "and `response.local_filename' is empty."
+                    << endl 
+                    << "This isn't supposed to happen."
+                    << endl 
+                    << "Continuing."
+                    << endl;
+               unlock_cerr_mutex(); 
+
+               memset(buffer, 0, param->MAX_BUFFER + 1);
+
+               strcpy(buffer, "SERVER SHOW ENVIRONMENT SHELLSCRIPTS FAILED");
+
+               gnutls_record_send(*param->session, buffer, strlen(buffer));
+
+          }  /* |else if|  */
+
+@q ****** (6) |Scan_Parse_Parameter_Type::show_environment_shellscripts| @>
+@q ****** (6) succeeded.                                                 @>
+
+@ |Scan_Parse_Parameter_Type::show_environment_shellscripts| succeeded.  
+\initials{LDF 2012.03.22.}
+
+@<|exchange_data_with_client| definition@>=
+
+          else if (status == 0)
+          {
+
+@q ******* (7) @>
+@ 
+@<|exchange_data_with_client| definition@>=
+             
+               if (DEBUG) 
+               {
+                   lock_cerr_mutex(); 
+                   response.show("response:");
+                   unlock_cerr_mutex(); 
+               }
+
+               memset(buffer, 0, param->MAX_BUFFER + 1);
+
+               if (response.command.empty())
+                  gnutls_record_send(*param->session, buffer, 1);
+               else
+               {
+                  strcpy(buffer, response.command.c_str());
+                  gnutls_record_send(*param->session, buffer, strlen(buffer));
+               }
+
+@q ******* (7) @>
+
+               if (strlen(temp_buffer) > 0)
+               {
+
+                   gnutls_record_send(*param->session, temp_buffer, strlen(temp_buffer));
+                   memset(temp_buffer, 0, param->MAX_BUFFER + 1);
+
+               }   /* |if (strlen(temp_buffer) > 0)|  */
+
+@q ******* (7) @>
+
+               else if (!response.local_filename.empty())
+               {
+@q ******** (8) @>
+
+                   status = param->send_data_to_peer(response, !save_temp_files);
+
+                   if (status != 0)
+                   {
+                        lock_cerr_mutex(); 
+                        cerr << "ERROR!  In `exchange_data_with_client':  "
+                             << "`Scan_Parse_Parameter_Type::send_data_to_peer' failed, returning "
+                             << status
+                             << endl 
+                             << "Continuing."
+                             << endl;              
+                        unlock_cerr_mutex(); 
+
+
+                   }  /* |if (status != 0)|  */
+
+                   else if (DEBUG)
+                   {
+                        lock_cerr_mutex(); 
+                        cerr << thread_ctr_str << "In `exchange_data_with_client':  "
+                             << endl
+                             << "`Scan_Parse_Parameter_Type::send_data_to_peer' succeeded."
+                             << endl;
+                        unlock_cerr_mutex(); 
+
+                   }  /* |if (DEBUG)|  */ 
+
+@q ******** (8) @>
+
+               } /* |else if (!response.local_filename.empty())|  */
+
+
+@q ******* (7) @>
+
+          }  /* |if (status == 0)|  */
+
+@q ****** (6) @>
+
+          else if (status == 2)  /* |Scan_Parse_Parameter_Type::show_environment_shellscripts| 
+                                    succeeded, but there were no environment shellscripts.
+                                    \initials{LDF 2012.03.22.}
+                                 */
+          {
+               memset(buffer, 0, param->MAX_BUFFER + 1);
+               strcpy(buffer, "SERVER NO ENVIRONMENT SHELLSCRIPTS TO SHOW");
+               gnutls_record_send(*param->session, buffer, strlen(buffer));
+
+          }
+
+
+@q ****** (6) @>
+
+          else 
+          {
+               lock_cerr_mutex(); 
+               cerr << "ERROR!  In `exchange_data_with_client':  "
+                    << "`Scan_Parse_Parameter_Type::show_environment_shellscripts' "
+                    << "failed, returning "
+                    << status
+                    << endl 
+                    << "Exiting thread unsuccessfully with return value 0."
+                    << endl;
+               unlock_cerr_mutex(); 
+
+               memset(buffer, 0, param->MAX_BUFFER + 1);
+
+               strcpy(buffer, "SERVER SHOW ENVIRONMENT SHELLSCRIPTS FAILED");
+
+               gnutls_record_send(*param->session, buffer, strlen(buffer));
+
+
+          }  /* |else| (|status != 0|)  */
+
+@q ****** (6) @>
+
+#if 1 /* 0 */
+DEBUG = save_DEBUG; 
+#endif 
+
+      }  /* |else if (response.type == Response_Type::SHOW_ENVIRONMENT_SHELLSCRIPTS_TYPE)|  */
+
+@q ***** (5) Show Globus sites.  @>
+@ Show Globus sites.  
+\initials{LDF 2012.04.13.}
+
+\LOG
+\initials{LDF 2012.04.13.}
+Added this section.
+\ENDLOG
+
+@<|exchange_data_with_client| definition@>=
+            
+      else if (response.type == Response_Type::SHOW_GLOBUS_SITES_TYPE)
+      {
+@q ****** (6) @>
+
+#if 1 /* 0 */
+bool save_DEBUG = DEBUG;
+DEBUG = false; /* |true|  */
+#endif 
+
+          if (DEBUG)
+          {
+               lock_cerr_mutex(); 
+               cerr << "In `exchange_data_with_client':  "
+                    << "`response.type == "
+                    << "Response_Type::SHOW_GLOBUS_SITES_TYPE'."
+                    << endl;
+               unlock_cerr_mutex(); 
+
+          }  /* |if (DEBUG)|  */ 
+
+@q ****** (6) @>
+@
+@<|exchange_data_with_client| definition@>=
+
+          char temp_buffer[param->MAX_BUFFER + 1];
+          memset(temp_buffer, 0, param->MAX_BUFFER + 1);
+
+          status = param->show_globus_sites(response, temp_buffer);
+
+          if (DEBUG)
+          {
+               lock_cerr_mutex(); 
+               cerr << "In `exchange_data_with_client':  "
+                    << "temp_buffer == " << endl << temp_buffer << endl
+                    << "strlen(temp_buffer) == " << strlen(temp_buffer) << endl
+                    << "response.local_filename == " << response.local_filename << endl;
+               unlock_cerr_mutex(); 
+
+          }  /* |if (DEBUG)|  */ 
+
+
+@q ****** (6) @>
+
+          if (status == 0 && strlen(temp_buffer) > 0 && !response.local_filename.empty())
+          {
+               lock_cerr_mutex(); 
+               cerr << "ERROR!  In `exchange_data_with_client':  "
+                    << "`Scan_Parse_Parameter_Type::show_globus_sites' "
+                    << "succeeded, but `strlen(temp_buffer)' > 0 "
+                    << "and `response.local_filename' is non-empty."
+                    << endl 
+                    << "This isn't supposed to happen."
+                    << endl 
+                    << "Continuing."
+                    << endl;
+               unlock_cerr_mutex(); 
+
+               memset(buffer, 0, param->MAX_BUFFER + 1);
+ 
+               strcpy(buffer, "SERVER SHOW GLOBUS_SITES FAILED");
+
+               gnutls_record_send(*param->session, buffer, strlen(buffer));
+    
+
+          }  /* |if|  */
+
+
+@q ****** (6) @>
+@
+@<|exchange_data_with_client| definition@>=
+
+          else if (   status == 0 && strlen(temp_buffer) == 0 
+                   && response.local_filename.empty())
+          {
+               lock_cerr_mutex(); 
+               cerr << "ERROR!  In `exchange_data_with_client':  "
+                    << "`Scan_Parse_Parameter_Type::show_globus_sites' "
+                    << "succeeded, but `strlen(temp_buffer)' == 0 "
+                    << "and `response.local_filename' is empty."
+                    << endl 
+                    << "This isn't supposed to happen."
+                    << endl 
+                    << "Continuing."
+                    << endl;
+               unlock_cerr_mutex(); 
+
+               memset(buffer, 0, param->MAX_BUFFER + 1);
+
+               strcpy(buffer, "SERVER SHOW GLOBUS_SITES FAILED");
+
+               gnutls_record_send(*param->session, buffer, strlen(buffer));
+
+          }  /* |else if|  */
+
+@q ****** (6) |Scan_Parse_Parameter_Type::show_globus_sites| @>
+@q ****** (6) succeeded.                                     @>
+
+@ |Scan_Parse_Parameter_Type::show_globus_sites| succeeded.  
+\initials{LDF 2012.03.22.}
+
+@<|exchange_data_with_client| definition@>=
+
+          else if (status == 0)
+          {
+
+@q ******* (7) @>
+@ 
+@<|exchange_data_with_client| definition@>=
+             
+               if (DEBUG) 
+               {
+                   lock_cerr_mutex(); 
+                   response.show("response:");
+                   unlock_cerr_mutex(); 
+               }
+
+               memset(buffer, 0, param->MAX_BUFFER + 1);
+
+               if (response.command.empty())
+                  gnutls_record_send(*param->session, buffer, 1);
+               else
+               {
+                  strcpy(buffer, response.command.c_str());
+                  gnutls_record_send(*param->session, buffer, strlen(buffer));
+               }
+
+@q ******* (7) @>
+
+               if (strlen(temp_buffer) > 0)
+               {
+
+                   gnutls_record_send(*param->session, temp_buffer, strlen(temp_buffer));
+                   memset(temp_buffer, 0, param->MAX_BUFFER + 1);
+
+               }   /* |if (strlen(temp_buffer) > 0)|  */
+
+@q ******* (7) @>
+
+               else if (!response.local_filename.empty())
+               {
+@q ******** (8) @>
+
+                   status = param->send_data_to_peer(response, !save_temp_files);
+
+                   if (status != 0)
+                   {
+                        lock_cerr_mutex(); 
+                        cerr << "ERROR!  In `exchange_data_with_client':  "
+                             << "`Scan_Parse_Parameter_Type::send_data_to_peer' failed, returning "
+                             << status
+                             << endl 
+                             << "Continuing."
+                             << endl;              
+                        unlock_cerr_mutex(); 
+
+
+                   }  /* |if (status != 0)|  */
+
+                   else if (DEBUG)
+                   {
+                        lock_cerr_mutex(); 
+                        cerr << thread_ctr_str << "In `exchange_data_with_client':  "
+                             << endl
+                             << "`Scan_Parse_Parameter_Type::send_data_to_peer' succeeded."
+                             << endl;
+                        unlock_cerr_mutex(); 
+
+                   }  /* |if (DEBUG)|  */ 
+
+@q ******** (8) @>
+
+               } /* |else if (!response.local_filename.empty())|  */
+
+
+@q ******* (7) @>
+
+          }  /* |if (status == 0)|  */
+
+@q ****** (6) @>
+
+          else if (status == 2)  /* |Scan_Parse_Parameter_Type::show_globus_sites| 
+                                    succeeded, but there were no Globus sites.
+                                    \initials{LDF 2012.04.13.}
+                                 */
+          {
+               memset(buffer, 0, param->MAX_BUFFER + 1);
+               strcpy(buffer, response.command.c_str());
+               gnutls_record_send(*param->session, buffer, strlen(buffer));
+
+          }
+
+
+@q ****** (6) @>
+
+          else 
+          {
+               lock_cerr_mutex(); 
+               cerr << "ERROR!  In `exchange_data_with_client':  "
+                    << "`Scan_Parse_Parameter_Type::show_globus_sites' "
+                    << "failed, returning "
+                    << status
+                    << endl 
+                    << "Exiting thread unsuccessfully with return value 0."
+                    << endl;
+               unlock_cerr_mutex(); 
+
+               memset(buffer, 0, param->MAX_BUFFER + 1);
+
+               strcpy(buffer, "SERVER SHOW GLOBUS_SITES FAILED");
+
+               gnutls_record_send(*param->session, buffer, strlen(buffer));
+
+
+          }  /* |else| (|status != 0|)  */
+
+@q ****** (6) @>
+
+#if 1 /* 0 */
+DEBUG = save_DEBUG; 
+#endif 
+
+      }  /* |else if (response.type == Response_Type::SHOW_GLOBUS_SITES_TYPE)|  */
+
+
+@q ***** (5) Show privileges.  @>
+@ Show privileges.  
+\initials{LDF 2012.05.07.}
+
+\LOG
+\initials{LDF 2012.05.07.}
+Added this section.
+\ENDLOG
+
+@<|exchange_data_with_client| definition@>=
+            
+      else if (response.type == Response_Type::SHOW_PRIVILEGES_TYPE)
+      {
+@q ****** (6) @>
+
+#if 1 /* 0 */
+bool save_DEBUG = DEBUG;
+DEBUG = false; /* |true|  */
+#endif 
+
+          if (DEBUG)
+          {
+               lock_cerr_mutex(); 
+               cerr << "In `exchange_data_with_client':  "
+                    << "`response.type == "
+                    << "Response_Type::SHOW_PRIVILEGES_TYPE'."
+                    << endl;
+               unlock_cerr_mutex(); 
+
+          }  /* |if (DEBUG)|  */ 
+
+@q ****** (6) @>
+@
+@<|exchange_data_with_client| definition@>=
+
+          char temp_buffer[param->MAX_BUFFER + 1];
+          memset(temp_buffer, 0, param->MAX_BUFFER + 1);
+
+          status = param->show_privileges(response, temp_buffer);
+
+          if (DEBUG)
+          {
+               lock_cerr_mutex(); 
+               cerr << "In `exchange_data_with_client':  "
+                    << "temp_buffer == " << endl << temp_buffer << endl
+                    << "strlen(temp_buffer) == " << strlen(temp_buffer) << endl
+                    << "response.local_filename == " << response.local_filename << endl;
+               unlock_cerr_mutex(); 
+
+          }  /* |if (DEBUG)|  */ 
+
+
+@q ****** (6) @>
+
+          if (status == 0 && strlen(temp_buffer) > 0 && !response.local_filename.empty())
+          {
+               lock_cerr_mutex(); 
+               cerr << "ERROR!  In `exchange_data_with_client':  "
+                    << "`Scan_Parse_Parameter_Type::show_privileges' "
+                    << "succeeded, but `strlen(temp_buffer)' > 0 "
+                    << "and `response.local_filename' is non-empty."
+                    << endl 
+                    << "This isn't supposed to happen."
+                    << endl 
+                    << "Continuing."
+                    << endl;
+               unlock_cerr_mutex(); 
+
+               memset(buffer, 0, param->MAX_BUFFER + 1);
+ 
+               strcpy(buffer, "SERVER SHOW PRIVILEGES FAILED 4");
+
+               gnutls_record_send(*param->session, buffer, strlen(buffer));
+    
+
+          }  /* |if|  */
+
+
+@q ****** (6) @>
+@
+@<|exchange_data_with_client| definition@>=
+
+          else if (   status == 0 && strlen(temp_buffer) == 0 
+                   && response.local_filename.empty())
+          {
+               lock_cerr_mutex(); 
+               cerr << "ERROR!  In `exchange_data_with_client':  "
+                    << "`Scan_Parse_Parameter_Type::show_privileges' "
+                    << "succeeded, but `strlen(temp_buffer)' == 0 "
+                    << "and `response.local_filename' is empty."
+                    << endl 
+                    << "This isn't supposed to happen."
+                    << endl 
+                    << "Continuing."
+                    << endl;
+               unlock_cerr_mutex(); 
+
+               memset(buffer, 0, param->MAX_BUFFER + 1);
+
+               strcpy(buffer, "SERVER SHOW PRIVILEGES FAILED 5");
+
+               gnutls_record_send(*param->session, buffer, strlen(buffer));
+
+          }  /* |else if|  */
+
+@q ****** (6) |Scan_Parse_Parameter_Type::show_privileges| @>
+@q ****** (6) succeeded.                                     @>
+
+@ |Scan_Parse_Parameter_Type::show_privileges| succeeded.  
+\initials{LDF 2012.05.07.}
+
+@<|exchange_data_with_client| definition@>=
+
+          else if (status == 0)
+          {
+
+@q ******* (7) @>
+@ 
+@<|exchange_data_with_client| definition@>=
+             
+               if (DEBUG) 
+               {
+                   lock_cerr_mutex(); 
+                   response.show("response:");
+                   unlock_cerr_mutex(); 
+               }
+
+               memset(buffer, 0, param->MAX_BUFFER + 1);
+
+               if (response.command.empty())
+                  gnutls_record_send(*param->session, buffer, 1);
+               else
+               {
+                  strcpy(buffer, response.command.c_str());
+                  gnutls_record_send(*param->session, buffer, strlen(buffer));
+               }
+
+@q ******* (7) @>
+
+               if (strlen(temp_buffer) > 0)
+               {
+
+                   gnutls_record_send(*param->session, temp_buffer, strlen(temp_buffer));
+                   memset(temp_buffer, 0, param->MAX_BUFFER + 1);
+
+               }   /* |if (strlen(temp_buffer) > 0)|  */
+
+@q ******* (7) @>
+
+               else if (!response.local_filename.empty())
+               {
+@q ******** (8) @>
+
+                   status = param->send_data_to_peer(response, !save_temp_files);
+
+                   if (status != 0)
+                   {
+                        lock_cerr_mutex(); 
+                        cerr << "ERROR!  In `exchange_data_with_client':  "
+                             << "`Scan_Parse_Parameter_Type::send_data_to_peer' failed, returning "
+                             << status
+                             << endl 
+                             << "Continuing."
+                             << endl;              
+                        unlock_cerr_mutex(); 
+
+
+                   }  /* |if (status != 0)|  */
+
+                   else if (DEBUG)
+                   {
+                        lock_cerr_mutex(); 
+                        cerr << thread_ctr_str << "In `exchange_data_with_client':  "
+                             << endl
+                             << "`Scan_Parse_Parameter_Type::send_data_to_peer' succeeded."
+                             << endl;
+                        unlock_cerr_mutex(); 
+
+                   }  /* |if (DEBUG)|  */ 
+
+@q ******** (8) @>
+
+               } /* |else if (!response.local_filename.empty())|  */
+
+
+@q ******* (7) @>
+
+          }  /* |if (status == 0)|  */
+
+@q ****** (6) @>
+
+          else if (status == 2)  /* |Scan_Parse_Parameter_Type::show_privileges| 
+                                    succeeded, but there were no privileges for user.
+                                    \initials{LDF 2012.05.07.}
+                                 */
+          {
+               memset(buffer, 0, param->MAX_BUFFER + 1);
+               strcpy(buffer, response.command.c_str());
+               gnutls_record_send(*param->session, buffer, strlen(buffer));
+
+          }
+
+@q ****** (6) @>
+
+          else 
+          {
+               lock_cerr_mutex(); 
+               cerr << "ERROR!  In `exchange_data_with_client':  "
+                    << "`Scan_Parse_Parameter_Type::show_privileges' "
+                    << "failed, returning "
+                    << status
+                    << endl 
+                    << "Exiting thread unsuccessfully with return value 0."
+                    << endl;
+               unlock_cerr_mutex(); 
+
+               memset(buffer, 0, param->MAX_BUFFER + 1);
+
+               strcpy(buffer, "SERVER SHOW PRIVILEGES FAILED 5");
+
+               gnutls_record_send(*param->session, buffer, strlen(buffer));
+
+
+          }  /* |else| (|status != 0|)  */
+
+@q ****** (6) @>
+
+#if 1 /* 0 */
+DEBUG = save_DEBUG; 
+#endif 
+
+      }  /* |else if (response.type == Response_Type::SHOW_PRIVILEGES_TYPE)|  */
+
+
+@q ***** (5) @>
+@
+\LOG
+\initials{LDF 2011.09.26.}
+Added this section.
+
+\initials{LDF 2011.09.29.}
+Added code for adding |response.remote_filename| to the command, 
+if it's non-empty.
+\ENDLOG
+
+@<|exchange_data_with_client| definition@>=
+
+      else if (response.type == Response_Type::PROXY_CREDENTIAL_TYPE)
+      {
+     
+          response.type = Response_Type::COMMAND_ONLY_TYPE;
+
+          response.command = "SEND PROXY_CREDENTIAL";
+
+          if (!response.remote_filename.empty())
+          {
+             response.command += " <";
+             response.command += response.remote_filename;
+             response.command += ">";
+          }
+  
+          pthread_mutex_lock(&param->response_deque_mutex); 
+          param->response_deque.push_front(response);
+          pthread_mutex_unlock(&param->response_deque_mutex);
+
+      } /* |else if (response.type == Response_Type::PROXY_CREDENTIAL_TYPE)|  */
+
+
+@q ***** (5) Send secret key to client. @>
+
+@ Send secret key to client.  
+\initials{LDF 2011.11.14.}
+
+\LOG
+\initials{LDF 2011.11.14.}
+Added this section.
+\ENDLOG
+
+@:TODO@> !! TODO:  It would be nice if |Scan_Parse_Parameter_Type::send_data_to_peer|
+could use a |char| buffer.  Currently, it requires a file.
+\initials{LDF 2011.11.14.}
+
+@<|exchange_data_with_client| definition@>=
+
+      else if (response.type == Response_Type::KEY_PAIR_TYPE
+               && !response.local_filename.empty())
+      {
+     
+            status = param->send_data_to_peer(response, !save_temp_files);  
+
+            if (status != 0)
+            {
+                lock_cerr_mutex(); 
+                cerr << "ERROR!  In `exchange_data_with_client':  "
+                     << "`Scan_Parse_Parameter_Type::send_data_to_peer' "
+                     << "failed, returning "
+                     << status
+                     << endl 
+                     << "Failed to send secret key to client."
+                     << endl 
+                     << "Will try to continue."
+                     << endl;
+                unlock_cerr_mutex(); 
+        
+
+            }
+            else if (DEBUG)
+            {
+                lock_cerr_mutex(); 
+                cerr << "In `exchange_data_with_client':  "
+                     << "`Scan_Parse_Parameter_Type::send_data_to_peer' "
+                     << "succeeded."
+                     << endl 
+                     << "Sent secret key to client successfully."
+                     << endl;
+                unlock_cerr_mutex(); 
+
+            }  /* |else if (DEBUG)|  */ 
+            
+
+      } /* |else if (   response.type == Response_Type::KEY_PAIR_TYPE
+                     && !response.local_filename.empty())|  */
+
+@q ***** (5) Request key pair and public key from client.  @>
+
+@ Request key pair and public key from client.  
+\initials{LDF 2011.11.03.}
+
+\LOG
+\initials{LDF 2011.11.03.}
+Added this section.
+\ENDLOG
+
+@<|exchange_data_with_client| definition@>=
+
+      else if (response.type == Response_Type::KEY_PAIR_TYPE
+               && response.local_filename.empty())
+      {
+@q ****** (6) @>
+
+#if 1 /* 0 */
+bool save_DEBUG = DEBUG;
+DEBUG = false; /* |true|  */
+#endif 
+
+          response.type = Response_Type::COMMAND_ONLY_TYPE;
+
+          response.command = "SEND KEY_PAIR";
+          pthread_mutex_lock(&param->response_deque_mutex); 
+          param->response_deque.push_front(response);
+          pthread_mutex_unlock(&param->response_deque_mutex);
+
+@q ****** (6) @>
+
+#if 1 /* 0 */
+DEBUG = save_DEBUG; 
+#endif 
+
+      } /* |else if (   response.type == Response_Type::KEY_PAIR_TYPE
+                     && response.local_filename.empty())|  */
+
+@q ***** (5) @>
+@
+\LOG
+\initials{LDF 2011.10.04.}
+Added this section.
+\ENDLOG
+
+@<|exchange_data_with_client| definition@>=
+
+      else if (response.type == Response_Type::REMOTE_INSTALL_TYPE)
+      {
+
+#if 1 /* 0 */
+bool save_DEBUG = DEBUG;
+DEBUG = false; /* |true|  */
+#endif 
+
+@q ****** (6) @>
+
+          if (DEBUG) 
+          {
+             lock_cerr_mutex(); 
+             cerr << "In `exchange_data_with_client':  "
+                  << endl
+                  << "response.type == Response_Type::REMOTE_INSTALL_TYPE"
+                  << endl 
+                  << "response.local_stdout_filename == " 
+                  << response.local_stdout_filename << endl;
+             unlock_cerr_mutex(); 
+          }
+
+@q ***** (5) Invoking |remote_install_func|.  @>
+
+@ Invoking |remote_install_func|.  
+\initials{LDF 2011.10.14.}
+
+\LOG
+\initials{LDF 2011.10.18.}
+Added error-handling code.
+\ENDLOG
+
+\initials{LDF 2011.10.19.}
+@:??@> ?? Memory for a new |pair<Scan_Parse_Parameter_Type*, Entry_Type>| has to be 
+allocated on the heap before being pushed onto |pair_vector| in each iteration of 
+the loop below.  I'm not sure why this is necessary.  With the other things I tried,
+the |Entry_Type| object in the first call to |remote_install_func| was always 
+``overwritten'' by the second |Entry_Type| on |param->install_vector|.  
+I would have thought that it would have been copied.
+\par
+\initials{LDF 2011.10.21.}
+Another problem is that segmentation faults sometimes (but not always) 
+occur when trying to access |string| members of |param|.  
+I don't know why this happens.
+
+@<|exchange_data_with_client| definition@>=
+
+          if (response.local_stdout_filename.empty())
+          {
+@q ****** (6) @>
+
+
+              if (param->install_vector.size() > 0)
+              {   
+
+
+                  Response_Type r;
+
+@q ******* (7) Check |effective_user_name| or |user_name|.  @>
+
+@ Check |effective_user_name| or |user_name|.  
+
+\LOG
+\initials{LDF 2011.10.04.}
+Added this section.
+
+\initials{LDF 2011.10.20.}
+Moved this section from |Scan_Parse_Parameter_Type::call_installstarter|
+to here.
+\ENDLOG
+
+@<|exchange_data_with_client| definition@>=
+
+
+                  if (DEBUG)    
+                  {
+                      lock_cerr_mutex(); 
+                      cerr << "param->effective_user_id == " << param->effective_user_id 
+                           << endl
+                           << "param->effective_user_name == " << param->effective_user_name 
+                           << endl
+                           << "param->user_id == " << param->user_id << endl
+                           << "param->user_name == " << param->user_name << endl;
+                      unlock_cerr_mutex(); 
+
+                  }  /* |if (DEBUG)|  */
+
+@q ******** (8) @>
+
+@ This code should probably never be reached.
+\initials{LDF 2011.10.27.}
+
+@<|exchange_data_with_client| definition@>=
+
+                  if (   param->effective_user_id > 0 
+                      && (   param->effective_user_name.empty() 
+                          || param->effective_user_name == "NULL_USER"))
+                  {
+                      param->get_database_username(param->effective_user_id);
+                  }
+                  else if (param->user_name.empty() || param->user_name == "NULL_USER")
+                  {
+                     param->get_database_username(param->user_id);
+                  }
+
+                  if (DEBUG)
+                  {
+                      lock_cerr_mutex();  
+                      cerr << "[Thread " << param->thread_ctr << "] "
+                           << "In `exchange_data_with_client':"
+                           << endl << "`param->effective_user_id' == " 
+                           << param->effective_user_id << endl
+                           << "`param->effective_user_name' == " 
+                           << param->effective_user_name 
+                           << endl
+                           << "`param->user_id' == " << param->user_id 
+                           << endl
+                           << "`param->user_name' == " << param->user_name 
+                           << endl;
+                      unlock_cerr_mutex(); 
+
+                  }  /* |if (DEBUG)|  */
+
+                  if (   (   param->effective_user_name.empty() 
+                          || param->effective_user_name == "NULL_USER")
+                          && (param->user_name.empty() || param->user_name == "NULL_USER"))
+                  {
+                       lock_cerr_mutex(); 
+                       cerr << "[Thread " << param->thread_ctr << "] "
+                            << "ERROR!  In `exchange_data_with_client':"
+                            << endl
+                            << "No user name or effective user name.  "
+                            << "Not calling `remote_install_func'."
+                            << endl;
+                       unlock_cerr_mutex(); 
+
+                       r.type = Response_Type::COMMAND_ONLY_TYPE;
+
+                       temp_strm.str("");
+ 
+                       temp_strm << "REMOTE INSTALLATION FAILED "
+                                 << "USER_NAME NOT FOUND";
+
+                       r.command = temp_strm.str();
+
+                       temp_strm.str("");
+
+                       pthread_mutex_lock(&param->response_deque_mutex);
+                       param->response_deque.push_back(r);
+                       pthread_mutex_unlock(&param->response_deque_mutex);
+
+                  }  /* |if| (user not found)   */
+
+@q ******* (7) @>
+@
+\LOG
+\initials{LDF 2011.10.23.}
+Now using a pointer to |Entry_Type| in |pair_vector| instead 
+of a plain |Entry_Type|.
+\ENDLOG 
+@<|exchange_data_with_client| definition@>=
+
+                  else  /* user found  */
+                  {
+
+@q ******* (7) @>
+
+
+@q ******** (8) @>
+@
+\LOG
+\initials{LDF 2011.10.23.}
+Added code for setting |iter->remote_install_timespec|.
+\ENDLOG 
+@<|exchange_data_with_client| definition@>=
+
+
+                     if (DEBUG)
+                     {
+
+                         lock_cerr_mutex();
+                         cerr << "Before sort:" << endl;
+                         
+                         for (vector<Entry_Type>::iterator iter 
+                                 = param->install_vector.begin();
+                              iter != param->install_vector.end();
+                              ++iter)
+                   
+                         {
+                             cerr << "iter->package_name == " << iter->package_name
+                                  << endl 
+                                  << "iter->package_version == " << iter->package_version
+                                  << endl 
+                                  << "iter->remote_install_timeout == " 
+                                  << iter->remote_install_timeout
+                                  << endl;
+
+
+                         }
+
+                         unlock_cerr_mutex(); 
+
+                      }  /* |if (DEBUG)|  */ 
+
+                     sort(param->install_vector.begin(), 
+                          param->install_vector.end(), 
+                          less_package_name_globus_site_version());
+
+                     if (DEBUG)
+                     {
+
+                         lock_cerr_mutex();
+                         cerr << "After sort:" << endl;
+                         
+                         for (vector<Entry_Type>::iterator iter 
+                                 = param->install_vector.begin();
+                              iter != param->install_vector.end();
+                              ++iter)
+                   
+                         {
+                             cerr << "iter->package_name == " << iter->package_name
+                                  << endl 
+                                  << "iter->globus_site == " << iter->globus_site
+                                  << endl 
+                                  << "iter->package_version == " << iter->package_version
+                                  << endl 
+                                  << "iter->remote_install_timeout == " 
+                                  << iter->remote_install_timeout
+                                  << endl;
+
+
+                         }
+
+                         unlock_cerr_mutex(); 
+
+                      }  /* |if (DEBUG)|  */ 
+
+
+@q ********* (9) Remove duplicates from |install_vector|.  @>
+
+@ Remove duplicates from |install_vector|.  |Entry_Type| objects are considered
+duplicates for this purpose if the |package_name|, |package_version| and
+|globus_site| members are all equal.
+\initials{LDF 2011.10.28.}
+
+\LOG
+\initials{LDF 2011.10.28.}
+Now calling |unique| and |erase| to remove duplicates from |install_vector|. 
+\ENDLOG 
+
+@<|exchange_data_with_client| definition@>=
+
+                     vector<Entry_Type>::iterator a, b;
+
+                     a = unique(param->install_vector.begin(), param->install_vector.end(), 
+                                equal_package_name_version_globus_site());
+
+                     if (a != param->install_vector.end())
+                     {
+                         if (DEBUG)
+                         {
+                             lock_cerr_mutex(); 
+                             cerr << "Found duplicate(s).  Erasing." << endl;
+                             unlock_cerr_mutex();   
+
+                         }  /* |if (DEBUG)|  */ 
+
+                         param->install_vector.erase(a, param->install_vector.end());
+
+                     }
+
+                     if (DEBUG)
+                     {
+                        lock_cerr_mutex(); 
+                        cerr << "param->install_vector.size() "
+                             << "after `unique' and `erase' == " 
+                             << param->install_vector.size() << endl;
+                        unlock_cerr_mutex(); 
+
+                     }  /* |if (DEBUG)|  */ 
+
+@q ********* (9) @>
+@
+@<|exchange_data_with_client| definition@>=
+
+                     if (DEBUG)
+                     {
+
+                         lock_cerr_mutex();
+                         cerr << "After `sort' and possibly `unique' and `erase':" 
+                              << endl;
+                         
+                         for (vector<Entry_Type>::iterator iter 
+                                 = param->install_vector.begin();
+                              iter != param->install_vector.end();
+                              ++iter)
+                   
+                         {
+                             cerr << "iter->package_name == " << iter->package_name
+                                  << endl 
+                                  << "iter->package_version == " << iter->package_version
+                                  << endl 
+                                  << "iter->globus_site == " << iter->globus_site
+                                  << endl 
+                                  << "iter->remote_install_timeout == " 
+                                  << iter->remote_install_timeout
+                                  << endl;
+
+                         }
+
+                         cerr << endl;
+
+                         unlock_cerr_mutex(); 
+
+                      }  /* |if (DEBUG)|  */ 
+
+@q ********* (9) @>
+@
+@<|exchange_data_with_client| definition@>=
+
+                      vector<Entry_Type>::const_iterator iter_1;
+
+                      multimap<pair<string, string>, string> package_mmap;
+
+                      bool first_time = true;
+
+                      for (vector<Entry_Type>::const_iterator iter 
+                           = param->install_vector.begin();
+                           iter != param->install_vector.end();
+                           ++iter)
+                      {
+                     
+                          iter_1 = iter;
+
+                          if (iter_1 != param->install_vector.end())
+                             ++iter_1;
+
+                          if (iter_1 == param->install_vector.end())
+                          {
+
+                               if (DEBUG)
+                               {
+                                   lock_cerr_mutex(); 
+                                   cerr << "Reached end of `param->install_vector'.  Breaking."
+                                        << endl;
+                                   unlock_cerr_mutex(); 
+                               }  /* |if (DEBUG)|  */         
+
+                               break;
+
+                          }
+
+                          if (DEBUG)
+                          {
+                              lock_cerr_mutex(); 
+                              cerr << "iter->package_name == " << iter->package_name
+                                   << endl 
+                                   << "iter_1->package_name == " << iter_1->package_name
+                                   << endl 
+                                   << "iter->package_version == " << iter->package_version
+                                   << endl 
+                                   << "iter_1->package_version == " << iter_1->package_version
+                                   << endl 
+                                   << "iter->globus_site == " << iter->globus_site
+                                   << endl
+                                   << "iter_1->globus_site == " << iter_1->globus_site
+                                   << endl;
+                              unlock_cerr_mutex(); 
+
+                          }  /* |if (DEBUG)|  */    
+
+                          first_time = true;
+
+                          while (   iter != param->install_vector.end() 
+                                 && iter_1 != param->install_vector.end()
+                                 && iter->package_name == iter_1->package_name
+                                 && iter->globus_site  == iter_1->globus_site)
+                          {
+
+                               if (DEBUG)
+                               {
+                                   lock_cerr_mutex(); 
+                                   cerr << "In inner while loop:"
+                                        << endl 
+                                        << "iter->package_name == " << iter->package_name
+                                        << endl 
+                                        << "iter_1->package_name == " << iter_1->package_name
+                                        << endl 
+                                        << "iter->package_version == " << iter->package_version
+                                        << endl 
+                                        << "iter_1->package_version == " << iter_1->package_version
+                                        << endl 
+                                        << "iter->globus_site == " << iter->globus_site
+                                        << endl
+                                        << "iter_1->globus_site == " << iter_1->globus_site
+                                        << endl;
+                                   unlock_cerr_mutex(); 
+
+                               }  /* |if (DEBUG)|  */    
+
+                               if (DEBUG)
+                               {
+                                   lock_cerr_mutex(); 
+                                   cerr << "Adjacent items have same package name and "
+                                        << "Globus site."
+                                        << endl
+                                        << "Will send a warning to `optdbcli'."
+                                        << endl;
+                                   unlock_cerr_mutex(); 
+
+                               }  /* |if (DEBUG)|  */    
+
+                               if (first_time)
+                                  package_mmap.insert(make_pair(make_pair(iter->package_name, 
+                                                                          iter->globus_site),
+                                                                     iter->package_version));
+
+                               package_mmap.insert(make_pair(make_pair(iter_1->package_name, 
+                                                                       iter_1->globus_site),
+                                                                    iter_1->package_version));
+
+                              iter++;
+                              iter_1++;
+
+                              first_time = false;
+
+                          }  /* inner |while|  */
+
+                          cerr << endl;
+
+                      }  /* |for|  */
+
+                      if (DEBUG)
+                      {
+                          lock_cerr_mutex();    
+                          cerr << "Showing `package_mmap':  " << endl;
+                          unlock_cerr_mutex(); 
+ 
+                      }  /* |if (DEBUG)|  */  
+
+@q ********* (9) @>
+@
+@<|exchange_data_with_client| definition@>=
+
+/* !! TODO: LDF 2011.10.28.  Put debugging output into conditionals.   */
+
+                      for (multimap<pair<string, string>, string>::const_iterator iter 
+                              = package_mmap.begin();
+                           iter != package_mmap.end();
+                           ++iter)
+                      {
+                           if (DEBUG)
+                           {
+                              cerr << "iter->first.first == " << iter->first.first << endl;
+                              cerr << "iter->first.second == " << iter->first.second << endl;
+                              cerr << "iter->second == " << iter->second << endl;
+     
+
+                           }  /* |if (DEBUG)|  */     
+                      }
+
+                      if (DEBUG)
+                      {
+                          lock_cerr_mutex(); 
+                          cerr << endl << "Finished showing `package_mmap'." << endl << endl
+                               << "About to loop through it, calling `equal_range'."
+                               << endl;
+                          unlock_cerr_mutex(); 
+
+                      }  /* |if (DEBUG)|  */
+
+
+                      typedef multimap<pair<string, string>, string>::iterator MI;
+
+                      pair<MI, MI> iter_pair;
+                      MI temp_iter = package_mmap.begin();
+
+@q ********* (9) @>
+@
+@<|exchange_data_with_client| definition@>=
+                      do
+                      {
+@q ********** (10) @>
+
+                           iter_pair 
+                              = package_mmap.equal_range(temp_iter->first);
+
+                           if (iter_pair.first == package_mmap.end())
+                           {
+                                if (DEBUG) 
+                                {   
+                                    lock_cerr_mutex();  
+                                    cerr << "`equal_range' failed.  Breaking" << endl;
+                                    unlock_cerr_mutex(); 
+
+                                } /* |if (DEBUG)|  */ 
+
+                                break;
+
+                           }    
+                           else 
+                           {
+@q *********** (11) @>
+
+                               temp_iter = iter_pair.second;
+
+                               if (DEBUG) 
+                               {
+                                   lock_cerr_mutex();  
+                                   cerr << "equal_range succeeded."  << endl;
+
+                                   cerr << "iter_pair.first->first.first == " 
+                                        << iter_pair.first->first.first << endl
+                                        << "iter_pair.first->first.second == " 
+                                        << iter_pair.first->first.second << endl
+                                        << "iter_pair.first->second == " 
+                                        << iter_pair.first->second << endl;
+
+                                   if (iter_pair.second == package_mmap.end())
+                                   {
+                                       cerr << "Reached end of `package_mmap'."
+                                            << endl;
+                                   }
+                                   else
+                                   {
+                                       cerr << "iter_pair.second->first.first == "    
+                                            << iter_pair.second->first.first << endl  
+                                            << "iter_pair.second->first.second == "   
+                                            << iter_pair.second->first.second << endl 
+                                            << "iter_pair.second->second == "         
+                                            << iter_pair.second->second << endl;      
+
+                                   }
+
+@q *********** (11) @>
+
+                                   cerr << endl << "About to show range:"
+                                       << endl;
+                                   unlock_cerr_mutex(); 
+
+
+
+                               } /* |if (DEBUG)|  */          
+
+                 
+
+                     
+                               temp_strm.str("");
+                               temp_strm << "REMOTE INSTALLATION WARNING PACKAGE_NAME <"
+                                         << iter_pair.first->first.first
+                                         << "> MULTIPLE PACKAGE_VERSIONS";
+@q *********** (11) @>
+
+                               for (MI inner_iter = iter_pair.first;
+                                    inner_iter != iter_pair.second;
+                                    ++inner_iter)
+                               {
+
+
+                                  if (DEBUG) 
+                                  {
+                                      lock_cerr_mutex();  
+                                      cerr << "inner_iter->first.first == " 
+                                           << inner_iter->first.first << endl 
+                                           << "inner_iter->first.second == " 
+                                           << inner_iter->first.second << endl 
+                                           << "inner_iter->second == " 
+                                           << inner_iter->second << endl << endl;
+                                      unlock_cerr_mutex(); 
+
+                                  } /* |if (DEBUG)|  */             
+
+                                  if (inner_iter->second.empty())
+                                     temp_strm << " NO_VERSION";
+                                  else
+                                     temp_strm << " <" << inner_iter->second << ">";
+
+                               }  /* inner |for|  */
+
+                               temp_strm << " GLOBUS_SITE <" 
+                                         << iter_pair.first->first.second << ">";
+
+                               r.type = Response_Type::COMMAND_ONLY_TYPE;
+                               r.command = temp_strm.str();
+
+                               pthread_mutex_lock(&param->response_deque_mutex);
+                               param->response_deque.push_back(r);
+                               pthread_mutex_unlock(&param->response_deque_mutex);
+
+@q *********** (11) @>
+
+                               if (DEBUG) 
+                               {
+                                  lock_cerr_mutex();  
+                                  cerr << endl << "Finished showing range."
+                                       << endl
+                                       << "temp_strm.str() == " << endl 
+                                       << temp_strm.str() << endl << endl;
+                                  unlock_cerr_mutex(); 
+
+                               } /* |if (DEBUG)|  */          
+
+@q *********** (11) @>
+
+                          }  /* |else|  */
+
+
+@q ********** (10) @>
+
+                      }  /* |do|  */
+
+                      while (iter_pair.second != package_mmap.end());
+
+@q ********* (9) Sort |install_vector| according to |remote_install_timeout|.  @>
+
+@ Sort |install_vector| according to |remote_install_timeout|.  
+\initials{LDF 2011.10.28.}
+
+@<|exchange_data_with_client| definition@>=
+
+                     sort(param->install_vector.begin(), 
+                          param->install_vector.end(), less_timeout());
+
+
+                     if (DEBUG)
+                     {
+
+                         lock_cerr_mutex();
+                         cerr << "After `sorting' according to `remote_install_timeout':"
+                              << endl;
+                         
+                         for (vector<Entry_Type>::iterator iter 
+                                 = param->install_vector.begin();
+                              iter != param->install_vector.end();
+                              ++iter)
+                   
+                         {
+                             cerr << "iter->package_name == " << iter->package_name
+                                  << endl 
+                                  << "iter->package_version == " << iter->package_version
+                                  << endl 
+                                  << "iter->remote_install_timeout == " 
+                                  << iter->remote_install_timeout
+                                  << endl;
+
+                         }
+                         unlock_cerr_mutex(); 
+
+                      }  /* |if (DEBUG)|  */ 
+
+
+@q ********* (9) @>
+@
+@<|exchange_data_with_client| definition@>=
+
+
+
+                     for (vector<Entry_Type>::iterator iter 
+                             = param->install_vector.begin();
+                          iter != param->install_vector.end();
+                          ++iter)
+                     {    
+@q ********* (9) @>
+                         if (clock_gettime(CLOCK_REALTIME, 
+                                           &(iter->remote_install_timespec)) == -1)
+                         {
+                             lock_cerr_mutex(); 
+                             cerr << "[Thread " << param->thread_ctr 
+                                  << "] ERROR!  In `exchange_data_with_client':"
+                                  << endl
+                                  << "`clock_gettime' failed, returning -1:"
+                                  << endl;
+
+                             perror("clock_getttime error");
+
+                             cerr << "Will try to continue."
+                                  << endl;
+ 
+                             unlock_cerr_mutex(); 
+
+                         }
+                         else if (DEBUG)
+                         {
+                             lock_cerr_mutex(); 
+                             cerr << "[Thread " << param->thread_ctr 
+                                  << "] In `exchange_data_with_client':"
+                                  << endl
+                                  << "`clock_gettime' succeeded."
+                                  << endl;
+                              unlock_cerr_mutex(); 
+
+                         }  /* |else if (DEBUG)|  */ 
+
+@q ********** (10) @>
+
+                         if (iter->remote_install_timeout > 0)
+                         {
+                            iter->remote_install_timespec.tv_sec += iter->remote_install_timeout;
+                         }
+                         else
+                         {
+                            iter->remote_install_timespec.tv_sec += 1200;  /* 10 minutes  */
+                         }
+
+@q ********* (9) @>
+
+                         status = pthread_create(&(iter->remote_install_thread_id),
+                                                 0, 
+                                                 remote_install_func, 
+                                                 &(*iter));
+
+                         if (status != 0)
+                         {
+                              lock_cerr_mutex();                         
+                              cerr << "[Thread " << param->thread_ctr << "] "
+                                   << "ERROR!  In `exchange_data_with_client':"
+                                   << endl
+                                   << "`pthread_create' failed, returning " << status
+                                   << ":"
+                                   << endl;
+
+                              perror("pthread_create error");
+     
+                              cerr << "Will try to continue."
+                                   << endl;
+                              
+                              unlock_cerr_mutex(); 
+
+                              r.type = Response_Type::COMMAND_ONLY_TYPE;
+                            
+                              temp_strm.str("");
+
+                              temp_strm << "REMOTE INSTALLATION FAILED FOR "
+                                        << "PACKAGE_NAME <" << iter->package_name << ">";
+
+                              if (!iter->package_version.empty())
+                          
+                                  temp_strm << " PACKAGE_VERSION <" << iter->package_version
+                                            << "> OTHER REASON";
+
+
+                              r.command = temp_strm.str();
+
+                              temp_strm.str("");
+
+                              pthread_mutex_lock(&param->response_deque_mutex);
+                              param->response_deque.push_back(r);
+                              pthread_mutex_unlock(&param->response_deque_mutex);
+
+                         }  /* |if (status != 0)|  */
+            
+
+                         else if (DEBUG)
+                         {
+                             lock_cerr_mutex(); 
+                             cerr << "`pthread_create' succeeded, returning 0." 
+                                  << endl;
+                             unlock_cerr_mutex(); 
+                         }  
+
+    
+@q ********* (9) @>
+                     }  /*     |for|  */
+
+
+@q ******* (7) @>
+@
+@:NOTE@> !! PLEASE NOTE:  |pthread_timedjoin_np| is a non-standard GNU extension.
+``np'' stands for ``non-portable''.  |_GNU_SOURCE| must be defined in order 
+to use it.
+\initials{LDF 2011.10.20.}
+
+@<|exchange_data_with_client| definition@>=
+
+                     for (vector<Entry_Type>::iterator iter 
+                             = param->install_vector.begin();
+                          iter != param->install_vector.end();
+                          ++iter)
+                      {
+@q ******** (8) @>
+                         void *retval = &iter->remote_install_retval;
+
+                         status = pthread_timedjoin_np(iter->remote_install_thread_id, 
+                                                       &retval,
+                                                       &(iter->remote_install_timespec));
+
+
+@q ******** (8) @>
+
+                         if (DEBUG)
+                         {
+                            lock_cerr_mutex(); 
+                            cerr << "[Thread " << param->thread_ctr << "] "
+                                 << "In `exchange_data_with_client':"
+                                 << endl
+                                 << "Return value of thread == "
+                                 << "`iter->remote_install_retval' == "
+                                 << iter->remote_install_retval
+                                 << endl;
+                            unlock_cerr_mutex(); 
+
+                         }  /* |if (DEBUG)|  */ 
+
+
+                         if (status != 0)
+                         {
+@q ********* (9) @>
+                            lock_cerr_mutex(); 
+                            cerr << "[Thread " << param->thread_ctr << "] "
+                                 << "WARNING!  In `exchange_data_with_client':"
+                                 << endl
+                                 << "Timeout:  `pthread_timedjoin_np' returned "
+                                 << status << ":" << endl
+                                 << "pthread_timedjoin_np error:  " << strerror(status)
+                                 << endl
+                                 << "Will cancel thread and try to continue."
+                                 << endl;
+                            unlock_cerr_mutex(); 
+
+
+                            r.type = Response_Type::COMMAND_ONLY_TYPE;
+
+                            temp_strm.str("");
+
+                            temp_strm << "REMOTE INSTALLATION FAILED FOR "
+                                      << "PACKAGE_NAME <" << iter->package_name << "> ";
+
+                            if (!iter->package_version.empty())
+                          
+                                temp_strm << " PACKAGE_VERSION <" << iter->package_version
+                                          << "> ";
+
+                            
+
+                            temp_strm << "GLOBUS_SITE <" << iter->globus_site << "> " 
+                                      << "TIMEOUT " 
+                                      << iter->remote_install_timeout;
+
+                            r.command = temp_strm.str();
+
+                            temp_strm.str("");
+
+                            pthread_mutex_lock(&param->response_deque_mutex);
+                            param->response_deque.push_back(r);
+                            pthread_mutex_unlock(&param->response_deque_mutex);
+
+@q ********* (9) @>
+             
+                            status = pthread_cancel(iter->remote_install_thread_id);
+
+                            if (status != 0)
+                            {
+                                lock_cerr_mutex(); 
+                                cerr << "[Thread " << param->thread_ctr << "] "
+                                     << "ERROR!  In `exchange_data_with_client':"
+                                     << endl
+                                     << "`pthread_cancel' failed, returning "
+                                     << status << ":" << endl
+                                     << "pthread_cancel error:  " << strerror(status)
+                                     << endl
+                                     << "Will try to continue."
+                                     << endl;
+                                unlock_cerr_mutex(); 
+
+                            }  /* |if|  */
+
+                            else if (DEBUG)
+                            {
+                                lock_cerr_mutex(); 
+                                cerr << "`pthread_cancel' succeeded, returning 0." 
+                                     << endl;
+                                unlock_cerr_mutex(); 
+
+                            }  /* |else if (DEBUG)|  */ 
+
+@q ********* (9) @>
+@
+@<|exchange_data_with_client| definition@>=
+
+                            if (DEBUG)
+                            {
+                                lock_cerr_mutex(); 
+                                cerr << "iter->remote_install_pid[0] == " 
+                                     << iter->remote_install_pid[0]
+                                     << endl 
+                                     << "iter->remote_install_pid[1] == " 
+                                     << iter->remote_install_pid[1]
+                                     << endl;
+                                unlock_cerr_mutex(); 
+
+                            }  /* |if (DEBUG)|  */ 
+
+@q ********* (9) @>
+@ 
+\LOG
+\initials{LDF 2011.10.26.}
+Added this section.
+
+\initials{LDF 2011.10.27.}
+Added |user_name_str|.  Now calling \.{kllprcss} with \.{sudo} so that it runs under the account 
+corresponding to |user_name_str| and not under the \.{root} account.
+\ENDLOG
+
+@<|exchange_data_with_client| definition@>=
+
+                            string user_name_str;
+
+                            if (!param->effective_user_name.empty())
+                            {
+                               user_name_str = param->effective_user_name;
+                            }
+                            else
+                            {
+                               user_name_str = param->user_name;
+                            }                        
+
+
+                            temp_strm.str("");
+                            temp_strm.clear();
+
+#if IS_PCFINSTON_GWDG
+
+                            temp_strm << "sudo -u " << user_name_str 
+                                      << " /home/lfinsto/opt_rep/optinum/"
+                                      << "Installer/dbsrvcli/src/kllprcss ";
+
+#elif IS_OPTINUM_SRV
+
+                            temp_strm << "sudo -u " << user_name_str
+                                      << " /opt/optinum/dbsrvcli/bin/kllprcss ";
+
+/* !! TODO: LDF 2012.02.23.  Add code for other platforms.
+   However, not urgent, because \.{optdbsrv} isn't currently 
+   installed on any other platforms.
+
+*/
+
+#endif
+
+@q ********** (10) @>
+
+                            if (iter->remote_install_pid[0] > 0)
+
+                                temp_strm << iter->remote_install_pid[0];
+
+                            if (iter->remote_install_pid[1] > 0)
+
+                                temp_strm << " " << iter->remote_install_pid[1];
+
+                            if (DEBUG)
+                            {
+ 
+                                lock_cerr_mutex(); 
+                                cerr << "[Thread " << param->thread_ctr << "] "
+                                     << "In `exchange_data_with_client':"
+                                     << endl
+                                     << "`temp_strm_str()' == " << endl
+                                     << temp_strm.str()
+                                     << endl;
+                                unlock_cerr_mutex(); 
+
+                            }  /* |if (DEBUG)|  */ 
+
+                            status = system(temp_strm.str().c_str());
+
+                            temp_strm.str("");
+
+@q ********** (10) @>
+
+                            if (status != 0)
+                            {
+
+                                lock_cerr_mutex(); 
+                                cerr << "[Thread " << param->thread_ctr << "] "
+                                     << "ERROR!  In `exchange_data_with_client':"
+                                     << endl
+                                     << "`system' failed to execute `kllprcss', returning " 
+                                     << status << ":"
+                                     << endl;
+
+                                perror("system error");
+
+                                if (WIFEXITED(status))
+                                {
+	                          cerr << "WEXITSTATUS(" << status << ") == " 
+                                       << WEXITSTATUS(status) << endl;
+                                }
+                                else
+                                {
+	                          cerr << "Process didn't exit." << endl;
+
+                                }    
+
+                                unlock_cerr_mutex(); 
+
+                            }  /* |if (status != 0)|  */
+            
+@q ********** (10) @>
+
+
+                            else if (DEBUG)
+                            {
+
+                                lock_cerr_mutex(); 
+                                cerr << "[Thread " << param->thread_ctr << "] "
+                                     << "In `exchange_data_with_client':"
+                                     << endl
+                                     << "`system' executed `kllprcss' successfully."
+                                     << endl;
+                                unlock_cerr_mutex(); 
+
+                            }  /* |if (status != 0)|  */
+
+@q ********** (10) @>
+
+@q ********* (9) @>
+@
+@<|exchange_data_with_client| definition@>=
+
+                         }  /* |if (status != 0)|  (Timeout)  */
+
+@q ******** (8) @>
+
+                         else if (DEBUG)  /* join succeeded, thread didn't time out  */
+                         {
+                             lock_cerr_mutex(); 
+                             cerr << "`pthread_timedjoin_np' succeeded, returning 0." 
+                                  << endl;
+                             unlock_cerr_mutex(); 
+                         } 
+
+@q ******** (8) Check return value passed back by |remote_install_func|.  @>
+
+@ Check return value passed back by |remote_install_func|.
+\initials{LDF 2011.10.27.}
+
+\LOG
+\initials{LDF 2011.10.27.}
+Added this section.
+\ENDLOG
+
+@<|exchange_data_with_client| definition@>=
+                         
+                         if (iter->remote_install_retval != 0)
+                         {
+
+@q ********* (9) @>
+
+                             lock_cerr_mutex(); 
+                             cerr << "[Thread " << param->thread_ctr << "] "
+                                  << "WARNING!  In `exchange_data_with_client':"
+                                  << endl
+                                  << "`remote_install_func' failed, returning "
+                                  << iter->remote_install_retval << ":"
+                                  << endl;
+
+
+@q ********* (9) @>
+                             if (iter->remote_install_retval > 10000)
+                             {
+                                  cerr << "Call to `sudo' for `instchwn' in "
+                                       <<  "`remote_install_func' failed, returning "
+                                       << (iter->remote_install_retval - 10000)
+                                       << "."
+                                       << endl;
+                             }
+
+@q ********* (9) @>
+
+                             else if (iter->remote_install_retval > 1000)
+                             {
+@q ********** (10) @>
+                                 cerr << "Call to `sudo' for ";
+#if IS_OPTINUM_SRV
+                                 cerr << "`strtinst.sh' ";
+
+#elif IS_PCFINSTON_GWDG
+
+                                 cerr << "`strtinst_1.sh' ";
+#endif 
+                                 cerr << "in `remote_install_func' failed, returning "
+                                      << (iter->remote_install_retval - 1000)
+                                      << "."
+                                      << endl;
+
+                                 if ((iter->remote_install_retval - 1000) > 100)
+                                 {
+                                     cerr << "Call to `handle_proxy_cred' in `strtinst' failed, "
+                                          << "returning " << (iter->remote_install_retval - 1100)
+                                          << "." << endl;
+
+                                 }
+
+@q ********** (10) @>                                 
+                             }  /* |else if|  */
+ 
+@q ********* (9) @>
+
+                             cerr  << "Will try to continue."
+                                  << endl;
+                             unlock_cerr_mutex(); 
+
+                             temp_strm.str("");
+
+                             temp_strm << "REMOTE INSTALLATION FAILED FOR "
+                                       << "PACKAGE_NAME <" << iter->package_name << ">";
+
+@q ********* (9) @>
+
+                             if (!iter->package_version.empty())
+                             {
+                                 temp_strm << " PACKAGE_VERSION <" << iter->package_version
+                                           << ">";
+                             }
+
+                             temp_strm << "GLOBUS_SITE <" << iter->globus_site << "> ";
+
+
+@q ********* (9) @>
+
+@ @:NOTE@> !! PLEASE NOTE:  The conditionals below will need to be changed, if return values are 
+added or changed for |handle_proxy_cred| in \filename{dhprxcrt.web}.
+\initials{LDF 2012.02.07.}
+
+@<|exchange_data_with_client| definition@>=
+
+                             if (   (iter->remote_install_retval - 1100) == 6
+                                 || (iter->remote_install_retval - 1100) == 17)
+                             {
+                                 temp_strm << " PROXY_CREDENTIAL EXPIRED";
+
+                             }
+
+@q ********* (9) @>
+
+@ Error return values of \.{strtinst} $< 100$ are errors that {\it aren't\/} 
+from the call to |handle_proxy_cred| in \.{strtinst}.
+The ``1000'' is from  |remote_install_func|:  The latter returns a 
+value $> 1000$ when the call to \.{strtinst} fails.  
+If the call to |handle_proxy_cred| in \.{strtinst} fails, 
+\.{strtinst} exits with an exit status $> 100$.  
+%
+Let $r$ stand for |iter->remote_install_retval|:
+If $r > 10000$, then the call to \.{instchwn} in |remote_install_func| failed.
+If $r > 1100$, then the call to |handle_proxy_cred| in \.{strtinst}
+failed.
+If $1100 > r > 1000$, then \.{strtinst} failed for some other reason.
+If $r < 1000$, |remote_install_func| failed for some other reason.
+\initials{LDF 2012.02.07.}
+\initials{LDF 2012.02.10.}
+
+@:TODO@> !! TODO:  Add code for handling more error return values from \.{strtinst}.
+\initials{LDF 2012.02.07.}
+
+@<|exchange_data_with_client| definition@>=
+
+                             else if (iter->remote_install_retval - 1000 == 6)
+                             {
+                                 temp_strm << " PROXY_CREDENTIAL NOT_FOUND";
+                             }
+
+@q ********* (9) @>
+                             else if (   (iter->remote_install_retval - 1100) > 0
+                                      && (iter->remote_install_retval - 1100) < 18)
+                             {
+                                 temp_strm << " PROXY_CREDENTIAL ERROR";
+                             }
+
+
+@q ********* (9) @>
+
+                             else 
+                                 temp_strm << " OTHER REASON";
+
+@q ********* (9) @>
+@
+@<|exchange_data_with_client| definition@>=
+
+                             if (DEBUG)
+                             {
+                                 lock_cerr_mutex(); 
+                                 cerr << "temp_strm.str() == " << temp_strm.str() << endl;
+                                 unlock_cerr_mutex(); 
+
+
+                             }  /* |if (DEBUG)|  */       
+
+
+                             r.command = temp_strm.str();
+
+                             temp_strm.str("");
+
+                             pthread_mutex_lock(&param->response_deque_mutex);
+                             param->response_deque.push_back(r);
+                             pthread_mutex_unlock(&param->response_deque_mutex);
+
+@q ********* (9) @>
+
+                         }  /* |if (iter->remote_install_retval != 0)|  */
+@q ******** (8) @>
+
+                      }  /* |for|  */
+
+
+@q ******* (7) @>
+@
+@<|exchange_data_with_client| definition@>=
+
+                     param->install_vector.clear();
+  
+@q ******** (8) @>
+
+                 }  /* |else|  (user found)  */
+
+@q ******* (7) @>
+
+
+              }  /* |if (param->install_vector.size() > 0)|  */
+
+@q ****** (6) @>
+
+              else if (DEBUG) 
+              {
+                  lock_cerr_mutex();
+                  cerr << "[Thread " << thread_ctr_str << "] "
+                       << "In `exchange_data_with_client':"
+                       << endl
+                       << "`response_type' == " 
+                       << "`Response_Type::REMOTE_INSTALL_TYPE', "
+                       << "but `param->install_vector.size()' <= 0."
+                       << endl 
+                       << "Installation must already have taken place."
+                       << endl
+                       << "This is correct behavior."
+                       << endl;
+                  unlock_cerr_mutex(); 
+
+              }
+              
+
+              
+
+@q ****** (6) @>
+
+
+          }  /* |if (response.local_stdout_filename.empty())|  */
+
+@q ***** (5) Remote installation succeeded.  Server to send output files.  @>
+@ Remote installation succeeded.  Server to send output files. 
+\initials{LDF 2011.10.14.}
+
+\LOG
+\initials{LDF 2011.10.14.}
+Added this section.
+\ENDLOG
+
+@:TODO@> !! TODO: 
+\initials{LDF 2012.01.31.}
+This doesn't work correctly.  For example, when `scrinstl' is terminated during
+the run, `optdbcli' still sends a file back.  Maybe see if |remote_install_func|
+can catch this error.  Otherwise, it may be necessary to examine the output file
+for error messages.  Check how the procedure works.
+
+@<|exchange_data_with_client| definition@>=
+
+          else /* |!response.local_stdout_filename.empty()|  */
+          {
+@q ****** (6) @>
+
+              if (DEBUG)
+              {
+                 lock_cerr_mutex(); 
+                 cerr << "response.local_stdout_filename == " 
+                      << response.local_stdout_filename << endl
+                      << "response.remote_stderr_filename == " 
+                      << response.remote_stderr_filename 
+                      << endl
+                      << "response.remote_stderr_filename == " 
+                      << response.remote_stderr_filename 
+                      << "*response.globus_site_set.begin() == " 
+                      << *response.globus_site_set.begin() 
+                      << endl;
+                 unlock_cerr_mutex(); 
+
+              }  /* |if (DEBUG)|  */ 
+
+              temp_strm.str("");
+
+              temp_strm << "REMOTE INSTALLATION SUCCEEDED FOR PACKAGE_NAME <"
+                        << response.entry_name << "> ";
+
+              if (!response.version.empty())
+                 temp_strm << "PACKAGE_VERSION <" << response.version << "> ";
+
+              temp_strm << "GLOBUS_SITE ";
+
+              if (response.globus_site_set.size() > 0)
+              {
+                  temp_strm << "<" << *response.globus_site_set.begin() << "> ";
+              }
+              else
+                  temp_strm << "<> ";
+
+              if (!response.remote_stdout_filename.empty())
+
+                 temp_strm << "STDOUT_FILENAME <" 
+                           << response.remote_stdout_filename << "> ";
+
+              if (!response.remote_stderr_filename.empty())
+
+                  temp_strm << "STDERR_FILENAME <" 
+                            << response.remote_stderr_filename << ">";
+              if (DEBUG)
+              {
+                 lock_cerr_mutex(); 
+                 cerr << "temp_strm.str() == " << temp_strm.str() << endl;
+                 unlock_cerr_mutex(); 
+            
+                 
+              }  /* |if (DEBUG)|  */ 
+
+              memset(buffer, 0, param->MAX_BUFFER + 1);
+              strcpy(buffer, temp_strm.str().c_str());
+
+              temp_strm.str("");
+
+              gnutls_record_send(*param->session, buffer, strlen(buffer));
+
+              response.local_filename = response.local_stdout_filename;
+
+              status = param->send_data_to_peer(response, !save_temp_files);
+
+              if (DEBUG)
+              {
+                 lock_cerr_mutex(); 
+                 cerr << "After call to `param->send_data_to_peer' for stdout file:  "
+                      << endl << "status == " << status << endl 
+                      << "buffer == " << buffer << endl;
+                 unlock_cerr_mutex(); 
+
+              }  /* |if (DEBUG)|  */ 
+
+              response.local_filename = response.local_stderr_filename;
+
+              status = param->send_data_to_peer(response, !save_temp_files);
+
+              if (DEBUG)
+              {
+                 cerr << "After call to `param->send_data_to_peer' for stderr file:  "
+                      << endl << "status == " << status << endl 
+                      << "buffer == " << buffer << endl;
+              }  /* |if (DEBUG)|  */ 
+
+@q ******* (7) @>
+
+          }   /* |else| (|!response.local_stdout_filename.empty()|)  */
+
+@q ****** (6) @>
+
+#if 1 /* 0 */
+DEBUG = save_DEBUG; 
+#endif 
+
+      } /* |else if (response.type == Response_Type::REMOTE_INSTALL_TYPE)|  */
+
+@q ***** (5) Distribute key pair.  @>
+
+@ Distribute key pair.  
+\initials{LDF 2011.11.21.}
+
+\LOG
+\initials{LDF 2011.11.21.}
+Added this section.
+\ENDLOG
+
+@<|exchange_data_with_client| definition@>=
+
+      else if (response.type == Response_Type::DISTRIBUTE_KEY_PAIR_TYPE)
+      {
+@q ****** (6) @>
+
+         if (DEBUG)
+         {
+
+             lock_cerr_mutex();
+             cerr << "[Thread " << thread_ctr_str << "] "
+                  << "In `exchange_data_with_client':"
+                  << endl
+                  << "`response_type' == " 
+                  << "`Response_Type::DISTRIBUTE_KEY_PAIR_TYPE'."
+                  << endl;
+             unlock_cerr_mutex(); 
+
+         }  /* |if (DEBUG)|  */ 
+                      
+         status = param->distribute_key_pair(response);
+
+         if (status != 0)
+         {
+            lock_cerr_mutex();
+             cerr << "[Thread " << thread_ctr_str << "] "
+                  << "ERROR!  In `exchange_data_with_client':"
+                  << endl
+                  << "`Scan_Parse_Parameter_Type::distribute_key_pair' failed, "
+                  << "returning " << status << endl
+                  << "Sending response to client.  Continuing"
+                  << endl;
+             unlock_cerr_mutex(); 
+
+         }  /* |if (status != 0)|  */
+
+         else if (DEBUG)
+         {
+            lock_cerr_mutex();
+             cerr << "[Thread " << thread_ctr_str << "] "
+                  << "In `exchange_data_with_client':"
+                  << endl
+                  << "`Scan_Parse_Parameter_Type::distribute_key_pair' succeeded, "
+                  << "returning 0."
+                  << endl;
+             unlock_cerr_mutex(); 
+
+         }  /* |else if (DEBUG)|  */
+      
+@q ****** (6) @>
+
+      }  /* |else if (response.type == Response_Type::DISTRIBUTE_KEY_PAIR_TYPE)|  */
+
+@q ***** (5) @>
+
+      if (DEBUG)
+      {
+          lock_cerr_mutex(); 
+          cerr << thread_ctr_str
+               << "In `exchange_data_with_client':  "
+               << "Going back to `READ_CLIENT_DATA' (" 
+               << loop_ctr++ << ")" 
+               << endl;
+          unlock_cerr_mutex(); 
+
+      }  /* |if (DEBUG)|  */ 
+
+      goto READ_CLIENT_DATA;
+
+@q ***** (5) @>
+
+  }   /*  |if (status > 0)| (|param->response_deque.size()|)  */
+
+@q **** (4) @>
+
+  else if (!param->client_finished)
+  {
+
+     memset (buffer, 0, param->MAX_BUFFER + 1);
+     strcpy(buffer, "Server Finished");   
+
+     if (DEBUG)
+     {
+        lock_cerr_mutex(); 
+        cerr << thread_ctr_str << "In `exchange_data_with_client':  "
+             << endl
+             << "Sending `buffer' to client.  `buffer' == "
+             << endl
+             << buffer
+             << endl;
+        unlock_cerr_mutex(); 
+
+     }  /* |if (DEBUG)|  */ 
+
+     status = gnutls_record_send(*param->session, buffer, strlen (buffer));
+
+     if (DEBUG)
+     {
+        lock_cerr_mutex(); 
+        cerr << thread_ctr_str
+             << "In `exchange_data_with_client':  "
+             << "Testing:  Going back to `READ_CLIENT_DATA' (" 
+             << loop_ctr++ << ")" 
+             << endl;
+        unlock_cerr_mutex(); 
+
+     }  /* |if (DEBUG)|  */ 
+
+     goto READ_CLIENT_DATA;
+
+  }  /* |else if (!param->client_finished)|  */
+
+@ If the client hasn't already broken the connection, calling |gnutls_record_send| will 
+prevent |gnutls_record_recv| from blocking forever on the client side.
+On the other hand, it won't do any harm if the client has already broken the connection.
+If one really wanted to know, one could check the return value of the call
+to |gnutls_record_send| and call |gnutls_perror|.
+\initials{LDF 2010.01.21.}
+
+@<|exchange_data_with_client| definition@>=
+  else 
+  {
+
+     memset (buffer, 0, param->MAX_BUFFER + 1);
+     strcpy(buffer, "Server Finished");   
+
+     if (DEBUG)
+     {
+        lock_cerr_mutex(); 
+        cerr << thread_ctr_str
+             << "In `exchange_data_with_client':  "
+             << "Sending `buffer' to client.  `buffer' == "
+             << endl
+             << buffer
+             << endl;
+        unlock_cerr_mutex(); 
+
+     }  /* |if (DEBUG)|  */ 
+
+     status = gnutls_record_send(*param->session, buffer, strlen (buffer));
+
+     if (DEBUG)
+     {
+        lock_cerr_mutex(); 
+        cerr << thread_ctr_str
+             << "In `exchange_data_with_client':  Exiting."
+             << endl;
+        unlock_cerr_mutex(); 
+
+     }  /* |if (DEBUG)|  */ 
+
+  }  /* |else|  */
+
+@q **** (4) @>
+
+END_CONNECT:
+
+   gnutls_bye (*param->session, GNUTLS_SHUT_RDWR);
+
+#endif /* |HAVE_LIBMYSQLCLIENT|  */
+
+   return 0;
+
+}  /* End of |exchange_data_with_client| definition  */
+
+
+@q *** (3) @>
+
+@q ** (2) Putting `connect.web' together.  @>
+
+@ Putting {\tt connect\PERIOD web} together.
+
+@c
+@<Include files@>@;@/
+using namespace std;
+@<Version control identifier@>@;@/
+@<Declare |connect_func|@>@;@/
+@<Declare |connect_func_non_auth|@>@;@/
+@<|exchange_data_with_client| declaration@>@;@/
+@<Define |connect_func|@>@;@/
+@<Define |connect_func_non_auth|@>@;@/
+@<|exchange_data_with_client| definition@>@;@/
+
+@
+@(connect.h@>=
+#ifndef CONNECT_H
+#define CONNECT_H 1
+using namespace std;
+@<Declare |connect_func|@>@;@/
+@<Declare |connect_func_non_auth|@>@;@/
+@<|exchange_data_with_client| declaration@>@;@/
+#endif 
+
+@q * (1) Emacs-Lisp code for use in indirect buffers  @>
+
+@q (progn (cweb-mode) (outline-minor-mode))                        @>
+
+@q * (1) Local variables for Emacs @>
+
+@q * Local variables for Emacs.@>
+@q Local Variables: @>
+@q mode:CWEB @>
+@q eval:(display-time) @>
+@q abbrev-mode:t @>
+@q eval:(read-abbrev-file) @>
+@q indent-tabs-mode:nil @>
+@q eval:(outline-minor-mode) @>
+@q fill-column:80 @>
+@q End: @>

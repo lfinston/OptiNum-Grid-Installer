@@ -1,0 +1,2355 @@
+@q spptshen.web  @>
+@q Created by Laurence D. Finston (LDF) Fri Jan 13 10:15:11 CET 2012 @>
+
+@q * (1) Top @>
+
+@q * (1) Copyright and License.@>
+
+@q This file is part of the OptiNum Grid Installer @>
+@q Copyright (C) 2010, 2011, 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen @>
+
+@q The OptiNum Grid Installer is free software; you can redistribute it and/or modify @>
+@q it under the terms of the GNU General Public License as published by @>
+@q the Free Software Foundation; either version 3 of the License, or @>
+@q (at your option) any later version.  @>
+
+@q The OptiNum Grid Installer is distributed in the hope that it will be useful, @>
+@q but WITHOUT ANY WARRANTY; without even the implied warranty of @>
+@q MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the @>
+@q GNU General Public License for more details.  @>
+
+@q You should have received a copy of the GNU General Public License          @>
+@q along with the OptiNum Grid Installer; if not, write to the Free Software                    @>
+@q Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA @>
+
+@q ("@@" stands for a single at-sign in the following paragraph.) @>
+
+@q Please send bug reports to Laurence.Finston@@gwdg.de@>
+
+@q Laurence D. Finston                                                   @>
+@q Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen  @>
+@q Am Fassberg 11         					         @>
+@q 37077 Goettingen              					 @>
+@q Germany                           					 @>                                
+
+@q Laurence.Finston@@gwdg.de (@@ stands for a single "at" sign.)@>
+
+@q ** (2)  spptshen.web @>
+@ {\bf Scan\_Parse\_Parameter\_Type::show\_entries} definition.
+
+@q ** (2) Include files  @>
+
+@ Include files.
+
+@<Include files@>=
+#include <stdlib.h>  /* Standard Library for C  */
+#include <stdio.h>
+#include <errno.h>
+#include <unistd.h>
+
+#include <algorithm> /* Standard Template Library (STL) for C++  */
+#include <fstream> 
+#include <iomanip>
+#include <ios>
+#include <iostream>
+#include <map>
+#include <string>
+#include <time.h>
+#include <math.h>
+#include <sstream>  
+
+#include <set>
+#include <vector>
+#include <deque>
+
+
+#include <pthread.h>  /* POSIX threads  */
+
+#include <gcrypt.h> /* for |gcry_control| */
+#include <gnutls/gnutls.h>
+
+#if HAVE_CONFIG_H
+#include <config.h>
+#endif 
+
+#if IS_ROCKS_GOEGRID
+#undef HAVE_LIBMYSQLCLIENT
+#endif 
+
+#if HAVE_LIBMYSQLCLIENT
+#include <mysql.h>
+#endif 
+
+#include "entries.h++"  /* Headers generated from CWEB files belonging to this package  */
+#include "dstngnmt.h++"
+
+#include "glblvrbl.h++"  
+#include "glblfncs.h++"
+#include "utilfncs.h++"
+#include "parser.h++"    
+#include "scanner.h++"
+#include "x509cert.h++"
+#include "rspnstp.h++"
+#include "thrdfncs.h++"
+#include "sssndttp.h++"
+#include "glsinftp.h++"
+#include "scprpmtp.h++"
+
+@q **** (4) Show entries. @>
+
+@ Show entries.
+\initials{LDF 2010.05.21.}
+
+\LOG
+\initials{LDF 2010.05.21.}
+Added this function.
+
+\initials{LDF 2010.09.02.}
+Added |char timezone[5]| and code for outputting the \.{created} and \.{last\_modified} 
+fields in the \.{Entries} database table, along with a string for the timezone.  
+The latter will currently always be |"UTC"|, however.
+
+\initials{LDF 2010.09.23.}
+Added code for outputting HTML code, if 
+|response.output_format == Response_Type::OUTPUT_FORMAT_HTML|.
+
+\initials{LDF 2011.01.28.}
+Added code for showing user and private entries at the same time.
+
+\initials{LDF 2011.05.06.}
+Added code for selecting the \.{authorization} column of the \.{Entries} database table.
+
+\initials{LDF 2012.01.13.}
+Moved the definition of this function from \filename{scprpmtp.web} to this file 
+(\filename{spptshen.web}).
+
+\initials{LDF 2012.04.03.}
+Removed code referring to |response.entries_all|.  Previously, it was always |true|, 
+but this is no longer the case.  It is now being used differently, i.e., it is 
+equivalent to specifying both \.{user} and \.{public}.  At a later date, it may 
+be necessary to make some changes, if I implement a way of showing 
+some entries, e.g., ones that have been modified since a given date, or 
+according to some other criteria.
+\ENDLOG
+
+@q ***** (5) Definition  @>
+@
+@<|Scan_Parse_Parameter_Type::show_entries| definition@>=
+
+#if HAVE_LIBMYSQLCLIENT
+
+int
+Scan_Parse_Parameter_Type::show_entries(Response_Type& response, char buffer[])
+{
+@q ****** (6) @>
+
+    bool DEBUG = false;  /* |true|  */
+    set_debug_level(DEBUG);
+
+    int status = 0;
+
+    MYSQL_RES* result = 0;
+    unsigned int row_ctr       = 0;
+    unsigned int field_ctr     = 0;
+   
+    MYSQL_ROW curr_row;
+
+    stringstream sql_strm;
+
+    string installation_script_str;
+
+   if (response.entries_with_installation_script) 
+   {
+      installation_script_str = "e.installation_script, ";
+   }
+   else
+   {
+      /* This is used to determine whether an installation script is present or not.
+         \initials{LDF 2012.05.21.}  */
+
+      installation_script_str 
+         = "strcmp((select installation_script from Entries where entry_id = e.entry_id), ''), ";
+   }
+
+    MYSQL_RES* result_1        = 0;
+    unsigned int row_ctr_1     = 0;
+    unsigned int field_ctr_1   = 0;
+
+    MYSQL_ROW curr_row_1;
+
+    stringstream sql_strm_1;
+
+    stringstream temp_strm;
+
+    unsigned int curr_user_id = (effective_user_id > 0) ? effective_user_id : user_id;
+
+    char timezone[5];  /* Three characters with leading space and trailing null 
+                          character.
+                          \initials{LDF 2010.09.02.}  */
+
+    strcpy(timezone, "");
+
+    bool show_levels = (response.show_level_map.size() > 0) ? true : false;
+ 
+@q ****** (6) @>
+
+    if (DEBUG) 
+    { 
+       lock_cerr_mutex(); 
+       cerr << "[Thread " << thread_ctr << "]:  "
+            << "Entering `Scan_Parse_Parameter_Type::show_entries'."
+            << endl;
+       unlock_cerr_mutex(); 
+
+    } /* |if (DEBUG)| */
+
+
+@q ****** (6) @>
+@
+\LOG
+\initials{LDF 2010.05.26.}
+Added this section.
+
+\initials{LDF 2012.05.21.}
+Added a rule in \filename{parser.web} for showing entries with a particular ``package name'' 
+and (optional) ``version''.  Previously, this code was never reached.
+
+\initials{LDF 2012.05.22.}
+@:BUG FIX@> BUG FIX:  Moved this section up before the other conditional blocks.
+\ENDLOG
+
+@<|Scan_Parse_Parameter_Type::show_entries| definition@>=
+
+    if (response.entries_single)
+    {
+
+        sql_strm << "select e.user_id, "
+                 << "c.commonName, c.organizationalUnitName, c.countryName, "
+                 << "e.entry_id, e.package_name, "
+                 << "e.package_version, e.version_ctr, e.download_url, "
+                 << "e.download_command, e.maintainer_name, e.maintainer_email_address, "
+                 << "e.private, e.checked_by_admin, "
+                 << installation_script_str
+                 << "e.created, e.last_modified, e.timezone, "
+                 << "e.encrypted, e.owner, e.download_url_encrypted, "
+                 << "e.download_command_encrypted, e.installation_script_encrypted, "
+                 << "e.authorization, e.deleted "
+                 << "from Entries as e, Certificates as c where e.user_id = c.user_id "
+                 << "and e.package_name = '" << response.entry_name << "'";
+
+        if (!response.version.empty())
+           sql_strm << " and e.package_version = '" << response.version << "'";
+
+        if (response.entries_user && response.entries_public)
+           sql_strm << " and (e.user_id = " << curr_user_id << " or e.private = false "
+                    << ")";
+
+        else if (response.entries_user)
+           sql_strm << " and e.user_id = " << curr_user_id;
+
+        else if (response.entries_public)
+           sql_strm << " and e.private = false";
+
+        sql_strm << " and e.entry_id > 0 order by e.entry_id";
+
+    }  /* |if (response.entries_single)|  */
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::show_entries| definition@>=
+
+    else if (response.entries_user && response.entries_public)
+    {
+
+        sql_strm << "select e.user_id, "
+                 << "c.commonName, c.organizationalUnitName, c.countryName, "
+                 << "e.entry_id, e.package_name, "
+                 << "e.package_version, e.version_ctr, e.download_url, "
+                 << "e.download_command, e.maintainer_name, e.maintainer_email_address, "
+                 << "e.private, e.checked_by_admin, "
+                 << installation_script_str
+                 << "e.created, e.last_modified, e.timezone, "
+                 << "e.encrypted, e.owner, e.download_url_encrypted, "
+                 << "e.download_command_encrypted, e.installation_script_encrypted, "
+                 << "e.authorization, e.deleted "
+                 << "from Entries as e, Certificates as c "
+                 << "where (e.user_id = " << curr_user_id
+                 << " and e.user_id = c.user_id) or "
+                 << "(e.user_id != " << curr_user_id << " and e.private = false "
+                 << "and e.user_id = c.user_id and e.entry_id > 0) "
+                 << "order by e.entry_id";
+
+    }  /* |else if|  */
+
+@q ****** (6) @>
+@
+\LOG
+\initials{LDF 2010.10.27.}
+Added code for extracting information from the \.{Certificates} database table.  Previously, 
+only the |user_id| was shown.
+\ENDLOG 
+
+@<|Scan_Parse_Parameter_Type::show_entries| definition@>=
+
+    else if (response.entries_user && !response.entries_public)
+    {
+
+        sql_strm << "select e.user_id, "
+                 << "c.commonName, c.organizationalUnitName, c.countryName, "
+                 << "e.entry_id, e.package_name, "
+                 << "e.package_version, e.version_ctr, e.download_url, "
+                 << "e.download_command, e.maintainer_name, e.maintainer_email_address, "
+                 << "e.private, e.checked_by_admin, "
+                 << installation_script_str
+                 << "e.created, e.last_modified, e.timezone, "
+                 << "e.encrypted, e.owner, e.download_url_encrypted, "
+                 << "e.download_command_encrypted, e.installation_script_encrypted, "
+                 << "e.authorization, e.deleted "
+                 << "from Entries as e, Certificates as c "
+                 << "where e.user_id = " << curr_user_id
+                 << " and e.user_id = c.user_id order by e.entry_id";
+
+    }  /* |if|  */
+
+@q ****** (6) @>
+@
+\LOG
+\initials{LDF 2010.05.25.}
+Added this section.
+\ENDLOG
+
+@<|Scan_Parse_Parameter_Type::show_entries| definition@>=
+
+
+    else if (response.entries_public && !response.entries_user)
+    {
+
+        sql_strm << "select e.user_id, "
+                 << "c.commonName, c.organizationalUnitName, c.countryName, "
+                 << "e.entry_id, e.package_name, "
+                 << "e.package_version, e.version_ctr, e.download_url, "
+                 << "e.download_command, e.maintainer_name, e.maintainer_email_address, "
+                 << "e.private, e.checked_by_admin, "
+                 << installation_script_str
+                 << "e.created, e.last_modified, e.timezone, "
+                 << "e.encrypted, e.owner, e.download_url_encrypted, "
+                 << "e.download_command_encrypted, e.installation_script_encrypted, "
+                 << "e.authorization, e.deleted "
+                 << "from Entries as e, Certificates as c where e.private = false "
+                 << "and e.user_id = c.user_id and e.entry_id > 0 "
+                 << "order by e.entry_id";
+
+    }  /* |else if|  */
+
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::show_entries| definition@>=
+
+
+    if (DEBUG) 
+    { 
+       lock_cerr_mutex(); 
+       cerr << "[Thread " << thread_ctr << "]:  "
+            << "In `Scan_Parse_Parameter_Type::show_entries':"
+            << endl
+            << "`sql_strm.str()' == " << sql_strm.str()
+            << endl;
+       unlock_cerr_mutex(); 
+
+    } /* |if (DEBUG)| */
+
+    
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::show_entries| definition@>=
+
+    status = submit_mysql_query(sql_strm.str(),
+                                result, 
+                                &row_ctr, 
+                                &field_ctr);
+
+@q ******* (7) @>
+
+    if (status)
+    {
+        lock_cerr_mutex(); 
+        cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+             << "ERROR!  In `Scan_Parse_Parameter_Type::show_entries':"
+             << endl 
+             << "`Scan_Parse_Parameter_Type::submit_mysql_query' failed, returning " 
+             << status << "."
+             << endl
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+        unlock_cerr_mutex(); 
+
+        response.command = "SERVER SHOW ENTRIES FAILED";
+
+        if (result) 
+           mysql_free_result(result);
+
+        return 1;
+
+
+    }  /* |if (status)|  */
+
+@q ******* (7) @>
+
+    else if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "In `Scan_Parse_Parameter_Type::show_entries':"
+             << endl 
+             << "`Scan_Parse_Parameter_Type::submit_mysql_query' succeeded."
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */
+
+@q ******* (7) @>
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "In `Scan_Parse_Parameter_Type::show_entries':"
+             << endl 
+             << "row_ctr == " << row_ctr 
+             << endl
+             << "field_ctr == " << field_ctr 
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */
+
+@q ******* (7) @>
+
+    bool dump_to_file = false;
+    ofstream out_strm;
+    
+    if (row_ctr == 0)
+    {
+        response.command = "SERVER NO ENTRIES FOUND";
+        response.local_filename = "";
+
+        memset(buffer, 0, MAX_BUFFER + 1);
+
+        mysql_free_result(result);
+
+        return 2;
+
+    }  /* |if (row_ctr == 0)|  */
+
+@q ******* (7) @>
+@
+@<|Scan_Parse_Parameter_Type::show_entries| definition@>=
+
+    else
+    {
+@q ******** (8) @>
+
+        response.command = "SERVER SENDING ENTRY INFO";
+
+        temp_strm.str("");
+
+
+
+
+        if (   response.output_format == Response_Type::OUTPUT_FORMAT_HTML
+            || response.output_format == Response_Type::OUTPUT_FORMAT_JAVASCRIPT)
+            temp_strm << endl << "</pre>" << endl << endl;
+
+        if (response.entries_user && response.entries_public)
+        {
+        
+            if (response.output_format == Response_Type::OUTPUT_FORMAT_HTML)
+            {
+               temp_strm << "<table border=1 summary=\"User Entries\">" << endl
+                         << "<caption><b>User Entries</b></caption>"
+                         << endl;
+            }
+
+            else 
+               temp_strm << "*** User and Public Entries ***" << endl << endl;
+        }
+        else if (response.entries_user && !response.entries_public)
+        {
+        
+            if (response.output_format == Response_Type::OUTPUT_FORMAT_HTML)
+            {
+               temp_strm << "<table border=1 summary=\"User Entries\">" << endl
+                         << "<caption><b>User Entries</b></caption>"
+                         << endl;
+            }
+
+            else if (response.output_format == Response_Type::OUTPUT_FORMAT_JAVASCRIPT)
+            {
+
+#if IS_PCFINSTON_GWDG
+
+               temp_strm << "<form action=\"https://pcfinston.gwdg.de/"
+                         << "fcgi-bin/test_js.fcgi?optdbsrv_pcfinston=1\""
+                         << endl;
+
+#else
+
+               temp_strm << "<form action="
+                         << "\"https://www.optinum.de/fcgi-bin/test_js.fcgi\""
+                         << endl;
+
+#endif 
+
+               temp_strm << "enctype=\"multipart/form-data\" method=\"post\""
+                         << endl 
+                         << "onsubmit=check_input(this.form) >"
+                         << endl 
+                         << "<p>"
+                         << endl 
+                         << "<table border=1 summary=\"User Entries\">"
+                         << endl
+                         << "<tr><td>entry_id<td>package_name<td>package_version"
+                         << endl;
+ 
+            }
+            else 
+               temp_strm << "*** User Entries ***" << endl << endl;
+        }
+
+        else if (!response.entries_user && response.entries_public)
+        {
+            if (response.output_format == Response_Type::OUTPUT_FORMAT_HTML)
+                temp_strm << "<h2 align=\"center\"><a name=\"Public_Entries\"> "
+                          << "Public Entries</a></h2>"
+                          << endl;
+            else 
+             temp_strm << "*** Public Entries ***" << endl << endl;
+        }
+
+        char temp_filename[14];
+        strcpy(temp_filename, "");
+
+        int curr_entry_id;
+        string curr_package_name;
+        string curr_package_version;
+        int curr_show_level;
+
+        map<int, int>::const_iterator show_level_iter;
+       
+        for (int i = 0; i < row_ctr; ++i)
+        {
+@q ********* (9) @>
+
+
+            if ((curr_row = mysql_fetch_row(result)) == 0)
+            {
+                lock_cerr_mutex(); 
+                cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+                     << "ERROR!  In `Scan_Parse_Parameter_Type::show_entries':"
+                     << endl 
+                     << "`mysql_fetch_row' failed:"
+                     << endl
+                     << mysql_error(mysql_ptr)
+                     << endl 
+                     << "Exiting function unsuccessfully with return value 1."
+                     << endl;
+                unlock_cerr_mutex(); 
+
+                mysql_free_result(result);
+
+                response.command = "SERVER SHOW ENTRIES FAILED";
+
+                return 1;
+
+            }  /* |if (curr_row = mysql_fetch_row(result) == 0)|  */
+
+@q ********* (9) @>
+@
+@<|Scan_Parse_Parameter_Type::show_entries| definition@>=
+
+            curr_entry_id = atoi(curr_row[4]);
+            curr_show_level = 0;
+
+            curr_package_name = curr_row[5];
+
+            if (curr_row[6] && strlen(curr_row[6]))
+                curr_package_version = curr_row[6];
+
+            if (show_levels)
+            {
+                show_level_iter = response.show_level_map.find(curr_entry_id); 
+            
+                if (show_level_iter != response.show_level_map.end())
+                {
+                   curr_show_level = show_level_iter->second;
+                }
+            }
+
+            if (DEBUG)
+            {
+                lock_cerr_mutex(); 
+                cerr << "[Thread " << thread_ctr << "]:  "
+                     << "In `Scan_Parse_Parameter_Type::show_entries':"
+                     << endl 
+                     << "`curr_row[0]' == " << curr_row[0]
+                     << endl 
+                     << "`curr_row[4]' == " << curr_row[4]
+                     << endl 
+                     << "`curr_entry_id' == " << curr_entry_id
+                     << endl
+                     << "`show_levels' == " << show_levels
+                     << endl
+                     << "`curr_show_level' == " << curr_show_level
+                     << endl;
+
+                unlock_cerr_mutex(); 
+
+            }  /* |if (DEBUG)|  */
+
+@q ********* (9) @>
+
+           if (response.output_format == Response_Type::OUTPUT_FORMAT_JAVASCRIPT)
+           {
+                 /* do nothing  */
+           }
+
+           else if (response.output_format == Response_Type::OUTPUT_FORMAT_HTML)
+           {
+             
+               temp_strm << "<table border=1>"
+                         << endl
+                         << "<tr><td>";
+               temp_strm << setw(32) << left << "user_id:    ";
+               temp_strm << "<td>";
+
+               if (curr_row[0])
+               {
+                   temp_strm << curr_row[0] << endl;
+               }
+               else 
+               {
+                   temp_strm << "NULL" << endl;
+
+               }  /* |else|  */
+           }
+
+           else
+           {
+               temp_strm << setw(32) << left << "user_id:    ";
+
+               if (curr_row[0])
+               {
+                   temp_strm << curr_row[0] << endl;
+               }
+               else 
+               {
+                   temp_strm << "NULL" << endl;
+
+               }  /* |else|  */
+
+           }
+
+@q ********* (9) @>
+@
+\LOG
+\initials{LDF 2010.10.27.}
+Added this section.
+\ENDLOG
+@<|Scan_Parse_Parameter_Type::show_entries| definition@>=
+
+           if (response.output_format == Response_Type::OUTPUT_FORMAT_JAVASCRIPT)
+           {
+
+           }
+           else
+           {
+               if (   response.output_format == Response_Type::OUTPUT_FORMAT_HTML)
+                  temp_strm << "<tr><td>";
+
+               temp_strm << setw(32) << left << "commonName:    ";
+
+               if (response.output_format == Response_Type::OUTPUT_FORMAT_HTML)
+                   temp_strm << "<td>";
+
+               if (curr_row[1])
+               {
+                   temp_strm << curr_row[1] << endl;
+               }
+               else 
+               {
+                   temp_strm << "NULL" << endl;
+
+               }  /* |else|  */
+
+           }
+
+
+@q ********* (9) @>
+@
+\LOG
+\initials{LDF 2010.10.27.}
+Added this section.
+\ENDLOG
+@<|Scan_Parse_Parameter_Type::show_entries| definition@>=
+
+           if (response.output_format == Response_Type::OUTPUT_FORMAT_JAVASCRIPT)
+           {
+
+           }
+           else
+           {
+               if (response.output_format == Response_Type::OUTPUT_FORMAT_HTML)
+                  temp_strm << "<tr><td>";
+
+               temp_strm << setw(32) << left << "organizationalUnitName:    ";
+
+               if (response.output_format == Response_Type::OUTPUT_FORMAT_HTML)
+                   temp_strm << "<td>";
+
+               if (curr_row[2])
+               {
+                   temp_strm << curr_row[2] << endl;
+               }
+               else 
+               {
+                   temp_strm << "NULL" << endl;
+
+               }  /* |else|  */
+
+           } 
+
+
+@q ********* (9) @>
+@
+\LOG
+\initials{LDF 2010.10.27.}
+Added this section.
+\ENDLOG
+@<|Scan_Parse_Parameter_Type::show_entries| definition@>=
+
+           if (response.output_format == Response_Type::OUTPUT_FORMAT_JAVASCRIPT)
+           {
+
+           }
+           else
+           {
+                if (response.output_format == Response_Type::OUTPUT_FORMAT_HTML)
+                   temp_strm << "<tr><td>";
+
+                temp_strm << setw(32) << left << "countryName:    ";
+
+                if (response.output_format == Response_Type::OUTPUT_FORMAT_HTML)
+                    temp_strm << "<td>";
+
+                if (curr_row[3])
+                {
+                    temp_strm << curr_row[3] << endl;
+                }
+                else 
+                {
+                    temp_strm << "NULL" << endl;
+
+                }  /* |else|  */
+          
+           }
+
+            
+
+
+@q ********* (9) @>
+@
+@<|Scan_Parse_Parameter_Type::show_entries| definition@>=
+
+
+           /* !! TODO: LDF 2011.12.25.  Work on table for
+              the case that |show_level > 0|.
+
+              Maybe do this by hand in \filename{test\_js.html}
+              before automating it in this function.
+
+              Also, make sure |show_level| is set in the 
+              table, so that it will persist when the page 
+              is reloaded.
+
+            */
+
+           if (response.output_format == Response_Type::OUTPUT_FORMAT_JAVASCRIPT)
+           {
+               if (DEBUG)
+               {
+                   cerr << "curr_show_level == " << curr_show_level << endl;
+                   cerr << "curr_entry_id == " << curr_entry_id << endl;
+        
+               }  /* |if (DEBUG)|  */ 
+
+
+               if (curr_show_level > 0)
+               {
+                  temp_strm << "</table><br><table border=1 summary=\""
+                            << curr_package_name;
+
+                  if (!curr_package_version.empty())
+                      temp_strm << " " << curr_package_version;
+
+                  temp_strm << "\">" 
+                            << endl
+                            << "<caption><b>" << curr_package_name;
+
+                  if (!curr_package_version.empty())
+                      temp_strm << " " << curr_package_version;
+  
+                  temp_strm << "</b></caption>"
+                            << endl
+                            << "<tr><td>entry_id<td>package_name<td>package_version"
+                            << endl;
+
+               }
+
+               temp_strm << "<tr><td>" << endl << "<input type=\"hidden\" "
+                         << "name=\"entry_id\" value=\""
+                         << curr_entry_id << "\"> " << curr_entry_id 
+                         << endl;
+
+           }
+           else
+           {
+
+                if (response.output_format == Response_Type::OUTPUT_FORMAT_HTML)
+                   temp_strm << "<tr><td>";
+
+                temp_strm << setw(32) << left << "entry_id:    ";
+
+                if (response.output_format == Response_Type::OUTPUT_FORMAT_HTML)
+                    temp_strm << "<td>";
+
+                if (curr_entry_id)
+                {
+                    temp_strm << curr_entry_id << endl;
+                }
+                else 
+                {
+                    temp_strm << "NULL" << endl;
+
+                }  /* |else|  */
+
+           }
+
+
+@q ********* (9) @>
+
+           if (response.output_format == Response_Type::OUTPUT_FORMAT_JAVASCRIPT)
+           {
+               temp_strm << "<td>" << endl << "<input type=\"hidden\" "
+                         << "name=\"package_name\" value=\""
+                         << curr_row[5] << "\"> " << curr_row[5] 
+                         << endl;
+
+           }
+           else
+           {
+ 
+                if (response.output_format == Response_Type::OUTPUT_FORMAT_HTML)
+                   temp_strm << "<tr><td>";
+
+                temp_strm << setw(32) << left << "package_name:    ";
+
+                if (response.output_format == Response_Type::OUTPUT_FORMAT_HTML)
+                    temp_strm << "<td>";
+
+                if (curr_row[5])
+                {
+                    temp_strm << curr_row[5] << endl;
+                }
+                else 
+                {
+                    temp_strm << "NULL" << endl;
+
+                }  /* |else|  */
+           }
+
+@q ********* (9) @>
+           if (response.output_format == Response_Type::OUTPUT_FORMAT_JAVASCRIPT)
+           {
+               temp_strm << "<td>" << endl << "<input type=\"hidden\" "
+                         << "name=\"package_version\" value=\"";
+
+                if (curr_row[6] && strlen(curr_row[6]))
+                {
+                    temp_strm << curr_row[6] << "\"> " << curr_row[6]
+                              << endl;
+                }
+                else 
+                {
+                    temp_strm << "NULL" << "\"> " << endl;
+
+                }  /* |else|  */
+                
+           }
+           else
+           {
+
+
+                if (response.output_format == Response_Type::OUTPUT_FORMAT_HTML)
+                   temp_strm << "<tr><td>";
+
+                temp_strm << setw(32) << left << "package_version:    ";
+
+                if (response.output_format == Response_Type::OUTPUT_FORMAT_HTML)
+                    temp_strm << "<td>";
+
+                if (curr_row[6] && strlen(curr_row[6]) > 0)
+                {
+                    temp_strm << curr_row[6] << endl;
+                }
+                else 
+                {
+                    temp_strm << "NULL" << endl;
+
+                }  /* |else|  */
+
+            }
+@q ********* (9) @>
+@
+\LOG
+\initials{LDF 2011.12.23.}
+Added this section.
+\ENDLOG
+@<|Scan_Parse_Parameter_Type::show_entries| definition@>=
+
+           if (response.output_format == Response_Type::OUTPUT_FORMAT_JAVASCRIPT)
+           {
+                temp_strm << "<td>" << endl
+                          << "<input type=\"button\" value=\"Show all entry data\" "
+                          << "onclick=\"show_entry_info(this.form, " << i
+                          << ", " << curr_entry_id
+                          << ")\" />"
+                          << "<input type=\"hidden\" name=\"show_level\" value="
+                          << curr_show_level << ">"
+                          << endl 
+                          << "<td><input type=\"button\" value=\"Delete entry\" "
+                          << endl << "onclick=\"delete_entry_func(this.form, " << i << ", "
+                          << curr_entry_id << ")\" />"
+                          << endl 
+                          << "<td><input type=\"radio\" name=\"delete_entry_"
+                          << curr_entry_id << "\" "
+                          << "value=\"delete\"> Delete "
+                          << endl 
+                          << "<input type=\"radio\" name=\"delete_entry_"
+                          << curr_entry_id << "\" "
+                          << "value=\"undelete\"> Undelete"
+                          << endl 
+                          << "<td><input type=\"radio\" name=\"install_entry_"
+                          << curr_entry_id << "\" "
+                          << "value=\"install\"> Install "
+                          << endl 
+                          << "<input type=\"radio\" name=\"install_entry_"
+                          << curr_entry_id << "\" "
+                          << "value=\"uninstall\"> Uninstall"
+                          << endl
+                          << "<td><input type=\"button\" "
+                          << "value=\"Reset entry\" onclick=reset_entry(this.form)>"
+                          << endl;
+
+               if (curr_show_level > 0)
+               {
+                  temp_strm << "</table><br>" << endl;
+
+                  if (i < row_ctr - 1)
+                     temp_strm << "<table border=1><br>" << endl;
+               }
+          
+
+
+           }
+           else
+           {
+
+           }
+
+@q ********* (9) @>
+@
+@<|Scan_Parse_Parameter_Type::show_entries| definition@>=
+
+           if (response.output_format == Response_Type::OUTPUT_FORMAT_JAVASCRIPT)
+           {
+
+           }
+           else
+           {
+                if (response.output_format == Response_Type::OUTPUT_FORMAT_HTML)
+                   temp_strm << "<tr><td>";
+
+                temp_strm << setw(32) << left << "version_ctr:    ";
+          
+                if (response.output_format == Response_Type::OUTPUT_FORMAT_HTML)
+                    temp_strm << "<td>";
+
+
+                if (curr_row[7] && strlen(curr_row[7]) > 0)
+                {
+                    temp_strm << curr_row[7] << endl;
+                }
+                else 
+                {
+                    temp_strm << "NULL" << endl;
+
+                }  /* |else|  */
+
+           }
+
+
+
+@q ********* (9) @>
+
+            if (response.output_format == Response_Type::OUTPUT_FORMAT_JAVASCRIPT)
+            {
+            }
+            else
+            {
+                if (response.output_format == Response_Type::OUTPUT_FORMAT_HTML)
+                   temp_strm << "<tr><td>";
+
+                temp_strm << setw(32) << left << "download_url:    ";
+
+                if (response.output_format == Response_Type::OUTPUT_FORMAT_HTML)
+                    temp_strm << "<td>";
+
+                if (curr_row[8] && strlen(curr_row[8]) > 0)
+                {
+                    temp_strm << curr_row[8] << endl;
+                }
+                else 
+                {
+                    temp_strm << "NULL" << endl;
+
+                }  /* |else|  */
+            }
+
+@q ********* (9) @>
+
+            if (response.output_format == Response_Type::OUTPUT_FORMAT_JAVASCRIPT)
+            {
+            }
+            else
+            {
+
+               if (response.output_format == Response_Type::OUTPUT_FORMAT_HTML)
+                  temp_strm << "<tr><td>";
+
+               temp_strm << setw(32) << left << "download_command:    ";
+
+               if (response.output_format == Response_Type::OUTPUT_FORMAT_HTML)
+                   temp_strm << "<td>";
+
+               if (curr_row[9] && strlen(curr_row[9]) > 0)
+               {
+                   temp_strm << curr_row[9] << endl;
+               }
+               else 
+               {
+                   temp_strm << "NULL" << endl;
+
+               }  /* |else|  */
+            }
+
+@q ********* (9) @>
+
+           if (response.output_format == Response_Type::OUTPUT_FORMAT_JAVASCRIPT)
+           {
+
+           }
+           else
+           {
+               if (response.output_format == Response_Type::OUTPUT_FORMAT_HTML)
+                  temp_strm << "<tr><td>";
+
+               temp_strm << setw(32) << left << "maintainer_name:    ";
+
+               if (response.output_format == Response_Type::OUTPUT_FORMAT_HTML)
+                   temp_strm << "<td>";
+
+               if (curr_row[10] && strlen(curr_row[10]) > 0)
+               {
+                   temp_strm << curr_row[10] << endl;
+               }
+               else 
+               {
+                   temp_strm << "NULL" << endl;
+
+
+               }  /* |else|  */
+
+           }
+
+
+@q ********* (9) @>
+           if (response.output_format == Response_Type::OUTPUT_FORMAT_JAVASCRIPT)
+           {
+
+           }
+           else
+           {
+               if (response.output_format == Response_Type::OUTPUT_FORMAT_HTML)
+                  temp_strm << "<tr><td>";
+
+               temp_strm << setw(32) << left << "maintainer_email_address:    ";
+
+               if (response.output_format == Response_Type::OUTPUT_FORMAT_HTML)
+                   temp_strm << "<td>";
+
+               if (curr_row[11] && strlen(curr_row[11]) > 0)
+               {
+                   temp_strm << curr_row[11] << endl;
+               }
+               else 
+               {
+                   temp_strm << "NULL" << endl;
+
+               }  /* |else|  */
+
+           }
+
+
+
+@q ********* (9) @>
+
+           if (response.output_format == Response_Type::OUTPUT_FORMAT_JAVASCRIPT)
+           {
+
+           }
+           else
+           {
+                if (response.output_format == Response_Type::OUTPUT_FORMAT_HTML)
+                   temp_strm << "<tr><td>";
+
+                temp_strm << setw(32) << left << "private:    ";
+
+                if (response.output_format == Response_Type::OUTPUT_FORMAT_HTML)
+                    temp_strm << "<td>";
+
+                if (curr_row[12] && strlen(curr_row[12]) > 0)
+                {
+                    temp_strm << curr_row[12] << endl;
+                }
+                else 
+                {
+                    temp_strm << "NULL" << endl;
+
+                }  /* |else|  */
+           }
+
+
+
+@q ********* (9) @>
+
+           if (response.output_format == Response_Type::OUTPUT_FORMAT_JAVASCRIPT)
+           {
+
+           }
+           else
+           {
+                if (response.output_format == Response_Type::OUTPUT_FORMAT_HTML)
+                   temp_strm << "<tr><td>";
+
+                temp_strm << setw(32) << left << "checked_by_admin:    ";
+
+                if (response.output_format == Response_Type::OUTPUT_FORMAT_HTML)
+                    temp_strm << "<td>";
+
+                if (curr_row[13] && strlen(curr_row[13]) > 0)
+                {
+                    temp_strm << curr_row[13] << endl;
+                }
+                else 
+                {
+                    temp_strm << "NULL" << endl;
+
+                }  /* |else|  */
+           }
+
+
+@q ********* (9) @>
+@
+\LOG
+\initials{LDF 2010.10.08.}
+Added code for outputting the installation script if
+|response.entries_with_installation_script == true|.
+\ENDLOG 
+@<|Scan_Parse_Parameter_Type::show_entries| definition@>=
+
+           if (response.output_format == Response_Type::OUTPUT_FORMAT_JAVASCRIPT)
+           {
+
+           }
+           else
+           {
+                if (response.output_format == Response_Type::OUTPUT_FORMAT_HTML)
+                  temp_strm << "<tr><td>";
+
+                temp_strm << setw(32) << left << "installation_script:    ";
+ 
+                if (response.output_format == Response_Type::OUTPUT_FORMAT_HTML)
+                   temp_strm << "<td>";
+
+                if (curr_row[14] && strlen(curr_row[14]) > 0)
+                {
+ 
+                    if (response.entries_with_installation_script)
+                       temp_strm << curr_row[14] << endl;
+                    else if (strcmp(curr_row[14], "0"))
+                       temp_strm << "PRESENT" << endl;
+                    else 
+                       temp_strm << "NONE" << endl;
+                }
+                else 
+                {
+                   temp_strm << "NONE" << endl;
+ 
+                }  /* |else|  */
+
+           }
+
+
+@q ********* (9) @>
+@
+@<|Scan_Parse_Parameter_Type::show_entries| definition@>=
+
+           if (response.output_format == Response_Type::OUTPUT_FORMAT_JAVASCRIPT)
+           {
+
+           }
+           else
+           {
+               if (curr_row[17] && strlen(curr_row[17]) > 0)
+               {
+                   strcpy(timezone, " ");
+                   strcat(timezone, curr_row[17]);
+               } 
+
+
+           }
+
+
+@q ********* (9) @>
+            
+           if (response.output_format == Response_Type::OUTPUT_FORMAT_JAVASCRIPT)
+           {
+
+           }
+           else
+           {
+                if (response.output_format == Response_Type::OUTPUT_FORMAT_HTML)
+                  temp_strm << "<tr><td>";
+
+                temp_strm << setw(32) << left << "created:    ";
+ 
+                if (response.output_format == Response_Type::OUTPUT_FORMAT_HTML)
+                   temp_strm << "<td>";
+
+                if (curr_row[15] && strlen(curr_row[15]) > 0)
+                {
+                    temp_strm << curr_row[15] << timezone << endl;
+                }
+                else 
+                {
+                   temp_strm << "NULL" << endl;
+ 
+                }  /* |else|  */
+
+           }
+
+@q ********* (9) @>
+
+           if (response.output_format == Response_Type::OUTPUT_FORMAT_JAVASCRIPT)
+           {
+
+           }
+           else
+           {
+                if (response.output_format == Response_Type::OUTPUT_FORMAT_HTML)
+                  temp_strm << "<tr><td>";
+
+                temp_strm << setw(32) << left << "last_modified:    ";
+ 
+                if (response.output_format == Response_Type::OUTPUT_FORMAT_HTML)
+                   temp_strm << "<td>";
+
+                if (curr_row[16] && strlen(curr_row[16]) > 0) 
+                {
+                    temp_strm << curr_row[16] << timezone << endl;
+                }
+                else 
+                {
+                   temp_strm << "NULL" << endl;
+ 
+                }  /* |else|  */
+
+           }
+
+@q ********* (9) encrypted.  @>
+@ encrypted.
+
+\LOG
+\initials{LDF 2011.01.26.}
+Added this section.
+\ENDLOG
+
+@<|Scan_Parse_Parameter_Type::show_entries| definition@>=
+
+           if (response.output_format == Response_Type::OUTPUT_FORMAT_JAVASCRIPT)
+           {
+
+           }
+           else
+           {
+               if (response.output_format == Response_Type::OUTPUT_FORMAT_HTML)
+                  temp_strm << "<tr><td>";
+
+               temp_strm << setw(32) << left << "encrypted:    ";
+
+               if (response.output_format == Response_Type::OUTPUT_FORMAT_HTML)
+                   temp_strm << "<td>";
+
+               if (curr_row[18] && strlen(curr_row[18]) > 0)
+               {
+                   temp_strm << curr_row[18] << endl;
+               }
+               else 
+               {
+                   temp_strm << "NULL" << endl;
+
+               }  /* |else|  */
+           }
+
+@q ********* (9) owner.  @>
+@ owner.
+
+\LOG
+\initials{LDF 2011.01.27.}
+Added this section.
+\ENDLOG
+
+@<|Scan_Parse_Parameter_Type::show_entries| definition@>=
+
+           if (response.output_format == Response_Type::OUTPUT_FORMAT_JAVASCRIPT)
+           {
+
+           }
+           else
+           {
+               if (response.output_format == Response_Type::OUTPUT_FORMAT_HTML)
+                  temp_strm << "<tr><td>";
+
+               temp_strm << setw(32) << left << "owner:    ";
+
+               if (response.output_format == Response_Type::OUTPUT_FORMAT_HTML)
+                   temp_strm << "<td>";
+
+               if (curr_row[19] && strlen(curr_row[19]) > 0)
+               {
+                   temp_strm << curr_row[19] << endl;
+               }
+               else 
+               {
+                   temp_strm << "NULL" << endl;
+
+               }  /* |else|  */
+           }
+
+@q ********* (9) |download_url_encrypted|.  @>
+@ |download_url_encrypted|.
+
+\LOG
+\initials{LDF 2011.01.27.}
+Added this section.
+\ENDLOG
+
+@<|Scan_Parse_Parameter_Type::show_entries| definition@>=
+
+           if (response.output_format == Response_Type::OUTPUT_FORMAT_JAVASCRIPT)
+           {
+
+           }
+           else
+           {
+               if (response.output_format == Response_Type::OUTPUT_FORMAT_HTML)
+                  temp_strm << "<tr><td>";
+
+               temp_strm << setw(32) << left << "download_url_encrypted:    ";
+
+               if (response.output_format == Response_Type::OUTPUT_FORMAT_HTML)
+                   temp_strm << "<td>";
+
+               if (curr_row[20] && strlen(curr_row[20]) > 0)
+               {
+                   temp_strm << curr_row[20] << endl;
+               }
+               else 
+               {
+                   temp_strm << "NULL" << endl;
+
+               }  /* |else|  */
+
+           }
+
+
+@q ********* (9) |download_command_encrypted|.  @>
+@ |download_command_encrypted|.
+
+\LOG
+\initials{LDF 2011.01.27.}
+Added this section.
+\ENDLOG
+
+@<|Scan_Parse_Parameter_Type::show_entries| definition@>=
+
+           if (response.output_format == Response_Type::OUTPUT_FORMAT_JAVASCRIPT)
+           {
+
+           }
+           else
+           {
+               if (response.output_format == Response_Type::OUTPUT_FORMAT_HTML)
+                  temp_strm << "<tr><td>";
+
+               temp_strm << setw(32) << left << "download_command_encrypted:    ";
+
+               if (response.output_format == Response_Type::OUTPUT_FORMAT_HTML)
+                   temp_strm << "<td>";
+
+               if (curr_row[21] && strlen(curr_row[21]) > 0)
+               {
+                   temp_strm << curr_row[21] << endl;
+               }
+               else 
+               {
+                   temp_strm << "NULL" << endl;
+
+               }  /* |else|  */
+           }
+
+@q ********* (9) |installation_script_encrypted|.  @>
+@ |installation_script_encrypted|.
+
+\LOG
+\initials{LDF 2011.01.27.}
+Added this section.
+\ENDLOG
+
+@<|Scan_Parse_Parameter_Type::show_entries| definition@>=
+
+           if (response.output_format == Response_Type::OUTPUT_FORMAT_JAVASCRIPT)
+           {
+
+           }
+           else
+           {
+               if (response.output_format == Response_Type::OUTPUT_FORMAT_HTML)
+                  temp_strm << "<tr><td>";
+
+               temp_strm << setw(32) << left << "installation_script_encrypted:  ";
+
+               if (response.output_format == Response_Type::OUTPUT_FORMAT_HTML)
+                   temp_strm << "<td>";
+
+               if (curr_row[22] && strlen(curr_row[22]) > 0)
+               {
+                   temp_strm << curr_row[22] << endl;
+               }
+               else 
+               {
+                   temp_strm << "NULL" << endl;
+
+               }  /* |else|  */
+
+
+               if (response.output_format != Response_Type::OUTPUT_FORMAT_HTML)
+                  temp_strm << endl;
+
+           }
+
+@q ********* (9) |authorization|.  @>
+@ |authorization|.
+
+\LOG
+\initials{LDF 2011.05.06.}
+Added this section.
+\ENDLOG
+
+@<|Scan_Parse_Parameter_Type::show_entries| definition@>=
+
+           if (response.output_format == Response_Type::OUTPUT_FORMAT_JAVASCRIPT)
+           {
+
+           }
+           else
+           {
+               if (response.output_format == Response_Type::OUTPUT_FORMAT_HTML)
+                  temp_strm << "<tr><td>";
+
+               temp_strm << setw(32) << left << "authorization:  ";
+
+               if (response.output_format == Response_Type::OUTPUT_FORMAT_HTML)
+                   temp_strm << "<td>";
+
+               if (curr_row[23] && strlen(curr_row[23]) > 0)
+               {
+                   temp_strm << curr_row[23] << endl;
+               }
+               else 
+               {
+                   temp_strm << "NULL" << endl;
+
+               }  /* |else|  */
+
+
+               if (response.output_format != Response_Type::OUTPUT_FORMAT_HTML)
+                  temp_strm << endl;
+
+
+           }  /* |else| (authorization) */
+
+
+@q ********* (9) |deleted|.  @>
+@ |deleted|.
+\initials{LDF 2012.01.13.}
+
+\LOG
+\initials{LDF 2012.01.13.}
+Added this section.
+\ENDLOG
+
+@<|Scan_Parse_Parameter_Type::show_entries| definition@>=
+
+           if (response.output_format == Response_Type::OUTPUT_FORMAT_JAVASCRIPT)
+           {
+
+           }
+           else
+           {
+               if (response.output_format == Response_Type::OUTPUT_FORMAT_HTML)
+                  temp_strm << "<tr><td>";
+
+               temp_strm << setw(32) << left << "deleted:  ";
+
+               if (response.output_format == Response_Type::OUTPUT_FORMAT_HTML)
+                   temp_strm << "<td>";
+
+               if (curr_row[24] && strlen(curr_row[24]) > 0)
+               {
+                   temp_strm << atoi(curr_row[24]) << endl;
+               }
+               else 
+               {
+                   temp_strm << "NULL" << endl;
+
+               }  /* |else|  */
+
+
+               if (response.output_format != Response_Type::OUTPUT_FORMAT_HTML)
+                  temp_strm << endl;
+
+
+           }  /* |else| (deleted) */
+
+
+@q ********* (9) @>
+@
+\LOG
+\initials{LDF 2010.09.08.}
+Added this section.
+\ENDLOG
+
+@<|Scan_Parse_Parameter_Type::show_entries| definition@>=
+
+
+             if (response.entries_with_prerequisites)
+             {
+@q ********** (10) @>
+
+                 sql_strm_1.str("");
+
+                 sql_strm_1 << "select e.package_name, e.package_version from "
+                            << "Entries as e, Prerequisites as p where "
+                            << "e.entry_id = p.prerequisite_id and "
+                            << "p.entry_id = " << curr_entry_id
+                            << " order by e.package_name";
+
+                 if (DEBUG) 
+                 { 
+                    lock_cerr_mutex(); 
+                    cerr << "[Thread " << thread_ctr << "]:  "
+                         << "In `Scan_Parse_Parameter_Type::show_entries':"
+                         << endl
+                         << "`sql_strm_1.str()' == " << sql_strm_1.str()
+                         << endl;
+                    unlock_cerr_mutex(); 
+
+                 } /* |if (DEBUG)| */
+
+@q ********** (10) @>
+
+               
+                 status = submit_mysql_query(sql_strm_1.str(),
+                                             result_1, 
+                                             &row_ctr_1, 
+                                             &field_ctr_1);
+
+@q ********** (10) @>
+
+                 if (status)  
+                 {
+                     lock_cerr_mutex(); 
+                     cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+                          << "ERROR!  In `Scan_Parse_Parameter_Type::show_entries':"
+                          << endl 
+                          << "`Scan_Parse_Parameter_Type::submit_mysql_query' failed, returning " 
+                          << status << "."
+                          << endl
+                          << "Exiting function unsuccessfully with return value 1."
+                          << endl;
+                     unlock_cerr_mutex(); 
+
+                     response.command = "SERVER SHOW ENTRIES FAILED";
+
+                     mysql_free_result(result);
+
+                     if (result_1) 
+                        mysql_free_result(result_1);
+
+                     return 1;
+
+
+                 }  /* |if (status)|  */
+
+@q ********** (10) @>
+
+                 else if (DEBUG)
+                 {
+                     lock_cerr_mutex(); 
+                     cerr << "[Thread " << thread_ctr << "]:  "
+                          << "In `Scan_Parse_Parameter_Type::show_entries':"
+                          << endl 
+                          << "`Scan_Parse_Parameter_Type::submit_mysql_query' succeeded."
+                          << endl;
+                     unlock_cerr_mutex(); 
+
+                 }  /* |else if (DEBUG)|  */
+
+@q ********** (10) @>
+
+                 if (DEBUG)
+                 {
+                     lock_cerr_mutex(); 
+                     cerr << "[Thread " << thread_ctr << "]:  "
+                          << "In `Scan_Parse_Parameter_Type::show_entries':"
+                          << endl 
+                          << "row_ctr_1 == " << row_ctr_1 
+                          << endl
+                          << "field_ctr_1 == " << field_ctr_1 
+                          << endl;
+                     unlock_cerr_mutex(); 
+
+                 }  /* |if (DEBUG)|  */
+
+@q ********** (10) @>
+
+                 if (row_ctr_1 == 0)
+                 {
+
+
+                     if (response.output_format == Response_Type::OUTPUT_FORMAT_JAVASCRIPT)
+                     {
+
+                     }
+                     else
+                     {
+                         if (response.output_format == Response_Type::OUTPUT_FORMAT_HTML)
+                            temp_strm << "<tr><td>";
+
+                         temp_strm << "No prerequisites" << endl;
+
+                     }         
+
+                 }  /* |if (row_ctr_1 == 0)|  */
+
+@q ********** (10) @>
+
+                 else /* |row_ctr_1 > 0|  */
+                 {
+ 
+                    if (response.output_format == Response_Type::OUTPUT_FORMAT_HTML)
+                       temp_strm << "<tr><td>";
+
+                    temp_strm << setw(32) << left << "Prerequisites:    ";
+ 
+                    if (response.output_format == Response_Type::OUTPUT_FORMAT_HTML)
+                       temp_strm << endl;
+
+                    for (int j = 0; j < row_ctr_1;  ++j)
+                    {
+
+@q *********** (11) @>
+
+                        if ((curr_row_1 = mysql_fetch_row(result_1)) == 0)
+                        {
+                            lock_cerr_mutex(); 
+                            cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+                                 << "ERROR!  In `Scan_Parse_Parameter_Type::show_entries':"
+                                 << endl 
+                                 << "`mysql_fetch_row' failed:"
+                                 << endl
+                                 << mysql_error(mysql_ptr)
+                                 << endl 
+                                 << "Exiting function unsuccessfully with return value 1."
+                                 << endl;
+                            unlock_cerr_mutex(); 
+
+                            mysql_free_result(result);
+                            mysql_free_result(result_1);
+
+                            response.command = "SERVER SHOW ENTRIES FAILED";
+
+                            return 1;
+
+                        }  /* |if (curr_row_1 = mysql_fetch_row(result_1) == 0)|  */
+
+@q *********** (11) @>
+@
+@<|Scan_Parse_Parameter_Type::show_entries| definition@>=
+
+                        if (DEBUG)
+                        {
+                            lock_cerr_mutex(); 
+                            cerr << "[Thread " << thread_ctr << "]:  "
+                                 << "In `Scan_Parse_Parameter_Type::show_entries':"
+                                 << endl 
+                                 << "`curr_row_1[0]' == " << curr_row_1[0]
+                                 << endl;
+                            unlock_cerr_mutex(); 
+
+                        }  /* |if (DEBUG)|  */
+
+                        if (j > 0)
+                           temp_strm << "                           ";
+
+                        if (   response.output_format 
+                            == Response_Type::OUTPUT_FORMAT_JAVASCRIPT)
+                        {
+
+                        }
+                        else
+                        {
+                           if (response.output_format == Response_Type::OUTPUT_FORMAT_HTML)
+                              temp_strm << "<tr><td>";
+
+                           temp_strm << curr_row_1[0];
+
+                           if (curr_row_1[1] && strlen(curr_row_1[1]) > 0)
+                           {
+
+                               if (response.output_format == Response_Type::OUTPUT_FORMAT_HTML)
+                                  temp_strm << "<td>";
+
+                               temp_strm << " " << curr_row_1[1];
+                           }
+
+                        }
+
+                        temp_strm << endl;
+
+@q *********** (11) @>
+
+                    }  /* |for|  */
+
+                 } /* |else| (|row_ctr_1 > 0|)  */
+
+@q ********** (10) @>
+
+                 mysql_free_result(result_1);
+                 result_1 = 0;
+
+                 temp_strm << endl;
+
+@q ********** (10) @>
+
+             }  /* |if (response.entries_with_prerequisites)|  */
+
+@q ********* (9) @>
+@
+\LOG
+\initials{LDF 2010.09.08.}
+Added this section.
+\ENDLOG
+
+@<|Scan_Parse_Parameter_Type::show_entries| definition@>=
+
+             else if (DEBUG)  /* |response.entries_with_prerequisites == false|  */
+             {
+                 lock_cerr_mutex(); 
+                 cerr << "[Thread " << thread_ctr << "]:  "
+                      << "In `Scan_Parse_Parameter_Type::show_entries':"
+                      << endl
+                      << "`response.entries_with_prerequisites' == false.  "
+                      << "Not showing prerequisites."
+                      << endl;
+                 unlock_cerr_mutex(); 
+
+             }  /* |else if (DEBUG)|  (|response.entries_with_prerequisites == false|)  */ 
+
+@q ********* (9) @>
+@
+\LOG
+\initials{LDF 2012.05.21.}
+Added this section.
+\ENDLOG
+
+@<|Scan_Parse_Parameter_Type::show_entries| definition@>=
+
+#if 1 /* 0 */
+bool save_DEBUG = DEBUG;
+DEBUG = false; /* |true|  */
+#endif 
+
+          if (response.entries_with_dependents)
+          {
+@q ********** (10) @>
+
+              if (DEBUG)
+              {
+                  lock_cerr_mutex(); 
+                  cerr << "In `Scan_Parse_Parameter_Type::show_entries':"
+                       << endl 
+                       << "response.entries_with_dependents == true." << endl;
+                  unlock_cerr_mutex(); 
+
+              }  /* |if (DEBUG)|  */ 
+
+
+                 sql_strm_1.str("");
+
+                 sql_strm_1 << "select e.package_name, e.package_version from "
+                            << "Entries as e, Prerequisites as p where "
+                            << "e.entry_id = p.entry_id and "
+                            << "p.prerequisite_id = " << curr_entry_id
+                            << " order by e.package_name";
+
+                 if (DEBUG) 
+                 { 
+                    lock_cerr_mutex(); 
+                    cerr << "[Thread " << thread_ctr << "]:  "
+                         << "In `Scan_Parse_Parameter_Type::show_entries':"
+                         << endl
+                         << "`sql_strm_1.str()' == " << sql_strm_1.str()
+                         << endl;
+                    unlock_cerr_mutex(); 
+
+                 } /* |if (DEBUG)| */
+
+@q ********** (10) @>
+
+               
+                 status = submit_mysql_query(sql_strm_1.str(),
+                                             result_1, 
+                                             &row_ctr_1, 
+                                             &field_ctr_1);
+
+@q ********** (10) @>
+
+                 if (status)  
+                 {
+                     lock_cerr_mutex(); 
+                     cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+                          << "ERROR!  In `Scan_Parse_Parameter_Type::show_entries':"
+                          << endl 
+                          << "`Scan_Parse_Parameter_Type::submit_mysql_query' failed, returning " 
+                          << status << "."
+                          << endl
+                          << "Exiting function unsuccessfully with return value 1."
+                          << endl;
+                     unlock_cerr_mutex(); 
+
+                     response.command = "SERVER SHOW ENTRIES FAILED";
+
+                     mysql_free_result(result);
+
+                     if (result_1) 
+                        mysql_free_result(result_1);
+
+                     return 1;
+
+
+                 }  /* |if (status)|  */
+
+@q ********** (10) @>
+
+                 else if (DEBUG)
+                 {
+                     lock_cerr_mutex(); 
+                     cerr << "[Thread " << thread_ctr << "]:  "
+                          << "In `Scan_Parse_Parameter_Type::show_entries':"
+                          << endl 
+                          << "`Scan_Parse_Parameter_Type::submit_mysql_query' succeeded."
+                          << endl;
+                     unlock_cerr_mutex(); 
+
+                 }  /* |else if (DEBUG)|  */
+
+@q ********** (10) @>
+
+                 if (DEBUG)
+                 {
+                     lock_cerr_mutex(); 
+                     cerr << "[Thread " << thread_ctr << "]:  "
+                          << "In `Scan_Parse_Parameter_Type::show_entries':"
+                          << endl 
+                          << "row_ctr_1 == " << row_ctr_1 
+                          << endl
+                          << "field_ctr_1 == " << field_ctr_1 
+                          << endl;
+                     unlock_cerr_mutex(); 
+
+                 }  /* |if (DEBUG)|  */
+
+@q ********** (10) @>
+
+                 if (row_ctr_1 == 0)
+                 {
+
+
+                     if (response.output_format == Response_Type::OUTPUT_FORMAT_JAVASCRIPT)
+                     {
+
+                     }
+                     else
+                     {
+                         if (response.output_format == Response_Type::OUTPUT_FORMAT_HTML)
+                            temp_strm << "<tr><td>";
+
+                         temp_strm << "No dependents" << endl;
+
+                     }         
+
+                 }  /* |if (row_ctr_1 == 0)|  */
+
+@q ********** (10) @>
+
+                 else /* |row_ctr_1 > 0|  */
+                 {
+ 
+                    if (response.output_format == Response_Type::OUTPUT_FORMAT_HTML)
+                       temp_strm << "<tr><td>";
+
+                    temp_strm << setw(32) << left << "Dependents:    ";
+ 
+                    if (response.output_format == Response_Type::OUTPUT_FORMAT_HTML)
+                       temp_strm << endl;
+
+                    for (int j = 0; j < row_ctr_1;  ++j)
+                    {
+
+@q *********** (11) @>
+
+                        if ((curr_row_1 = mysql_fetch_row(result_1)) == 0)
+                        {
+                            lock_cerr_mutex(); 
+                            cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+                                 << "ERROR!  In `Scan_Parse_Parameter_Type::show_entries':"
+                                 << endl 
+                                 << "`mysql_fetch_row' failed:"
+                                 << endl
+                                 << mysql_error(mysql_ptr)
+                                 << endl 
+                                 << "Exiting function unsuccessfully with return value 1."
+                                 << endl;
+                            unlock_cerr_mutex(); 
+
+                            mysql_free_result(result);
+                            mysql_free_result(result_1);
+
+                            response.command = "SERVER SHOW ENTRIES FAILED";
+
+                            return 1;
+
+                        }  /* |if (curr_row_1 = mysql_fetch_row(result_1) == 0)|  */
+
+@q *********** (11) @>
+@
+@<|Scan_Parse_Parameter_Type::show_entries| definition@>=
+
+                        if (DEBUG)
+                        {
+                            lock_cerr_mutex(); 
+                            cerr << "[Thread " << thread_ctr << "]:  "
+                                 << "In `Scan_Parse_Parameter_Type::show_entries':"
+                                 << endl 
+                                 << "`curr_row_1[0]' == " << curr_row_1[0]
+                                 << endl;
+                            unlock_cerr_mutex(); 
+
+                        }  /* |if (DEBUG)|  */
+
+                        if (j > 0)
+                           temp_strm << "                                ";
+
+                        if (   response.output_format 
+                            == Response_Type::OUTPUT_FORMAT_JAVASCRIPT)
+                        {
+
+                        }
+                        else
+                        {
+                           if (response.output_format == Response_Type::OUTPUT_FORMAT_HTML)
+                              temp_strm << "<tr><td>";
+
+                           temp_strm << curr_row_1[0];
+
+                           if (curr_row_1[1] && strlen(curr_row_1[1]) > 0)
+                           {
+
+                               if (response.output_format == Response_Type::OUTPUT_FORMAT_HTML)
+                                  temp_strm << "<td>";
+
+                               temp_strm << " " << curr_row_1[1];
+                           }
+
+                        }
+
+                        temp_strm << endl;
+
+@q *********** (11) @>
+
+                    }  /* |for|  */
+
+                 } /* |else| (|row_ctr_1 > 0|)  */
+
+@q ********** (10) @>
+
+                 mysql_free_result(result_1);
+                 result_1 = 0;
+
+                 temp_strm << endl;
+
+
+@q ********** (10) @>
+
+          }  /* |if (response.entries_with_dependents)|  */ 
+
+@q ********* (9) @>
+@
+\LOG
+\initials{LDF 2012.05.21.}
+Added this section.
+\ENDLOG
+@<|Scan_Parse_Parameter_Type::show_entries| definition@>=
+
+          else if (DEBUG)
+          {
+             lock_cerr_mutex(); 
+             cerr << "response.entries_with_dependents == false." << endl;
+             unlock_cerr_mutex(); 
+
+          }  /* |else if (DEBUG)|  */ 
+
+#if 1 /* 0 */
+DEBUG = save_DEBUG; 
+#endif 
+
+
+
+@q ********* (9) @>
+@
+@<|Scan_Parse_Parameter_Type::show_entries| definition@>=
+
+           if (response.output_format == Response_Type::OUTPUT_FORMAT_HTML)
+           {
+               temp_strm << "</table>" << endl << endl;
+           }
+           else if (response.output_format == Response_Type::OUTPUT_FORMAT_JAVASCRIPT)
+           {
+               temp_strm << endl;
+           }
+
+           else 
+           {
+              temp_strm << endl;
+           }
+   
+@q ********* (9) @>
+
+
+/*  !! TODO: LDF 2011.12.23.  |MAX_BUFFER| used to be where 1 is now.
+    Changed this, so that output
+    is always dumped to a file.
+    Otherwise, the code for ending the HTML form when using Javascript
+    output is never outputted.  Do something about this!
+*/
+
+
+            if (!dump_to_file && strlen(buffer) + temp_strm.str().size() < 1)
+            {
+               strcat(buffer, temp_strm.str().c_str());
+            }
+
+@q ********* (9) @>
+@
+\LOG
+\initials{LDF 2010.05.26.}
+Moved this code to a place inside the loop.  This prevents |temp_strm| from 
+becoming too full.
+\ENDLOG 
+
+@<|Scan_Parse_Parameter_Type::show_entries| definition@>=
+
+            else 
+            {
+                 if (!dump_to_file)
+                 {
+
+                     strcpy(temp_filename, "/tmp/EEXXXXXX");
+
+                     int temp_fd = mkstemp(temp_filename);
+
+                     if (temp_fd == -1)
+                     {
+
+                         lock_cerr_mutex(); 
+                         cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  " 
+                              << "ERROR!  In `Scan_Parse_Parameter_Type::show_entries':  "
+                              << "`mkstemp' failed, returning 1:"
+                              << endl;
+                         perror("Error:");
+                         cerr << "Exiting function unsuccessfully with return value 1.";
+                         unlock_cerr_mutex(); 
+
+                         response.command = "SERVER SHOW ENTRIES FAILED";
+
+                         memset(buffer, 0, MAX_BUFFER + 1);
+
+                         if (result) 
+                            mysql_free_result(result);
+
+                         return 1;    
+
+                     }  /* |if (temp_fd == -1)|  */
+
+                     else /* |mkstemp| succeeded  */
+                     {            
+
+                         close(temp_fd);
+
+                         temp_file_vector.push_back(string(temp_filename));
+
+                         response.local_filename  = temp_filename;
+
+                         if (DEBUG)
+                         {
+                             lock_cerr_mutex(); 
+                             cerr << "response.local_filename == " << response.local_filename
+                                  << endl;
+                             unlock_cerr_mutex(); 
+
+                         }  /* |if (DEBUG)|  */ 
+
+
+                         out_strm.open(response.local_filename.c_str());
+
+                         if (!out_strm)
+                         {
+
+                             lock_cerr_mutex(); 
+                             cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+                                  << "ERROR!  In `Scan_Parse_Parameter_Type::show_entries':"
+                                  << endl 
+                                  << "Failed to open output stream `out_strm' (filename `" 
+                                  << response.local_filename << "')."
+                                  << endl
+                                  << "Exiting function unsuccessfully with return value 1."
+                                  << endl;
+                             unlock_cerr_mutex(); 
+
+                             memset(buffer, 0, MAX_BUFFER + 1);
+
+                             response.command = "SERVER SHOW ENTRIES FAILED";
+                             response.local_filename = "";
+
+                             if (result)
+                                mysql_free_result(result);
+
+                             return 1;
+
+                         }  /* |if (!out_strm)| */
+
+                         else if (DEBUG)
+                         {
+
+                             lock_cerr_mutex(); 
+                             cerr << "[Thread " << thread_ctr << "]:  "
+                                  << "In `Scan_Parse_Parameter_Type::show_entries':"
+                                  << endl 
+                                  << "Opened output stream `out_strm' successfully."
+                                  << endl;
+                             unlock_cerr_mutex(); 
+
+                         }  /* |else if (DEBUG)|  */ 
+
+                     }  /* |else| (|mkstemp| succeeded)  */
+
+                     out_strm << buffer;
+
+                     memset(buffer, 0, MAX_BUFFER + 1);
+
+                     dump_to_file = true;
+
+                 }  /* |if (!dump_to_file)|  */
+
+                 out_strm << temp_strm.str();
+
+            }  /* |else|  */
+
+@q ********* (9) @>
+@
+@<|Scan_Parse_Parameter_Type::show_entries| definition@>=
+
+            if (DEBUG) 
+            { 
+               lock_cerr_mutex(); 
+               cerr << "[Thread " << thread_ctr << "]:  "
+                    << "In `Scan_Parse_Parameter_Type:  `temp_strm.str()' == "
+                    << endl 
+                    << temp_strm.str()
+                    << endl;
+               unlock_cerr_mutex(); 
+
+            } /* |if (DEBUG)| */
+
+@q ********* (9) @>
+
+            temp_strm.str("");
+
+
+@q ********* (9) @>
+
+        }  /* |for|  */
+
+@q ******** (8) @>
+
+    }  /* |else| (|row_ctr > 0|)  */
+
+@q ******* (7) @>
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::show_entries| definition@>=
+
+    if (result)
+       mysql_free_result(result);
+
+
+    if (dump_to_file)
+    {
+
+        if (response.output_format == Response_Type::OUTPUT_FORMAT_JAVASCRIPT)
+        {
+            out_strm << "</table>" << endl
+                     << "</p>" << endl        
+                     << "<div>" << endl
+                     << "<br>"
+                     << "<input type=\"submit\" "
+                     << "value=\"Submit (test_js.fcgi on pcfinston)\">" 
+                     << endl
+                     << "<input type=\"button\" onclick=\"show_all(this.form)\" "
+                     << "value=\"Show all for all entries\">" << endl
+                     << "<input type=\"reset\" value=\"Reset all\">" << endl
+                     << "</div>" << endl
+                     << "</form>" << endl << endl;
+        }
+
+#if 1 
+/* !! TODO:  LDF 2011.12.23. Testing.  */
+
+        if (   response.output_format == Response_Type::OUTPUT_FORMAT_HTML
+            || response.output_format == Response_Type::OUTPUT_FORMAT_JAVASCRIPT)
+        {
+            out_strm << endl << "<pre>" << endl;
+        }
+#endif 
+
+        out_strm.close();
+    }
+
+    if (DEBUG) 
+    { 
+       lock_cerr_mutex(); 
+       cerr << "[Thread " << thread_ctr << "]:  "
+            << "Exiting `Scan_Parse_Parameter_Type::show_entries' with return value 0."
+            << endl;
+       unlock_cerr_mutex(); 
+
+    } /* |if (DEBUG)| */
+
+
+    return 0;
+
+@q ****** (6) @>
+
+}  /* |Scan_Parse_Parameter_Type::show_entries|  */
+
+#endif /* |#if HAVE_LIBMYSQLCLIENT|  */
+
+@q ***** (5) @>
+
+@q **** (4) @>
+@
+@<Garbage@>=
+
+@q **** (4) @>
+
+@q *** (3) Putting `spptshen.web.web' together.  @>
+
+@ Putting {\tt spptshen.web\PERIOD web} together.
+
+@q **** (4) This is what's compiled.  @>
+@ This is what's compiled.
+@c
+@<Include files@>@;@/
+using namespace std;
+@<|Scan_Parse_Parameter_Type::show_entries| definition@>@;@/
+
+#if 0 
+@<Garbage@>@;@/
+#endif 
+
+@q **** (4) This is what's written to the header file `spptshen.h'.  @>
+
+@ This is what's written to the header file \filename{spptshen.h}.
+
+That is, no {\CPLUSPLUS/} code is written to the header file, but it's helpful 
+for it to exist, so that this CWEB file can be handled in exactly the same 
+way as the others.
+\initials{LDF 2012.01.13.}
+
+@(spptshen.h@>=
+#ifndef SPPTSHEN.WEB_H
+#define SPPTSHEN.WEB_H 1
+/* Empty  */
+#endif 
+
+@q * (1) Emacs-Lisp code for use in indirect buffers  @>
+
+@q (progn (cweb-mode) (outline-minor-mode))                          @>
+
+@q * (1) Local variables for Emacs @>
+
+@q * Local variables for Emacs.@>
+@q Local Variables: @>
+@q mode:CWEB @>
+@q eval:(display-time) @>
+@q abbrev-mode:t @>
+@q eval:(read-abbrev-file) @>
+@q indent-tabs-mode:nil @>
+@q eval:(outline-minor-mode) @>
+@q fill-column:80 @>
+@q End: @>
+

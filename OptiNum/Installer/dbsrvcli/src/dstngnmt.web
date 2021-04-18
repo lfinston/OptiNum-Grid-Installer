@@ -1,0 +1,647 @@
+@q dstngnmt.web  @>
+
+@q Created by Laurence D. Finston (LDF) Wed Apr 21 16:45:49 CEST 2010 @>
+
+@q * (1) Top @>
+
+@q * (1) Copyright and License.@>
+
+@q This file is part of the OptiNum Grid Installer @>
+@q Copyright (C) 2010, 2011, 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen @>
+
+@q The OptiNum Grid Installer is free software; you can redistribute it and/or modify @>
+@q it under the terms of the GNU General Public License as published by @>
+@q the Free Software Foundation; either version 3 of the License, or @>
+@q (at your option) any later version.  @>
+
+@q The OptiNum Grid Installer is distributed in the hope that it will be useful, @>
+@q but WITHOUT ANY WARRANTY; without even the implied warranty of @>
+@q MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the @>
+@q GNU General Public License for more details.  @>
+
+@q You should have received a copy of the GNU General Public License          @>
+@q along with the OptiNum Grid Installer; if not, write to the Free Software                    @>
+@q Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA @>
+
+@q ("@@" stands for a single at-sign in the following paragraph.) @>
+
+@q Please send bug reports to Laurence.Finston@@gwdg.de@>
+
+@q Laurence D. Finston                                                   @>
+@q Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen  @>
+@q Am Fassberg 11         					         @>
+@q 37077 Goettingen              					 @>
+@q Germany                           					 @>                                
+
+@q Laurence.Finston@@gwdg.de (@@ stands for a single "at" sign.)@>
+
+@q * (0) |class Distinguished_Name_Type| (dstngnmt.web).  @>
+
+@*  {\bf class Distinguished\_Name\_Type} (dstngnmt\PERIOD web).
+
+@ Version control identifier.
+@<Version control identifier@>=
+static char version_control_id[] 
+   = "$Id: dstngnmt.web 8356 2012-05-25 08:01:31Z finston $";
+  
+@q ** (2) Include files  @>
+
+@ Include files.
+
+@<Include files@>=
+
+#include <unistd.h>
+#include <errno.h>
+#include <string.h>
+
+#include <stdio.h>
+#include <stdlib.h>
+
+#include <errno.h>
+#include <math.h>
+#include <time.h>
+
+
+#include <gcrypt.h> /* for |gcry_control| */
+#include <gnutls/gnutls.h>
+
+#include <iomanip>
+#include <ios>
+#include <iostream>
+#include <map>
+#include <fstream>
+#include <sstream>   
+#include <string>
+#include <vector>
+#include <deque>
+
+#include <pthread.h>
+
+#if HAVE_CONFIG_H
+#include <config.h>
+#endif
+
+#if IS_ROCKS_GOEGRID
+#undef HAVE_LIBMYSQLCLIENT
+#endif 
+
+#if HAVE_LIBMYSQLCLIENT
+#include <mysql.h>
+#endif 
+
+#ifndef _XOPEN_SOURCE
+#define _XOPEN_SOURCE
+#endif 
+
+#include <glblfncs.h++>
+#include <utilfncs.h++>
+
+@q ** (2) |class Distinguished_Name_Type| declaration.  @>
+
+@ {\bf class Distinguished\_Name\_Type} declaration.
+\initials{LDF 2010.04.21.}
+
+\LOG
+\initials{LDF 2010.04.21.}
+Added this |struct| declaration.
+
+\initials{LDF 2012.02.10.}
+Changed |Distinguished_Name_Type| from a |struct| to a |class|.  Added |friend|
+declarations.  All data members are |private|.  The constructors are |public|
+and all other functions are |private|.
+@:TODO@> !! TODO:  Add functions for accessing data members and see if I can get rid 
+of some of the |friend| declarations.
+
+\initials{LDF 2012.03.28.}
+Added |friend| declaration for |int client_connect_auth(void)|.
+\ENDLOG
+
+@<|class Distinguished_Name_Type| declaration@>=
+
+class Distinguished_Name_Type
+{
+
+   string organization;
+   string organizationalUnitName;
+   string commonName;
+   string countryName;
+
+   string localityName;
+   string stateOrProvinceName;
+ 
+   string user_name;
+   int user_id;
+
+   friend int client_connect_auth(void);
+   friend int client_connect_non_auth(void);
+
+
+
+   friend class Scan_Parse_Parameter_Type;
+
+   @<|Distinguished_Name_Type| function declarations@>@;@/ 
+
+   public:
+
+   @<|Distinguished_Name_Type| constructor declarations@>@;@/ 
+
+};
+
+@q ** (2) |Distinguished_Name_Type| functions.  @>
+@ {\bf Distinguished\_Name\_Type} functions.
+\initials{LDF 2010.04.21.}
+
+\LOG
+\initials{LDF 2010.04.21.}
+Added this section.
+\ENDLOG
+
+@q *** (3) Constructors and Setting Functions.  @>
+
+@ Constructors and Setting Functions.
+\initials{LDF 2010.04.21.}
+
+\LOG
+\initials{LDF 2010.04.21.}
+Added this section.
+\ENDLOG
+
+@q **** (4) Default constructor.  @>
+@ Default constructor.
+\initials{LDF 2010.04.21.}
+
+\LOG
+\initials{LDF 2010.04.21.}
+Added this function.
+\ENDLOG
+
+@q ***** (5) Declaration  @>
+
+
+@<|Distinguished_Name_Type| constructor declarations@>= 
+
+Distinguished_Name_Type(void);
+
+@q ***** (5) Definition  @>
+@
+@<|Distinguished_Name_Type| function definitions@>=
+
+Distinguished_Name_Type::Distinguished_Name_Type(void)
+{
+
+     user_id      =  -1;
+
+     user_name    = "";
+
+     return;
+
+}  /* End of |Distinguished_Name_Type| default constructor definition  */
+
+
+@q **** (4) Constructor with arguments.  @>
+@ Constructor with arguments.
+\initials{LDF 2010.04.21.}
+
+\LOG
+\initials{LDF 2010.04.21.}
+Added this function.
+\ENDLOG
+
+@q ***** (5) Declaration  @>
+
+@<|Distinguished_Name_Type| constructor declarations@>= 
+
+Distinguished_Name_Type(string oorganization, 
+                        string oorganizationalUnitName = "",
+                        string ccommonName = "",
+                        string ccountryName = "",
+                        string llocalityName = "",
+                        string sstateOrProvinceName = "",
+                        unsigned int uuser_id = 0,
+                        string uuser_name = "");
+
+@q ***** (5) Definition  @>
+@
+@<|Distinguished_Name_Type| function definitions@>=
+
+Distinguished_Name_Type::Distinguished_Name_Type(string oorganization, 
+                                                 string oorganizationalUnitName,
+                                                 string ccommonName,
+                                                 string ccountryName,
+                                                 string llocalityName,
+                                                 string sstateOrProvinceName,
+                                                 unsigned int uuser_id,
+                                                 string uuser_name)
+
+
+   : organization(oorganization),
+     organizationalUnitName(oorganizationalUnitName),
+     commonName(ccommonName),
+     countryName(ccountryName),
+     localityName(llocalityName),
+     stateOrProvinceName(sstateOrProvinceName),
+     user_id(uuser_id),
+     user_name(uuser_name)
+{
+
+     return;
+
+}  /* End of |Distinguished_Name_Type| non-default constructor definition  */
+
+@q **** (4) Setting function with arguments.  @>
+@ Setting function with arguments.
+\initials{LDF 2010.04.21.}
+
+\LOG
+\initials{LDF 2010.04.21.}
+Added this function.
+
+\initials{LDF 2010.05.25.}
+@:BUG FIX@> BUG FIX:  Added code for handling angle braces used as delimiters.
+\ENDLOG
+
+@q ***** (5) Declaration  @>
+
+@<|Distinguished_Name_Type| function declarations@>=
+int
+set(string distinguished_name_str, string* user_name = 0);
+
+@q ***** (5) Definition  @>
+@
+@<|Distinguished_Name_Type| function definitions@>=
+int
+Distinguished_Name_Type::set(string s, string *user_name)
+{
+@q ****** (6) @>
+
+    bool DEBUG = false;  /* |true|  */
+    set_debug_level(DEBUG);
+
+    string::size_type t;
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "Entering `Distinguished_Name_Type::set'."
+             << endl;
+
+        cerr << "s == " << s << endl;
+
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */   
+
+
+    if (s[0] == '\"' || s[0] == '<')
+       s.erase(0, 1);
+
+@ |user_name| will normally only be non-null when the Distinguished Name is read from
+a \filename{grid-mapfile}.  In this case, quotation marks will be used (and not angle braces).
+\initials{LDF 2010.05.25.}
+
+@<|Distinguished_Name_Type| function definitions@>=
+
+    if (user_name)  
+    {
+       *user_name = s;
+       user_name->erase(0, user_name->find_last_of('\"'));
+    
+       while (isspace((*user_name)[0]) || (*user_name)[0] == '\"')
+          user_name->erase(0, 1);
+    }
+
+@ Erase the closing quotation mark or angle brace.
+\initials{LDF 2010.05.25.}
+
+@<|Distinguished_Name_Type| function definitions@>=
+
+    t = s.find_last_of('\"');
+
+    if (t != string::npos)
+       s.erase(t);
+
+    t = s.find_last_of('>');
+
+    if (t != string::npos)
+       s.erase(t);
+
+@q ****** (6) @>
+@
+@<|Distinguished_Name_Type| function definitions@>=
+
+    if (DEBUG)
+    {
+         lock_cerr_mutex(); 
+         cerr << "s == " << s 
+              << endl
+              << endl;
+         if (user_name)
+            cerr << "*user_name == " << *user_name << endl;
+         cerr << endl;
+         unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */ 
+
+@q ****** (6) @>
+
+    string temp_str = s;
+
+    string keyword;
+    string value;
+
+    while (temp_str.size() > 0)
+    {
+
+        if (temp_str[0] == '/')
+           temp_str.erase(0, 1);
+
+        t = temp_str.find('=');
+
+        keyword = temp_str.substr(0, t);
+
+        temp_str.erase(0, t + 1);
+
+        t = temp_str.find('/');
+
+        if (t == string::npos)
+        {
+           value = temp_str;
+           temp_str.clear();
+        }
+        else
+        {
+           value = temp_str.substr(0, t);
+           temp_str.erase(0, t);
+         
+        }
+
+
+#if 0 
+        cerr << "keyword == " << keyword << endl;
+        cerr << "value == " << value << endl;
+#endif 
+
+        if (keyword == "C")
+           countryName = value;
+        else if (keyword == "O")
+           organization = value;
+        else if (keyword == "OU")
+           organizationalUnitName = value;
+        else if (keyword == "CN")
+           commonName = value;
+
+    }  /* |while|  */
+
+@q ****** (6) @>
+
+    if (DEBUG)
+    {
+
+        lock_cerr_mutex(); 
+        cerr << "Exiting `Distinguished_Name_Type::set' successfully with return value 0."
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */   
+
+    return 0;
+
+}  /* End of |Distinguished_Name_Type::set| definition  */
+
+
+@q *** (3) Operators.  @>
+@ Operators.
+\initials{LDF 2010.04.23.}
+
+@q **** (4) Assignment from an |X509_Cert_Type|.  @>
+@ Assignment from an |X509_Cert_Type|.
+\initials{LDF 2010.04.23.}
+
+\LOG
+\initials{LDF 2010.04.23.}
+Added this declaration.  
+The function must be defined in \filename{x509cert.web} because 
+|class X509_Cert_Type| hasn't been declared here.
+\ENDLOG
+
+@<|Distinguished_Name_Type| function declarations@>=
+
+void
+operator=(const X509_Cert_Type&);  
+
+@q **** (4) Equality.  @>
+@ Equality.
+\initials{LDF 2010.04.23.}
+
+\LOG
+\initials{LDF 2010.04.23.}
+Added this function.
+\ENDLOG
+
+@<|Distinguished_Name_Type| function declarations@>=
+
+bool
+operator==(const Distinguished_Name_Type&) const;  
+
+@
+@<|Distinguished_Name_Type::operator==| definition@>=
+bool
+Distinguished_Name_Type::operator==(const Distinguished_Name_Type& d) const
+{
+   if (this == &d)
+      return true;
+
+   /* |user_name| and |user_id| are ignored for the sake of comparing   
+      for equality. 
+      \initials{LDF 2010.04.23.}  */
+
+   return (   organization           == d.organization
+           && organizationalUnitName == d.organizationalUnitName
+           && commonName             == d.commonName
+           && countryName            == d.countryName
+           && localityName           == d.localityName
+           && stateOrProvinceName    == d.stateOrProvinceName);
+ 
+
+}  /* End of |Distinguished_Name_Type::operator==(const Distinguished_Name_Type&)|
+      definition   */
+
+
+@q **** (4) Inequality.  @>
+@ Inequality.
+\initials{LDF 2011.05.11.}
+
+\LOG
+\initials{LDF 2011.05.11.}
+Added this function.
+\ENDLOG
+
+@<|Distinguished_Name_Type| function declarations@>=
+
+bool
+operator!=(const Distinguished_Name_Type&) const;  
+
+@
+@<|Distinguished_Name_Type::operator!=| definition@>=
+bool
+Distinguished_Name_Type::operator!=(const Distinguished_Name_Type& d) const
+{
+
+   return (!this->operator==(d));
+ 
+
+}  /* End of |Distinguished_Name_Type::operator!=(const Distinguished_Name_Type&)|
+      definition   */
+
+
+
+
+@q *** (3) Clear.  @>
+@ Clear.
+\initials{LDF 2010.04.22.}
+\LOG
+\initials{LDF 2010.04.22.}
+Added this function.
+\ENDLOG
+
+@q ***** (5) Declaration  @>
+
+@<|Distinguished_Name_Type| function declarations@>=
+void
+clear(void);
+
+@q ***** (5) Definition  @>
+@
+@<|Distinguished_Name_Type| function definitions@>=
+void
+Distinguished_Name_Type::clear(void)
+{
+
+   organization = "";
+   organizationalUnitName = "";
+   commonName = "";
+   countryName = "";
+
+   localityName = "";
+   stateOrProvinceName = "";
+ 
+   user_name = "";
+   user_id = -1;
+
+    return;
+
+}  /* End of |Distinguished_Name_Type::clear| definition  */
+
+@q *** (3) Show.  @>
+@ Show.
+\initials{LDF 2010.04.21.}
+
+\LOG
+\initials{LDF 2010.04.21.}
+Added this function.
+
+\initials{LDF 2010.05.05.}
+Made this function |const|.
+\ENDLOG
+
+@q *** (3) Declaration  @>
+
+@<|Distinguished_Name_Type| function declarations@>=
+void
+show(string s = "") const;
+
+@q *** (3) Definition  @>
+@
+@<|Distinguished_Name_Type| function definitions@>=
+void
+Distinguished_Name_Type::show(string s) const
+{
+
+@q **** (4) @>
+
+   if (s == "")
+      s = "Distinguished_Name_Type:";
+    
+    cerr << setfill('.')
+         << s 
+         << endl
+         << setw(34) << std::left
+         << "     organization:" << organization
+         << endl
+         << setw(34) << std::left
+         << "     organizationalUnitName:" << organizationalUnitName
+         << endl
+         << setw(34) << std::left
+         << "     commonName:" << commonName
+         << endl
+         << setw(34) << std::left
+         << "     countryName:" << countryName
+         << endl
+         << setw(34) << std::left
+         << "     localityName:" << localityName
+         << endl
+         << setw(34) << std::left
+         << "     stateOrProvinceName:" << stateOrProvinceName
+         << endl 
+         << setw(34) << std::left
+         << "     user_id:" << user_id
+         << endl
+         << setw(34) << std::left
+         << "     user_name:" << user_name
+         << dec
+         << endl;
+
+   cerr << setfill(' ');
+
+   return;
+
+}  /* End of |Distinguished_Name_Type::show| definition  */
+
+
+
+@q ** (2) Putting |class Distinguished_Name_Type| together.@>
+
+@ Putting |class Distinguished_Name_Type| together.
+\initials{LDF 2010.04.21.}
+
+@c
+using namespace std;
+@<Include files@>@;@/
+@<Version control identifier@>@;@/
+class X509_Cert_Type;
+
+#ifndef HAVE_PTHREAD_H
+void lock_cerr_mutex(void);
+void unlock_cerr_mutex(void);
+#else
+inline void lock_cerr_mutex(void) {}
+inline void unlock_cerr_mutex(void) {}
+#endif
+
+@<|class Distinguished_Name_Type| declaration@>@;@/ 
+@<|Distinguished_Name_Type| function definitions@>@;@/ 
+@<|Distinguished_Name_Type::operator==| definition@>@;@/
+@<|Distinguished_Name_Type::operator!=| definition@>@;@/
+
+@
+@(dstngnmt.h@>=
+#ifndef DSTNGNMT_H
+#define DSTNGNMT_H 1
+class X509_Cert_Type;
+@<|class Distinguished_Name_Type| declaration@>@;@/ 
+#endif 
+
+@q (progn (cweb-mode) (outline-minor-mode))   @>
+
+@q * (1) Local variables for Emacs @>
+
+@q * Local variables for Emacs.@>
+@q Local Variables: @>
+@q mode:CWEB @>
+@q eval:(display-time) @>
+@q abbrev-mode:t @>
+@q eval:(read-abbrev-file) @>
+@q indent-tabs-mode:nil @>
+@q eval:(outline-minor-mode) @>
+@q fill-column:80 @>
+@q End: @>

@@ -1,0 +1,2147 @@
+@q strtinst.web  @>
+@q Created by Laurence D. Finston Wed Oct  5 13:08:51 CEST 2011 @>
+
+@q * (1) Top @>
+
+@q * (1) Copyright and License.@>
+
+@q This file is part of the OptiNum Grid Installer @>
+@q Copyright (C) 2010, 2011, 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen @>
+
+@q The OptiNum Grid Installer is free software; you can redistribute it and/or modify @>
+@q it under the terms of the GNU General Public License as published by @>
+@q the Free Software Foundation; either version 3 of the License, or @>
+@q (at your option) any later version.  @>
+
+@q The OptiNum Grid Installer is distributed in the hope that it will be useful, @>
+@q but WITHOUT ANY WARRANTY; without even the implied warranty of @>
+@q MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the @>
+@q GNU General Public License for more details.  @>
+
+@q You should have received a copy of the GNU General Public License          @>
+@q along with the OptiNum Grid Installer; if not, write to the Free Software                    @>
+@q Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA @>
+
+@q ("@@" stands for a single at-sign in the following paragraph.) @>
+
+@q Please send bug reports to Laurence.Finston@@gwdg.de@>
+
+@q Laurence D. Finston                                                   @>
+@q Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen  @>
+@q Am Fassberg 11         					         @>
+@q 37077 Goettingen              					 @>
+@q Germany                           					 @>                                
+
+@q Laurence.Finston@@gwdg.de (@@ stands for a single "at" sign.)@>
+
+@q * (0)  Start installation (strtinst.web)  @>
+@** Start installation (\.{strtinst.web}).
+
+Formerly, this program (\.{strtinst}) invoked Michaela Mohr's Java program
+\.{InstallStarter}, hence the name of this file (``Call InstallStarter'').  Now,
+a wrapper script and an RSL file are created and used for invoking the client
+program \.{optdbcli} instead. 
+\initials{LDF 2011.12.15.}
+
+\LOG
+\initials{LDF 2012.01.25.}
+Changed the name of this file from \filename{cllistrt.web} 
+to \filename{strtinst.web}.
+\ENDLOG 
+
+@q ** (2) Include files  @>
+
+@ Include files.
+
+@<Include files@>=
+#include <stdlib.h>  /* Standard Library for C  */
+#include <stdio.h>
+#include <errno.h>
+
+#include <sys/types.h>
+#include <pwd.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
+#include <pthread.h>
+
+#include <algorithm> /* Standard Template Library (STL) for C++  */
+#include <fstream> 
+#include <iomanip>
+#include <ios>
+#include <iostream>
+#include <string>
+#include <string.h>
+
+#if 0 
+#include <time.h>
+#endif 
+
+#include <math.h>
+#include <sstream>  
+
+#include <map>
+#include <vector>
+#include <deque>
+
+#if HAVE_CONFIG_H
+#include <config.h>
+#endif 
+
+#if IS_ROCKS_GOEGRID
+#undef HAVE_LIBMYSQLCLIENT
+#endif 
+
+#if HAVE_PTHREAD_H
+#include <pthread.h>  /* POSIX threads  */
+#endif 
+
+#if HAVE_LIBMYSQLCLIENT
+#include <mysql.h>
+#endif
+
+using namespace std;
+
+#include <dhprxcrt.h++>
+#include <dstngnmt.h++>
+#include <glblvrbl.h++>
+#include <glblfncs.h++>
+#include <utilfncs.h++>
+
+#define IS_STRTINST
+
+#include <glsinftp.h++>
+
+
+@q * (1) |finish|.  @>
+@  \.{finish}.
+\initials{LDF 2012.02.08.}
+
+\LOG
+\initials{LDF 2012.02.08.}
+Added this function.
+\ENDLOG
+
+@<|finish| declaration@>=
+void
+finish(void);
+
+@
+@<|finish| definition@>=
+
+void
+finish(void)
+{
+#if HAVE_LIBMYSQLCLIENT
+    mysql_library_end();
+#endif
+    return;
+}
+
+
+@q * (1) Main.  @>
+@ Main function.
+\initials{LDF Date unknown.}
+
+\vskip\baselineskip
+\halign{#:\quad&#\hfil\cr
+%
+{\bf Exit status values}\span\cr
+\noalign{\vskip.5\baselineskip}
+0&Success\cr
+1&Checking for Globus site failed\cr
+2&|getpwuid_r| failed\cr
+3&Cannot determine user name (|pwbuf.pw_name| is empty)\cr
+4&Cannot determine home directory (|pwbuf.pw_dir| is empty)\cr
+5&Home directory path too long (has too many characters)\cr
+6&X.509 proxy credential not found\cr
+100 $+$ return value of |handle_proxy_cred|\span X.509 proxy credential invalid\cr
+7&Incorrect number of arguments\cr
+8&|mkstemp| error:  Failed to create temporary files\cr
+9&|fchmod| error:  Failed to change mode of wrapper script file\cr
+10&Globus site not found\cr
+11&Globus site disabled\cr
+12&Invalid data for Globus site\cr
+13&Failed to write wrapper script\cr
+14&Failed to write RSL file\cr
+15&Invalid host (not \.{optinum-srv.gwdg.de} or \.{pcfinston})\cr
+16&Installation process failed (call to |system|)\cr
+17&|atexit| failed\cr
+18&MySQL library couldn't be initialized\cr
+19&|mysql_init| failed\cr
+20&|popen| error\cr
+21&|fread| error\cr
+22&|mysql_real_connect| failed \cr
+23&|mysql_select_db| failed\cr}
+
+\LOG
+\initials{LDF 2011.10.21.}
+Removed loop.  This program (i.e., \.{strtinst}) is now only called 
+with 6 arguments.
+
+\initials{LDF 2011.10.27.}
+Removed the arguments for the names of the non-temporary output 
+and error files.  They aren't needed.
+
+\initials{LDF 2011.11.16.}
+Removed local variables |unsigned int MAX_BUFFER| and |char buffer[MAX_BUFFER]|.
+They weren't used.
+
+\initials{LDF 2012.02.07.}
+Now using different values for error exits.
+\ENDLOG
+
+@q ** (2) Definition @>
+@
+@<|main| definition@>=
+int
+main(int argc, char *argv[])
+{
+@q *** (3) @>
+
+#if HAVE_LIBMYSQLCLIENT
+
+    bool DEBUG = false;  /* |true|  */ 
+
+    int status = 0;
+
+    if (DEBUG)
+    {
+        cerr << "Entering `strtinst'." << endl;
+
+        if (getenv("HOME"))
+           cerr << "HOME == " << getenv("HOME") << endl;
+        else
+           cerr << "HOME unknown." << endl;
+
+        if (getenv("LD_LIBRARY_PATH"))
+           cerr << "LD_LIBRARY_PATH == " << getenv("LD_LIBRARY_PATH") << endl;
+        else
+           cerr << "LD_LIBRARY_PATH unknown." << endl;
+
+    }  /* |if (DEBUG)|  */ 
+
+@q *** (3) @>
+@
+@<|main| definition@>=
+
+    status = atexit(finish);
+
+    if (status != 0)
+    {
+        cerr << "ERROR!  In `strtinst' (`main'):  `atexit' failed, returning "
+             << status << "."
+             << endl
+             << "Exiting `strtinst' unsuccessfully with exit status 15."
+             << endl;
+
+        exit(15);
+
+    }
+    else if (DEBUG)
+    {
+      cerr << "In `strtinst' (`main'):  `atexit' succeeded." << endl;
+    }  
+
+@q *** (3) Initialize the MySQL library.  @>
+
+@ Initialize the MySQL library.  
+\initials{LDF 2009.10.12.}
+
+\LOG
+\initials{LDF 2012.02.08.}
+Added this section.
+\ENDLOG
+
+@<|main| definition@>=
+
+    if (mysql_library_init(0, NULL, NULL)) 
+    {
+        cerr << "ERROR!  In `strtinst' (`main'):  Failed to initialize the MySQL library."
+             << endl
+             << "Exiting `strtinst' unsuccessfully with exit status 16."
+             << endl;
+
+        exit(16);
+
+    }
+    else if (DEBUG)
+    {
+        cerr << "In `strtinst' (`main'):  `mysql_library_init' succeeded." << endl;
+    }  
+
+    MYSQL *mysql_ptr = mysql_init(0);
+
+    if (mysql_ptr)
+    {
+        if (DEBUG)
+        {
+    
+           cerr << "In `strtinst' (`main'):  "
+                << "`mysql_init' succeeded."
+                << endl;
+    
+
+        }  /* |if (DEBUG)|  */ 
+
+    }  /* |if (mysql_ptr)| */
+
+    else
+    {
+       cerr << "ERROR!  In `strtinst' (`main'):  "
+            << endl
+            << "`mysql_init' failed.  Exiting `strinst' unsuccessfully with "
+            << "exit status 17."
+            << endl;
+ 
+       exit(17);
+
+    }
+
+
+@q *** (3) Connect |mysql_ptr| to the MySQL database.  @>
+
+@ Connect |mysql_ptr| to the MySQL database.  
+\initials{LDF 2012.02.08.}
+
+@q *** (3) Connect (for optinum-srv.gwdg.de).  @>
+
+@ Connect (for optinum-srv.gwdg.de).  
+\initials{LDF 2012.02.08.}
+
+\LOG
+\initials{LDF 2012.02.08.}
+Removed the code for decrypting the password for MySQL database user \.{lfinsto}.
+This program runs under the user id of a ``customer'', so it doesn't have 
+read or write access to \filename{/home/optinum\_installer/.gnupg/}.  Therefore, 
+the call to \.{gpg} failed.
+\par
+I have added a MySQL database user \.{OptiNum} with only the \.{SELECT} privilege on 
+the \.{Globus\_Sites} table, so its password doesn't need to be kept secret.
+\ENDLOG 
+
+@<|main| definition@>=
+
+#if IS_OPTINUM_SRV
+
+      if (!mysql_real_connect(mysql_ptr, 0, "OptiNum", "OptiNum", 0, 0, NULL, 0))
+
+@q *** (3) For testing on local systems.  @>
+
+@ For testing on local systems.  
+\initials{LDF 2012.02.08.}
+
+|"/var/run/mysql/mysql.sock"| is now needed for \.{pcfinston.gwdg.de}
+The second-to-last argument used to be |NULL|.  Now, following 
+the installation of SuseLinux 12.1, the socket file is located at 
+|"/var/run/mysql/mysql.sock"| on \.{pcfinston.gwdg.de}.
+\initials{LDF 2012.03.26.}
+
+@<|main| definition@>=
+
+#else
+
+
+      if (!mysql_real_connect(mysql_ptr, 0, "root", 0, 0,0, 
+                              "/var/run/mysql/mysql.sock", 0))
+
+#endif 
+
+@q *** (3) @>
+@
+@<|main| definition@>=
+     
+   /* |if| in conditionally compiled code above.  \initials{LDF 2012.02.08.}  */ 
+      {
+          
+         cerr << "ERROR!  In `strtinst' (`main'):"
+              << endl
+              << "`mysql_real_connect' failed.  "
+              << "Error:  " << mysql_error(mysql_ptr)
+              << endl 
+              << "Exiting `strtinst' unsuccessfully with "
+              << "exit status 21."
+              << endl;
+          
+          mysql_close(mysql_ptr); 
+
+          exit(20);
+
+      }
+      else if (DEBUG)
+      {
+          
+         cerr << "In `strtinst' (`main'):"
+              << endl
+              << "`mysql_real_connect' succeeded."
+              << endl; 
+         
+      } 
+@q ****** (6) Select ``dbsrvcli'' database.  @>
+
+@ Select ``dbsrvcli'' database.  
+\initials{LDF 2012.02.08.}
+
+@<|main| definition@>=
+
+      status = mysql_select_db(mysql_ptr, "dbsrvcli");
+
+      if (status == 0)
+      {
+        
+         if (DEBUG)
+         {
+             
+            cerr << "In `strtinst' (`main'):  "
+                 << "`mysql_select_db succeeded'."
+                 << endl;
+            
+
+         }  /* |if (DEBUG)|  */ 
+
+      }  /* |if (status == 0)| */
+
+      else /* |status != 0| */
+      {
+          
+         cerr << "In `strtinst' (`main'):  "
+              << "`mysql_select_db' failed, returning " << status << "."
+              << "Exiting `strtinst' with exit status 22."
+              << endl;
+         
+         mysql_close(mysql_ptr); 
+
+         exit(21);
+
+      }   /* |else| (|status != 0|) */
+
+
+@q *** (3) Check |globus_site|.  @>
+ 
+@ Check |globus_site|.
+\initials{LDF 2012.04.12.}
+
+\LOG
+\initials{LDF 2011.12.15.}
+Added this section.
+
+\initials{LDF 2012.04.12.}
+Removed call to |init_globus_site_info_map|.  
+Now calling |check_globus_site| instead.
+\ENDLOG
+
+@<|main| definition@>=
+
+   string globus_site = argv[4];
+
+   Globus_Site_Info_Type globus_site_info;
+
+   if (DEBUG)
+   {
+      cerr << "In `main' (`strtinst'):  `globus_site' == " << globus_site << endl;
+
+   } /* |if (DEBUG)|  */ 
+
+   status = check_globus_site(mysql_ptr, globus_site, globus_site_info);
+
+@q **** (4) @>
+
+   if (status == 1)
+   {
+        cerr << "ERROR! In `strtinst' (`main'):  "
+             << "`check_globus_site' failed, returning 1."
+             << endl
+             << "Failed to access database for information for Globus site "
+             << "`" << globus_site << "'."
+             << endl 
+             << "Exiting `strtinst' unsuccessfully with exit status 1."
+             << endl;
+
+         mysql_close(mysql_ptr); 
+
+         exit(1);
+
+   }
+
+@q **** (4) @>
+
+   else if (status == 2)
+   {
+        cerr << "ERROR! In `strtinst' (`main'):  "
+             << "`check_globus_site' failed, returning 2."
+             << endl
+             << "No information found for Globus site `" << globus_site << "' in database."
+             << endl 
+             << "Exiting `strtinst' unsuccessfully with exit status 10."
+             << endl;
+
+         mysql_close(mysql_ptr); 
+
+         exit(10);
+
+
+   }
+
+@q **** (4) @>
+
+   else if (status == 3)
+   {
+        cerr << "ERROR! In `strtinst' (`main'):  "
+             << "`check_globus_site' failed, returning 3."
+             << endl
+             << "Invalid data found in database for Globus site "
+             << "`" << globus_site << "' in database."
+             << endl 
+             << "Exiting `strtinst' unsuccessfully with exit status 12."
+             << endl;
+
+         mysql_close(mysql_ptr); 
+
+         exit(12);
+
+   }
+
+@q **** (4) @>
+
+   else if (status != 0)
+   {
+        cerr << "ERROR! In `strtinst' (`main'):  "
+             << "`check_globus_site' failed, returning " << status << "."
+             << endl
+             << "Failed to find information for Globus site `" << globus_site << "' in database."
+             << endl 
+             << "Exiting `strtinst' unsuccessfully with exit status 1."
+             << endl;
+
+         mysql_close(mysql_ptr); 
+
+         exit(1);
+
+   }
+
+@q **** (4) @>
+
+   else if (DEBUG)
+   {
+        cerr << "In `strtinst' (`main'):  "
+             << "`check_globus_site' succeeded.  "
+             << "Globus site `" << globus_site << "' found:"
+             << endl;
+
+        globus_site_info.show("globus_site_info:");
+
+   }  /* |else if (DEBUG)|  */ 
+
+@q **** (4) @>
+
+   if (globus_site_info.enabled < 0)
+   {
+       cerr << "WARNING!  In `strtinst' (`main'):  `" << globus_site << "' "
+            << "is disabled.  "
+            << "Can't install."
+            << endl             
+            << "Exiting `strtinst' unsuccessfully with exit status 11."
+            << endl;
+
+       mysql_close(mysql_ptr); 
+
+       exit(11);
+
+   }  /* |else if (globus_site_info.enabled < 0)|  */
+
+   else if (DEBUG)
+   {
+       cerr << "In `strtinst' (`main'):  `" << globus_site << "' is enabled."
+            << endl;
+
+   }  /* |else if (DEBUG)|  */ 
+
+@q **** (4) @>
+
+@q *** (3) @>
+@
+\LOG
+\initials{LDF 2012.02.08.}
+Replaced call to |getenv("HOME")| with call to |getpwuid_r|.
+\ENDLOG 
+
+@<|main| definition@>=
+
+    struct passwd pwbuf;
+    struct passwd *pwbufp;
+
+    size_t buff_size = sysconf(_SC_GETPW_R_SIZE_MAX);
+
+    char buff[buff_size];
+    memset(buff, 0, buff_size);
+
+    errno = 0;
+
+    status = getpwuid_r(getuid(), &pwbuf, buff, buff_size, &pwbufp);
+
+    if (status != 0)
+    {
+         cerr << "ERROR! In `strtinst' (`main'):  "
+              << "`getpwuid_r' failed, returning " << status << "."
+              << endl
+              << "getwuid_r error:  " << strerror(errno)
+              << endl
+              << "Cannot determine home directory.  "
+              << "Not starting installation."
+              << endl
+              << "Exiting `strtinst' unsuccessfully with exit status 2."
+              << endl;
+
+          exit(2);
+
+    }  /* |if (status != 0)|  */
+
+    else if (DEBUG)
+    {
+         cerr << "In `strtinst' (`main'):  `getpwuid_r' succeeded." << endl
+              << "`pwbuf.pw_name' == " << pwbuf.pw_name
+              << endl 
+              << "`pwbuf.pw_dir' == " << pwbuf.pw_dir
+              << endl;
+
+    }  /* |else if (DEBUG)|  */ 
+
+    string home_dir;
+    string user_name;
+
+    if (strlen(pwbuf.pw_name) > 0)
+       user_name = pwbuf.pw_name;
+    else
+    {
+         cerr << "ERROR! In `strtinst' (`main'):  Cannot determine user name.  "
+              << "Not starting installation."
+              << endl
+              << "Exiting `strtinst' unsuccessfully with exit status 3."
+              << endl;
+
+          exit(3);
+
+    }
+
+    if (strlen(pwbuf.pw_dir) > 0)
+       home_dir = pwbuf.pw_dir;
+    else
+    {
+         cerr << "ERROR! In `strtinst' (`main'):  Cannot determine home directory.  "
+              << "Not starting installation."
+              << endl
+              << "Exiting `strtinst' unsuccessfully with exit status 4."
+              << endl;
+
+          exit(4);
+
+    }
+
+    if (home_dir.length() >= (255 - 14))
+    {
+         cerr << "ERROR! In `strtinst' (`main'):  Home directory path is too long "
+              << "(has too many characters)."
+              << endl 
+              << "Not starting installation."
+              << endl
+              << "Exiting `strtinst' unsuccessfully with exit status 5."
+              << endl;
+
+          exit(5);
+
+    }
+
+    else if (DEBUG)
+    {
+         cerr << "In `strtinst' (`main'):  Home directory == `" << home_dir << "'."
+              << endl;
+
+    }  /* |else if (DEBUG)|  */ 
+    
+@q *** (3) @>
+@
+@<|main| definition@>=
+
+    proxy_cred_filename = get_proxy_cred_filename(user_name);
+
+    if (proxy_cred_filename.empty())
+    {
+         cerr << "ERROR! In `strtinst' (`main'):  X.509 proxy credential not found.  "
+              << "Not starting installation."
+              << endl
+              << "Exiting `strtinst' unsuccessfully with exit status 6."
+              << endl;
+
+          exit(6);
+              
+    }  /* |if (proxy_cred_filename.empty())|  */
+
+    else if (DEBUG) 
+    {
+
+        cerr << "`proxy_cred_filename' == " << proxy_cred_filename
+             << endl;
+
+    }  /* |else if (debug)|  */
+
+@q *** (3) Test validity of proxy credential.  @>
+
+@ Test validity of proxy credential.
+\initials{LDF 2011.10.27.}
+
+\LOG
+\initials{LDF 2011.10.27.}
+Added this section.
+\ENDLOG
+
+\noindent
+|handle_proxy_cred| errors:\vskip.5\baselineskip
+\the\hpxretvaltoks
+
+@<|main| definition@>=
+
+    status = handle_proxy_cred(proxy_cred_filename);
+
+    if (status != 0)
+    {
+
+         cerr << "ERROR! In `strtinst' (`main'):  `handle_proxy_cred' failed, "
+              << "returning " << status << "." 
+              << endl 
+              << "`" << proxy_cred_filename << "' is invalid.  "
+              << endl 
+              << "Not starting installation."
+              << endl
+              << "Exiting `strtinst' unsuccessfully with exit status " 
+              << (100 + status) << "."
+              << endl;
+
+          exit(100 + status);
+
+    }  /* |if (status != 0)|  */
+
+    else if (DEBUG) 
+    {
+         cerr << "In `strtinst' (`main'):  `handle_proxy_cred' succeeded, "
+              << "returning 0."
+              << endl 
+              << "`" << proxy_cred_filename << "' is valid.  "
+              << endl; 
+
+    }
+
+@q *** (3) @>
+@
+@<|main| definition@>=
+
+    if (DEBUG) 
+    {
+        for (int i = 0; i < argc; i++)
+        {
+            cerr << "Arg " << i << " == " << argv[i] << endl;
+
+        }   
+
+    } /* |if (DEBUG)|  */
+
+@q *** (3) @>
+
+    if ((argc - 1) !=  7)
+    {
+        cerr << "ERROR!  In `strtinst' (`main') Number of arguments not seven."
+             << endl
+             << "This is not permitted." << endl
+             << "Exiting `strtinst' unsuccessfully with exit status 7."
+             << endl;
+
+        cout << "strtinst error."  << endl;
+
+        exit(7);
+
+    }
+    else if (DEBUG) 
+    {
+
+        cerr << "Seven arguments, not counting argument 0."
+             << endl;
+
+    }  /* |else if (DEBUG)|  */
+
+   
+@q *** (3) @>
+
+    stringstream system_strm;
+
+    char stdout_filename[256];
+    char stderr_filename[256];
+    char rsl_filename[256];
+    char wrapper_filename[256];
+
+    int fd[4];
+
+    FILE *fp[4] = {0, 0, 0, 0};
+
+    struct stat stat_buffer[2];
+
+@q *** (3) Create temporary files.  @>
+@
+@<|main| definition@>=
+
+    strcpy(stdout_filename, "/tmp/stdout.XXXXXX");  
+    strcpy(stderr_filename, "/tmp/stderr.XXXXXX");
+    strcpy(rsl_filename, "/tmp/rsl.XXXXXX");
+    strcpy(wrapper_filename, "/tmp/wrapper.XXXXXX");
+ 
+    char *stdout_filename_no_path_ptr = stdout_filename;
+    stdout_filename_no_path_ptr += 5;
+
+    char *stderr_filename_no_path_ptr = stderr_filename;
+    stderr_filename_no_path_ptr += 5;
+
+    fd[0] = mkstemp(stdout_filename);
+    fd[1] = mkstemp(stderr_filename);
+    fd[2] = mkstemp(rsl_filename);
+    fd[3] = mkstemp(wrapper_filename);
+
+    if (fd[0] == -1 || fd[1] == -1 || fd[2] == -1 || fd[3] == -1)
+    {
+         cerr << "ERROR!  In `strtinst' (`main'):  Failed to create temporary files for "
+              << "standard output and/or standard error:" << endl;
+
+         perror("mkstemp error");
+
+         cerr << "Exiting `strtinst' unsuccessfully with exit status 8."
+              << endl;
+
+         close(fd[0]);
+         close(fd[1]);
+         close(fd[2]);
+         close(fd[3]);
+
+         exit(8);
+
+    }  /* |if|  */
+    else
+    {
+
+       if (DEBUG)
+       {
+           cerr << "`stdout_filename' == " << stdout_filename
+                << endl 
+                << "`stderr_filename' == " << stderr_filename
+                << endl
+                << "`rsl_filename' == " << rsl_filename
+                << endl
+                << "`wrapper_filename' == " << wrapper_filename
+                << endl;
+ 
+       }  /* |if (DEBUG)|  */ 
+
+       close(fd[0]);
+       close(fd[1]);
+
+
+    }  /* |else| */
+
+@q *** (3) @>
+@
+\LOG
+\initials{LDF 2011.12.09.}
+Added this section.
+\ENDLOG
+
+@<|main| definition@>=
+
+   stringstream rsl_strm;
+   stringstream wrapper_strm;
+
+@q **** (4) Create wrapper script.  @>
+
+@ Create wrapper script.  
+\initials{LDF 2011.12.09.}
+
+\LOG
+\initials{LDF 2011.12.09.}
+Added this section.
+\ENDLOG
+
+@<|main| definition@>=
+
+   status = fchmod(fd[3], S_IRUSR | S_IWUSR | S_IXUSR);
+
+   if (status == -1)
+   {
+       cerr << "ERROR!  In `strtinst' (`main'):  `fchmod' failed, returning -1:"
+            << endl;
+
+       perror("fchmod error");
+
+       cerr << "Failed to change mode of `" << wrapper_filename << "'."
+            << endl 
+            << "Exiting `strtinst' unsuccessfully with exit status 9."
+            << endl;
+
+       close(fd[2]);
+       close(fd[3]);
+
+       exit(9);
+
+
+   }  /* |if (status == -1)|  */
+
+   else if (DEBUG)
+   {
+       cerr << "In `strtinst' (`main'):  `fchmod' succeeded."
+            << endl;
+
+   } /* |else if (DEBUG)|  */ 
+
+   wrapper_strm << "#! /bin/bash " << endl << endl;
+
+@q **** (4) @>
+@
+@<|main| definition@>=
+
+
+@ @:TODO@> !! TODO:  Add code for additional Globus sites.
+\initials{LDF 2011.12.09.}  
+
+\LOG
+\initials{LDF 2012.01.31.}
+Added |string remote_append_path|.
+\ENDLOG 
+
+@<|main| definition@>=
+   
+   string interactive_node;
+   string remote_append_path;
+   string remote_append_ld_library_path;
+   string optdbcli_path;
+   string invocation_prefix;
+
+   if (!globus_site_info.interactive_node_name.empty())
+   {
+
+       interactive_node = globus_site_info.interactive_node_name;
+
+       invocation_prefix = "ssh ";
+       invocation_prefix += interactive_node;
+       invocation_prefix += " ";        
+   }
+   else 
+       interactive_node = globus_site;
+
+   if (!globus_site_info.append_ld_library_path.empty())
+       remote_append_ld_library_path = globus_site_info.append_ld_library_path;
+
+   if (!globus_site_info.append_path.empty())
+       remote_append_path = globus_site_info.append_path;
+
+   if (!globus_site_info.optdbcli_path.empty())
+       optdbcli_path = globus_site_info.optdbcli_path;
+
+@q **** (4) @>
+@
+
+\LOG
+\initials{LDF 2012.02.08.}
+Added code for the \.{--no-links}, \.{--with-links} and \.{--link-directory} options
+for \.{optdbcli}.
+\ENDLOG
+
+@<|main| definition@>=
+
+   if (!remote_append_ld_library_path.empty())
+   {
+       wrapper_strm << "export REMOTE_APPEND_LD_LIBRARY_PATH=" 
+                    << remote_append_ld_library_path
+                    << endl
+                    << endl;
+
+   }
+
+   if (!remote_append_path.empty())
+   {
+       wrapper_strm << "export REMOTE_APPEND_PATH=" 
+                    << remote_append_path
+                    << endl
+                    << endl;
+
+   }
+
+   if (!invocation_prefix.empty())
+   {
+       wrapper_strm << invocation_prefix << "\\"
+                    << endl;
+   }
+
+   if (!(remote_append_ld_library_path.empty() && remote_append_path.empty()))
+   {
+       wrapper_strm << "env ";
+
+       if (!remote_append_ld_library_path.empty())
+       {
+           wrapper_strm << "LD_LIBRARY_PATH=\"$LD_LIBRARY_PATH:"
+                        << "$REMOTE_APPEND_LD_LIBRARY_PATH\" ";
+       }
+
+       if (!remote_append_path.empty())
+       {
+           wrapper_strm << "PATH=\"$PATH:"
+                        << "$REMOTE_APPEND_PATH\" ";
+       }   
+
+   }  /* |if (!(remote_append_ld_library_path.empty() && remote_append_path.empty())|  */
+
+   wrapper_strm << optdbcli_path << " "
+
+#if 0 /* 1 */
+                << "--trace " /* Use for debugging \initials{LDF 2012.01.31.}  */
+#endif 
+
+                << "--globus-site \"" << globus_site << "\" " 
+
+                << "--package-name=" 
+                << argv[1] << " ";
+
+   if (DEBUG)
+   {
+        cerr << "argv[2] == " << argv[2] << endl;
+        cerr << "strcmp(\"\\\"\\\"\", argv[2]) == " << strcmp("\"\"", argv[2]) 
+             << endl;
+
+   } /* |if (DEBUG)|  */ 
+
+
+   if (strcmp(argv[2], "\"\"") && strlen(argv[2]) > 0)
+      wrapper_strm << "--package-version=" << argv[2] << " ";
+
+   if (atoi(argv[3]) > 0)
+       wrapper_strm << "--reinstall ";
+   else
+      wrapper_strm << "--install ";
+  
+   
+   string reinstall_prerequisites;
+
+   if (argv[5] && strlen(argv[5]))
+      reinstall_prerequisites = argv[5];
+
+   if (DEBUG)
+   {
+        cerr << "reinstall_prerequisites == " << reinstall_prerequisites << endl;
+
+   }  /* |if (DEBUG)|  */ 
+
+   if (reinstall_prerequisites == "1")
+      wrapper_strm << "--prerequisites-reinstall "; 
+   else if (reinstall_prerequisites == "-1")
+      wrapper_strm << "--no-prerequisites-reinstall "; 
+      
+   string create_links_str;
+
+   if (argv[6] && strlen(argv[6]))
+      create_links_str = argv[6];
+
+   string link_directory;
+
+   if (argv[7] && strlen(argv[7]))
+      link_directory = argv[7];
+
+   if (DEBUG)
+   {
+
+       cerr << "create_links_str == " << create_links_str << endl;
+       cerr << "link_directory == " << link_directory << endl;
+       cerr << "strlen(argv[7]) == " << strlen(argv[7]) << endl;
+      
+   }  /* |if (DEBUG)|  */ 
+
+@
+\LOG
+\initials{LDF 2012.02.10.}
+@:BUG FIX@> BUG FIX: Fixed the conditional that tests |link_directory|.  If
+|link_directory == "."|, then there's no difference whether the
+\.{--link-directory} option is used or not.  It is therefore a good choice for
+the default value that |remote_install_func| passes to this program
+(\.{strtinst}) as |argv[7]|.  Something must be passed and recognized as an
+argument by \.{strtinst}.  Additionally, \.{""} is recognized.
+This will have to have been passed as |"\"\""| to |execl|, because |""| will be 
+interpreted as NULL, i.e., the end of the argument list.
+\ENDLOG 
+
+@<|main| definition@>=
+
+
+   if (create_links_str == "0")
+      wrapper_strm << "--no-links ";
+   else if (create_links_str == "1")
+   {
+      wrapper_strm << "--create-links ";
+
+     if (!(   link_directory == "." 
+           || link_directory.empty()
+           || link_directory == "\"\""))
+     {
+        wrapper_strm << "--link-directory " << link_directory << " ";
+     }
+
+   }
+
+@
+@<|main| definition@>=
+
+   wrapper_strm << "--proxy-certificate=\"$X509_USER_PROXY\" optinum-srv.gwdg.de"; 
+
+   wrapper_strm << endl
+                << endl
+                << "a=$?"
+                << endl
+                << endl
+                << "echo \"\\`" << optdbcli_path << "' on \\`" << interactive_node << "' "
+                << "returned $a.\""
+                << endl
+                << endl
+                << "if test $a -ne 0"
+                << endl
+                << "then"
+                << endl
+                << "   echo \"ERROR!  \\`optdbcli' failed, returning $a.\""
+                << endl
+                << "   echo \"Exiting wrapper script \\`$0' unsuccessfully "
+                << "with exit status 1.\""
+                << endl
+                << "   exit 1"
+                << endl 
+                << "else"
+                << endl
+                << "   echo \"\\`optdbcli' succeeded, returning 0.\""
+                << endl 
+                << "fi" 
+                << endl
+                << endl 
+                << "echo \"Exiting wrapper script \\`$0' successfully "
+                << "with exit status 0.\""
+                << endl
+                << "exit 0"
+                << endl 
+                << endl;
+   
+   if (DEBUG)
+   {
+         cerr << "wrapper_strm.str() == " << wrapper_strm.str() << endl << endl;
+
+   }  /* |if (DEBUG)|  */ 
+
+   status = write(fd[3], wrapper_strm.str().c_str(), wrapper_strm.str().size());
+
+   if (status <= 0)
+   {
+       cerr << "ERROR!  In `strtinst' (`main'):  `write' failed, returning "
+            << status << ":"
+            << endl;
+
+       if (status == -1)
+          perror("write error");
+
+       cerr << "Failed to write wrapper script."
+            << endl
+            << "Can't install."
+            << endl             
+            << "Exiting `strtinst' unsuccessfully with exit status 13."
+            << endl;
+
+       close(fd[2]);
+       close(fd[3]);
+
+       exit(13);
+
+   } /* |if (status <= 0)| */
+
+  
+@q **** (4) Create RSL file.  @>
+
+@ Create RSL file.
+\initials{LDF 2011.12.09.}
+
+\.{globusrun-ws -submit} requires the RSL (Resource Specification Language)
+code to be in a file.  That is, it is not possible to pass it to the command via
+a pipe.
+\initials{LDF 2011.12.09.}
+
+\LOG
+\initials{LDF 2011.12.09.}
+Added this section.
+\ENDLOG
+
+@<|main| definition@>=
+
+   char *wrapper_filename_no_path_ptr = wrapper_filename;
+
+   wrapper_filename_no_path_ptr += 5;
+
+   if (DEBUG)
+   {
+       cerr << "wrapper_filename_no_path_ptr == " 
+            << wrapper_filename_no_path_ptr << endl;
+
+   } /* |if (DEBUG)|  */ 
+
+
+
+   rsl_strm << "<job>" 
+             << endl  
+             << "<executable>" << wrapper_filename_no_path_ptr << "</executable>" 
+             << endl
+             << "<directory>${GLOBUS_USER_HOME}</directory>" 
+             << endl
+
+             << "<stdout>" << stdout_filename_no_path_ptr << "</stdout>" 
+             << endl
+
+             << "<stderr>" << stderr_filename_no_path_ptr << "</stderr>" 
+             << endl
+             << "<fileStageIn>" 
+             << endl 
+             << "<transfer>"
+             << endl 
+             << "<sourceUrl>gsiftp://optinum-srv.gwdg.de:2811"
+             << wrapper_filename
+             << "</sourceUrl>"
+             << endl 
+             << "<destinationUrl>file:///${GLOBUS_USER_HOME}/" 
+             << wrapper_filename_no_path_ptr
+             << endl
+             << "</destinationUrl>"
+             << endl
+             << "</transfer>"
+             << endl 
+             << "</fileStageIn>" 
+             << endl
+             << "<fileStageOut>" 
+             << endl
+
+             << "<transfer>" 
+             << endl
+             << "<sourceUrl>file:///${GLOBUS_USER_HOME}/" << stdout_filename_no_path_ptr
+             << "</sourceUrl>" 
+             << endl
+             << "<destinationUrl>gsiftp://optinum-srv.gwdg.de:2811"
+             << stdout_filename << "</destinationUrl>" 
+             << endl
+             << "</transfer>" 
+
+             << "<transfer>" 
+             << endl
+             << "<sourceUrl>file:///${GLOBUS_USER_HOME}/" << stderr_filename_no_path_ptr
+             << "</sourceUrl>" 
+             << endl
+             << " <destinationUrl>gsiftp://optinum-srv.gwdg.de:2811"
+             << stderr_filename << "</destinationUrl>" 
+             << endl
+             << "</transfer>" 
+
+             << endl
+             << "</fileStageOut>" 
+             << endl
+
+             << "<fileCleanUp>" 
+             << endl
+
+             << "<deletion>" 
+             << endl
+             << "<file>file:///${GLOBUS_USER_HOME}/" << wrapper_filename_no_path_ptr
+             << "</file>" 
+             << endl
+             << "</deletion>" 
+
+             << endl
+
+             << "<deletion>" 
+             << endl
+             << "<file>file:///${GLOBUS_USER_HOME}/" << stdout_filename_no_path_ptr 
+             << "</file>" 
+             << endl
+             << "</deletion>" 
+
+             << endl
+
+             << "<deletion>" 
+             << endl
+             << "<file>file:///${GLOBUS_USER_HOME}/" << stderr_filename_no_path_ptr 
+             << "</file>" 
+             << "</deletion>" 
+
+             << endl
+
+             << "</fileCleanUp>" 
+
+             << endl
+
+             << "</job>" 
+
+             << endl;
+
+
+
+
+   if (DEBUG)
+   {
+      cerr << "In `main' (`strtinst'):  `rsl_strm.str()' == " << endl  
+           << rsl_strm.str() << endl;
+
+   }  /* |if (DEBUG)|  */ 
+
+   status = write(fd[2], rsl_strm.str().c_str(), rsl_strm.str().size());
+
+   if (status <= 0)
+   {
+       cerr << "ERROR!  In `strtinst' (`main'):  `write' failed, returning "
+            << status << ":"
+            << endl;
+
+       if (status == -1)
+          perror("write error");
+
+       cerr << "Failed to write RSL file."
+            << endl
+            << "Can't install."
+            << endl             
+            << "Exiting `strtinst' unsuccessfully with exit status 14."
+            << endl;
+
+       close(fd[2]);
+       close(fd[3]);
+
+       exit(14);
+
+   } /* |if (status <= 0)| */
+
+@q **** (4) @>
+@
+@@<|main| definition@>=
+
+   close(fd[2]);
+   close(fd[3]);
+
+@q *** (3) @>
+@
+@<|main| definition@>=
+
+#if IS_OPTINUM_SRV
+
+   system_strm << "export GLOBUS_LOCATION=/usr/local/globus-4.0.8 "
+               << "&& export X509_USER_PROXY=" 
+               << proxy_cred_filename << " "
+               << "&& source $GLOBUS_LOCATION/etc/globus-user-env.sh "
+               << "&& globusrun-ws -submit -job-delegate "
+               << "-factory " << globus_site << " "
+               << "-streaming -job-description-file "
+               << rsl_filename << " >/dev/null";
+
+
+#elif IS_PCFINSTON_GWDG
+
+/* `testotpt.sh' must be readable and executable by the user under whose
+    account this program (i.e., `strtinst') is running.  LDF 2011.10.20.  */
+
+    system_strm << "/home/lfinsto/testotpt.sh "  
+                << "'" << stdout_filename 
+                << "' '" << stderr_filename << "' >/dev/null ";  
+
+
+#else 
+
+    cerr << "WARNING!  In `strtinst' (`main'):  Not `optinum-srv.gwdg.de' "
+         << "or `pcfinston.gwdg.de'."
+         << endl
+         << "Not currently possible to continue execution on any other machine."
+         << endl
+         << "Exiting `strtinst' unsuccessfully with exit status 15."
+         << endl;
+
+       close(fd[2]);
+       close(fd[3]);
+
+       exit(15);
+
+
+#endif 
+
+    if (DEBUG)
+    {
+        cerr << "argv[1] == " << argv[1] << endl;
+
+        if (strcmp(argv[2], "\"\"") && strlen(argv[2]) > 0)
+           cerr << "argv[2] == " << argv[2] << endl;
+         else
+           cerr << "argv[2] == (none)" << endl;
+
+        cerr << "stdout_filename == " << stdout_filename << endl
+             << "stderr_filename == " << stderr_filename << endl;
+
+    }  /* |if (DEBUG)|  */ 
+
+    cout << "'" << argv[1] << "' ";
+
+    if (strcmp(argv[2], "\"\"") && strlen(argv[2]) > 0)
+       cout << "'" << argv[2] << "' ";
+     else
+       cout << "'(none)' ";
+
+    cout << "'" << stdout_filename << "' "
+         << "'" << stderr_filename << "'";
+
+@q *** (3) @>
+@
+@:TODO@> !! TODO: \initials{LDF 2011.10.27.}  In order to kill the process
+started below in the case of a timeout, we would have to use |fork| here, get
+the pid and pass it back to \.{optdbsrv}.  However, additional processes are
+started during the installation, one or more of which will probably be on other
+machines, i.e., grid worker nodes.  It may well not be a good idea to kill them
+or the process below.  This must be looked into.
+
+@<|main| definition@>=
+
+    if (DEBUG) 
+    {
+        cerr << "system_strm.str() == " << system_strm.str() << endl;
+
+    }  /* |if (DEBUG)|  */
+
+    status = system(system_strm.str().c_str());
+
+    if (DEBUG) 
+       cerr << "status == " << status << endl;
+
+    if (status == -1 || !WIFEXITED(status) || WEXITSTATUS(status) != 0)
+    {
+        cerr << "WARNING!  In `strtinst' (`main'):  "
+             << "`system' failed, returning " << status << "."
+             << endl;
+        if (WIFEXITED(status))
+             cerr << "WEXITSTATUS(status) == " << WEXITSTATUS(status) 
+                  << endl;
+        else
+             cerr << "`WIFEXITED(status)' == " << WIFEXITED(status) << ":  "
+                  << "No exit status."
+                  << endl;
+
+#if IS_PCFINSTON_GWDG
+
+        cerr << "Call to `testotpt.sh' failed.";
+#endif 
+
+        cerr << endl 
+             << "Exiting `strtinst'  unsuccessfully with exit status 16."
+             << endl;
+
+        exit(16);
+
+    }   
+
+    if (DEBUG)
+    {
+
+        cerr << "`system' succeeded." << endl;
+     
+    }  /* |if (DEBUG)|  */ 
+
+@q *** (3) @>
+
+    if (DEBUG == false)
+    {
+
+        unlink(wrapper_filename);
+        unlink(rsl_filename);
+
+    }
+
+    if (DEBUG)
+       cerr << "Exiting `strtinst'  successfully with exit status 0." << endl;
+
+#endif /* |HAVE_LIBMYSQLCLIENT|  */
+
+    exit(0);
+
+}  /* End of |main| definition  */
+
+@q ** (2) @>
+
+@q * (1) Check |globus_site|.  @>
+
+@ Check \.{globus\_site}.
+\initials{LDF 2012.04.12.}
+
+\LOG
+\initials{LDF 2012.04.12.}
+Added this function.  It is based on |init_globus_site_info_map|, which it replaces.
+\ENDLOG 
+
+\vskip\baselineskip
+\halign{#:\quad&#\hfil\cr
+%
+{\bf Return values}\span\cr
+\noalign{\vskip.5\baselineskip}
+0&Success\cr
+1& |mysql_query|, |mysql_store_result| or |mysql_fetch_row| failed\cr
+2&|mysql_query| returned no rows, i.e., Globus site not found\cr
+3&Invalid data in row\cr}
+
+@q *** (3) Declaration  @>
+
+@<|check_globus_site| declaration@>=
+#if HAVE_LIBMYSQLCLIENT
+int
+check_globus_site(MYSQL *mysql_ptr, string globus_site, Globus_Site_Info_Type &globus_site_info);
+#endif
+
+@q **** (4) Definition @>
+@
+@<|check_globus_site| definition@>=
+#if HAVE_LIBMYSQLCLIENT
+int
+check_globus_site(MYSQL *mysql_ptr, string globus_site, Globus_Site_Info_Type &globus_site_info)
+{
+@q ***** (5) @>
+
+    bool DEBUG = false;  /* |true|  */ 
+ 
+    int status;
+
+    if (DEBUG)
+    {
+        cerr << "Entering `check_globus_site'."
+             << endl;
+
+    }  /* |if (DEBUG)|  */ 
+
+@q ***** (5) Query database for Globus site information.  @>
+
+@ Query database for Globus site information.  
+\initials{LDF 2012.02.08.}
+
+@<|check_globus_site| definition@>=
+
+    MYSQL_RES* result = 0;
+    MYSQL_ROW curr_row;
+
+    unsigned int row_ctr = 0;
+    unsigned int field_ctr = 0;
+
+    stringstream sql_strm;
+
+    sql_strm << "select hostname, enabled, globus_site_id, interactive_node_name, "
+             << "append_ld_library_path, append_path, optdbcli_path from Globus_Sites "
+             << "where globus_site_id > 0 and hostname = '" << globus_site << "'";
+
+    if (DEBUG)
+    {
+         
+        cerr << "In `check_globus_site':  `sql_strm.str()' == "
+             << endl
+             << sql_strm.str()
+             << endl;
+         
+    }  /* |if (DEBUG)|  */ 
+
+    status = mysql_query(mysql_ptr, sql_strm.str().c_str());
+
+    if (status)
+    {
+         
+        cerr << "ERROR!  In `check_globus_site':"
+             << endl 
+             << "`mysql_query' failed, returning " 
+             << status << ":"
+             << endl
+             << mysql_error(mysql_ptr)
+             << endl
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+        
+
+       if (result) 
+          mysql_free_result(result);
+
+       return 1;
+
+    }  /* |if (status)|  */
+
+    else if (DEBUG)
+    {
+         
+        cerr << "In `check_globus_site':"
+             << endl 
+             << "`mysql_query' succeeded."
+             << endl;
+         
+
+    }  /* |if (DEBUG)|  */
+
+    result = mysql_store_result(mysql_ptr);        
+
+    if (result == 0)
+    {
+        cerr << "ERROR!  `check_globus_site':"
+             << endl 
+             << "`mysql_store_result' returned NULL."
+             << endl
+             << mysql_error(mysql_ptr)
+             << endl 
+             << "Exiting function with return value 1."
+             << endl;
+  
+        return 1;
+    }
+       
+    else if (DEBUG) 
+    {
+
+        cerr << "In `check_globus_site':"
+             << endl 
+             << "`mysql_store_result' returned a result."
+             << endl;
+
+
+    }  /* |if (DEBUG)| */
+
+    row_ctr   = mysql_num_rows(result);
+    field_ctr = mysql_num_fields(result);
+
+    if (DEBUG)
+    {
+        cerr << "In `check_globus_site':"
+             << endl 
+             << "`row_ctr' == " << row_ctr 
+             << endl
+             << "`field_ctr' == " << field_ctr 
+             << endl;
+         
+    }  /* |if (DEBUG)|  */
+
+    if (DEBUG)
+    {
+         
+        cerr << "In `check_globus_site':"
+             << endl 
+             << "row_ctr == " << row_ctr 
+             << endl
+             << "field_ctr == " << field_ctr 
+             << endl;
+         
+
+    }  /* |if (DEBUG)|  */
+
+@q ***** (5) |row_ctr == 0|.  @>
+
+@ |row_ctr == 0|.  
+\initials{LDF 2012.02.08.}
+
+@<|check_globus_site| definition@>=
+
+    if (row_ctr ==  0)
+    {
+         cerr << "WARNING!  In `check_globus_site':"
+              << endl 
+              << "`mysql_query' returned no rows."
+              << endl 
+              << "No Globus site information found."
+              << endl 
+              << "Exiting function with return value 2."
+              << endl;
+
+         if (result)
+            mysql_free_result(result);        
+
+         return 2;
+
+    } /* |if (row_ctr ==  0)| */
+
+@q ***** (5) Found Globus site info in \.{Globus\_Sites} database table.  @>
+
+@ Found Globus site info in \.{Globus\_Sites} database table.
+\initials{LDF 2012.02.08.}
+
+@<|check_globus_site| definition@>=
+
+    else /* |row_ctr >  0| */
+    {
+@q ****** (6) @>
+
+        int curr_enabled;
+
+        curr_row = mysql_fetch_row(result);
+
+        if (curr_row == 0)
+        {
+            
+           cerr << "ERROR!  In `check_globus_site':"
+                << endl 
+                << "`mysql_fetch_row' failed:"
+                << endl
+                << mysql_error(mysql_ptr)
+                << endl 
+                << "Exiting function unsuccessfully with return value 1."
+                << endl;
+
+           if (result)
+              mysql_free_result(result);
+
+           return 1;
+
+        }  /* |if (curr_row == 0)|  */
+
+@q ****** (6) @>
+
+        if (DEBUG)
+        {
+             
+            cerr << "In `check_globus_site':"
+                 << endl;
+
+            if (curr_row[0])
+               cerr << "`curr_row[0]' == " << curr_row[0]
+                    << endl;
+            else
+               cerr << "`curr_row[0]' is NULL." << endl;
+
+            if (curr_row[1])
+               cerr << "`curr_row[1]' == " << curr_row[1]
+                    << endl;
+            else
+               cerr << "`curr_row[1]' is NULL." << endl;
+
+        }  /* |if (DEBUG)|  */
+
+@q ****** (6) @>
+
+        if (curr_row[0] && strlen(curr_row[0]) > 0 && strlen(curr_row[0]) < 128)
+        {
+@q ******* (7) @>
+            if (curr_row[1] && strlen(curr_row[1]) > 0)
+            {
+@q ******** (8) @>
+                 status = sscanf(curr_row[1], "%d", &curr_enabled);
+
+                 if (status != 1)
+                 {
+                       
+                      cerr << "WARNING!  In `check_globus_site':"
+                           << endl 
+                           << "`sscanf' failed, returning " << status << "."
+                           << endl;
+
+                      if (status == EOF)
+                          perror("sscanf error");
+
+                      cerr << "Can't set Globus site info for `" 
+                           << curr_row[0] << "' "
+                           << "to `globus_site'."
+                           << endl 
+                           << "Exiting check_globus_site' unsuccessfully with return value 3."
+                           << endl;
+
+                       mysql_free_result(result);
+
+                       return 3;
+
+                 }  /* |if (status != 1)|  */
+
+@q ******** (8) @>
+
+@ Normally, |curr_enabled| will always be 1 at this point, because \.{strtinst} will only 
+be called if the Globus site is enabled.
+\initials{LDF 2012.04.11.}
+
+@<|check_globus_site| definition@>=
+
+                else
+                {
+@q ********* (9) @>
+
+                    globus_site_info.hostname = curr_row[0];
+
+                    globus_site_info.enabled = (curr_enabled == 0) ? -1 : 1;
+
+                    if (DEBUG)
+                    {
+                          
+                         cerr << "In `check_globus_site':"
+                              << endl 
+                              << "Set `globus_site_info.hostname' and `globus_site_info.enabled'."
+                              << endl;
+                          
+ 
+                    }  /* |if (DEBUG)|  */   
+
+@q ********* (9) @>
+
+                }  /* |else| (Success)  */
+
+@q ******** (8) @>
+                     
+            }  /* |if (curr_row[1] && strlen(curr_row[1]) > 0)|  */
+             
+@q ******* (7) @>
+
+            else /* |curr_row[1] == 0 || strlen(curr_row[1]) == 0|  */
+            {
+                         
+                        cerr << "WARNING!  In `check_globus_site':"
+                             << endl;
+
+                        if (curr_row[1] == 0)
+                            cerr << "`curr_row[1]' == 0." << endl;
+                        else
+                            cerr << "`strlen(curr_row[1])' == 0." << endl;
+
+                        cerr << "Can't set `globus_site_info'."
+                             << endl 
+                             << "Exiting `check_globus_site' unsuccessfully with return value 3."
+                             << endl;
+                         
+                        mysql_free_result(result);
+
+                       return 3;                        
+
+
+            }  /* |else|  */
+
+@q ******* (7) |globus_site_id|.  @>
+
+@ |globus_site_id|.  
+\initials{LDF 2012.04.11.}
+
+\LOG
+\initials{LDF 2012.04.11.}
+Added this section.
+\ENDLOG
+
+@<|check_globus_site| definition@>=
+@
+@<|check_globus_site| definition@>=
+
+            if (curr_row[2] && strlen(curr_row[2]) > 0)
+            {
+                 if (DEBUG)
+                 {
+                     cerr << "In `check_globus_site':  `curr_row[2]' == " 
+                          << curr_row[2] << endl
+                          << "`globus_site_id' is non-null and non-empty."
+                          << endl;
+
+                 }  /* |if (DEBUG)|  */ 
+
+                 globus_site_info.globus_site_id = atoi(curr_row[2]);
+                    
+            }  /* |if (curr_row[2] && strlen(curr_row[2]) > 0)|  */
+
+@q ******* (7) @>
+
+@ This code should never be reached, because |globus_site_id| is used in the \.{where} clause
+of the \.{select} command.  However, |globus_site_id| isn't needed, so it doesn't matter if 
+it's not found, except as an indication that something has gone wrong.
+\initials{LDF 2012.04.11.}
+
+@<|check_globus_site| definition@>=
+
+            else /* |curr_row[2] == 0 || strlen(curr_row[2]) == 0|  */
+            {
+                 if (DEBUG)
+                 {
+                     cerr << "In `check_globus_site':  `curr_row[2]' == 0 "
+                          << "or `strlen(curr_row[2])' == 0" 
+                          << endl
+                          << "`globus_site_id'."
+                          << endl;
+
+                 }  /* |if (DEBUG)|  */ 
+
+
+            }  /* |else| (|curr_row[2] == 0 || strlen(curr_row[2]) == 0|)  */
+
+@q ******* (7) |interactive_node_name|.  @>
+
+@ |interactive_node_name|.  
+\initials{LDF 2012.04.11.}
+
+\LOG
+\initials{LDF 2012.04.11.}
+Added this section.
+\ENDLOG
+@<|check_globus_site| definition@>=
+
+            if (curr_row[3] && strlen(curr_row[3]) > 0)
+            {
+                 if (DEBUG)
+                 {
+                     cerr << "In `check_globus_site':  `curr_row[3]' == " 
+                          << curr_row[3] << endl
+                          << "`interactive_node_name' is non-null and non-empty."
+                          << endl;
+
+                 }  /* |if (DEBUG)|  */ 
+
+                 globus_site_info.interactive_node_name = curr_row[3];
+                    
+            }  /* |if (curr_row[3] && strlen(curr_row[3]) > 0)|  */
+
+@q ******* (7) @>
+
+            else /* |curr_row[3] == 0 || strlen(curr_row[3]) == 0|  */
+            {
+                 if (DEBUG)
+                 {
+                     cerr << "In `check_globus_site':  `curr_row[3]' == 0 "
+                          << "or `strlen(curr_row[3])' == 0" 
+                          << endl
+                          << "`interactive_node_name' is NULL or empty."
+                          << endl;
+
+                 }  /* |if (DEBUG)|  */ 
+
+
+            }  /* |else| (|curr_row[3] == 0 || strlen(curr_row[3]) == 0|)  */
+
+@q ******* (7) |append_ld_library_path|.  @>
+
+@ |append_ld_library_path|.  
+\initials{LDF 2012.04.11.}
+
+\LOG
+\initials{LDF 2012.04.11.}
+Added this section.
+\ENDLOG
+
+@<|check_globus_site| definition@>=
+
+           if (curr_row[4] && strlen(curr_row[4]) > 0)
+           {
+                if (DEBUG)
+                {
+                    cerr << "In `check_globus_site':  `curr_row[4]' == " 
+                         << curr_row[4] << endl
+                         << "`append_ld_library_path' is non-null and non-empty."
+                         << endl;
+
+                }  /* |if (DEBUG)|  */ 
+
+                globus_site_info.append_ld_library_path = curr_row[4];
+                   
+           }  /* |if (curr_row[4] && strlen(curr_row[4]) > 0)|  */
+
+@q ******* (7) @>
+
+           else /* |curr_row[4] == 0 || strlen(curr_row[4]) == 0|  */
+           {
+                if (DEBUG)
+                {
+                    cerr << "In `check_globus_site':  `curr_row[4]' == 0 "
+                         << "or `strlen(curr_row[4])' == 0" 
+                         << endl
+                         << "`append_ld_library_path' is NULL or empty."
+                         << endl;
+
+                }  /* |if (DEBUG)|  */ 
+
+
+           }  /* |else| (|curr_row[4] == 0 || strlen(curr_row[4]) == 0|)  */
+
+@q ******* (7) |append_path|.  @>
+
+@ |append_path|.  
+\initials{LDF 2012.04.11.}
+
+\LOG
+\initials{LDF 2012.04.11.}
+Added this section.
+\ENDLOG
+@<|check_globus_site| definition@>=
+
+            if (curr_row[5] && strlen(curr_row[5]) > 0)
+            {
+                 if (DEBUG)
+                 {
+                     cerr << "In `check_globus_site':  `curr_row[5]' == " 
+                          << curr_row[5] << endl
+                          << "`append_path' is non-null and non-empty."
+                          << endl;
+
+                 }  /* |if (DEBUG)|  */ 
+
+                 globus_site_info.append_path = curr_row[5];
+                    
+            }  /* |if (curr_row[5] && strlen(curr_row[5]) > 0)|  */
+
+@q ******* (7) @>
+
+            else /* |curr_row[5] == 0 || strlen(curr_row[5]) == 0|  */
+            {
+                 if (DEBUG)
+                 {
+                     cerr << "In `check_globus_site':  `curr_row[5]' == 0 "
+                          << "or `strlen(curr_row[5])' == 0" 
+                          << endl
+                          << "`append_path' is NULL or empty."
+                          << endl;
+
+                 }  /* |if (DEBUG)|  */ 
+
+
+            }  /* |else| (|curr_row[5] == 0 || strlen(curr_row[5]) == 0|)  */
+
+@q ******* (7) |optdbcli_path|.  @>
+
+@ |optdbcli_path|.  
+\initials{LDF 2012.04.11.}
+
+\LOG
+\initials{LDF 2012.04.11.}
+Added this section.
+\ENDLOG
+@<|check_globus_site| definition@>=
+
+            if (curr_row[6] && strlen(curr_row[6]) > 0)
+            {
+                 if (DEBUG)
+                 {
+                     cerr << "In `check_globus_site':  `curr_row[6]' == " 
+                          << curr_row[6] << endl
+                          << "`optdbcli_path' is non-null and non-empty."
+                          << endl;
+
+                 }  /* |if (DEBUG)|  */ 
+
+                 globus_site_info.optdbcli_path = curr_row[6];
+                    
+            }  /* |if (curr_row[6] && strlen(curr_row[6]) > 0)|  */
+
+@q ******* (7) @>
+
+            else /* |curr_row[6] == 0 || strlen(curr_row[6]) == 0|  */
+            {
+                 if (DEBUG)
+                 {
+                     cerr << "In `check_globus_site':  `curr_row[6]' == 0 "
+                          << "or `strlen(curr_row[6])' == 0" 
+                          << endl
+                          << "`optdbcli_path' is NULL or empty."
+                          << endl;
+
+                 }  /* |if (DEBUG)|  */ 
+
+
+            }  /* |else| (|curr_row[6] == 0 || strlen(curr_row[6]) == 0|)  */
+
+@q ******* (7) @>
+
+        }  /* |if (curr_row[0] && strlen(curr_row[0]) > 0) && strlen(curr_row[0]) < 128|  */
+
+@q ****** (6) @>
+@
+@<|check_globus_site| definition@>=
+
+        else /*    |curr_row[0] == 0 || strlen(curr_row[0]) == 0 
+                || strlen(curr_row[0]) >= 128|  */
+        {
+                     
+                    cerr << "WARNING!  In `check_globus_site':"
+                         << endl;
+
+                    if (curr_row[0] == 0)
+                        cerr << "`curr_row[0]' == 0." << endl;
+                    else if (strlen(curr_row[0]) == 0)
+                        cerr << "`strlen(curr_row[0])' == 0." << endl;
+                    else if (strlen(curr_row[0]) >= 128)
+                        cerr << "`strlen(curr_row[0])' == " 
+                             <<  strlen(curr_row[0]) << "."
+                             << endl;
+
+                    cerr << "Can't set Globus site info for `" << globus_site << "'."
+                         << endl 
+                         << "Exiting `check_globus_site' unsuccessfully with return value 3."
+                         << endl;
+                         
+                     mysql_free_result(result);
+
+                     return 3;                        
+ 
+        }  /* |else|  */
+
+@q ****** (6) @>
+@
+@<|check_globus_site| definition@>=
+
+        if (DEBUG)
+        {
+            globus_site_info.show("globus_site_info:");
+
+        }  /* |if (DEBUG)|  */ 
+
+@q ****** (6) @>
+
+    }        /* |else| (|row_ctr >  0|) */
+
+@q ***** (5) @>
+@
+@<|check_globus_site| definition@>=
+
+    if (DEBUG)
+    {
+         
+        cerr << "Exiting `check_globus_site' successfully with return value 0."
+             << endl;
+         
+
+    }  /* |if (DEBUG)|  */ 
+
+    if (result)
+       mysql_free_result(result);
+
+    return 0;
+
+}  /* End of |check_globus_site| definition  */
+
+#endif /* |HAVE_LIBMYSQLCLIENT|  */
+
+@q **** (4) @>
+@
+@<Garbage@>=
+
+@q **** (4) @>
+
+@q *** (3) Putting `strtinst.web' together.  @>
+
+@ Putting {\tt strtinst\PERIOD web} together.
+
+@q **** (4) This is what's compiled.  @>
+@ This is what's compiled.
+@c
+@<Include files@>@;@/
+@<|finish| declaration@>@;@/
+@<|check_globus_site| declaration@>@;@/
+@<|main| definition@>@;@/
+@<|check_globus_site| definition@>@;@/
+@<|finish| definition@>@;@/
+
+#if 0 
+@<Garbage@>@;@/
+#endif 
+
+@q * (1) Emacs-Lisp code for use in indirect buffers  @>
+
+@q (progn (cweb-mode) (outline-minor-mode))                          @>
+
+@q * (1) Local variables for Emacs @>
+
+@q * Local variables for Emacs.@>
+@q Local Variables: @>
+@q mode:CWEB @>
+@q eval:(display-time) @>
+@q abbrev-mode:t @>
+@q eval:(read-abbrev-file) @>
+@q indent-tabs-mode:nil @>
+@q eval:(outline-minor-mode) @>
+@q fill-column:80 @>
+@q End: @>

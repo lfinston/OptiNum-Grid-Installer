@@ -1,0 +1,2371 @@
+@q prsrfncs.web  @>
+@q [...]/optinum/Installer/dbsrvcli/src/prsrfncs.web  @>
+
+@q Created by Laurence D. Finston (LDF) Wed Dec  9 15:30:51 CET 2009 @>
+
+@q * (1) Top @>
+
+@q * (1) Copyright and License.@>
+
+@q This file is part of the OptiNum Grid Installer @>
+@q Copyright (C) 2010, 2011, 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen @>
+
+@q The OptiNum Grid Installer is free software; you can redistribute it and/or modify @>
+@q it under the terms of the GNU General Public License as published by @>
+@q the Free Software Foundation; either version 3 of the License, or @>
+@q (at your option) any later version.  @>
+
+@q The OptiNum Grid Installer is distributed in the hope that it will be useful, @>
+@q but WITHOUT ANY WARRANTY; without even the implied warranty of @>
+@q MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the @>
+@q GNU General Public License for more details.  @>
+
+@q You should have received a copy of the GNU General Public License          @>
+@q along with the OptiNum Grid Installer; if not, write to the Free Software                    @>
+@q Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA @>
+
+@q ("@@" stands for a single at-sign in the following paragraph.) @>
+
+@q Please send bug reports to Laurence.Finston@@gwdg.de@>
+
+@q Laurence D. Finston                                                   @>
+@q Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen  @>
+@q Am Fassberg 11         					         @>
+@q 37077 Goettingen              					 @>
+@q Germany                           					 @>                                
+
+@q Laurence.Finston@@gwdg.de (@@ stands for a single "at" sign.)@>
+
+@q * (0) Parser functions (prsrfncs.web).  @>
+
+@*  Parser functions (prsrfncs\PERIOD web).
+
+@ Version control identifier.
+@<Version control identifier@>=
+static char version_control_id[] 
+   = "$Id: prsrfncs.web 8356 2012-05-25 08:01:31Z finston $";
+  
+@q ** (2) Include files  @>
+
+@ Include files.
+
+@<Include files@>=
+
+#include <unistd.h>
+#include <errno.h>
+#include <string.h>
+
+#include <stdio.h>
+#include <stdlib.h>
+
+#include <errno.h>
+#include <math.h>
+#include <string.h>
+#include <time.h>
+#include <unistd.h>
+
+#include <gcrypt.h> /* for |gcry_control| */
+#include <gnutls/gnutls.h>
+
+#include <iomanip>
+#include <ios>
+#include <iostream>
+#include <map>
+#include <fstream>
+#include <sstream>   
+#include <string>
+#include <set>
+#include <vector>
+#include <deque>
+
+#include <pthread.h>
+
+#if HAVE_CONFIG_H
+#include <config.h>
+#endif
+
+#if IS_ROCKS_GOEGRID
+#undef HAVE_LIBMYSQLCLIENT
+#endif 
+
+#if HAVE_LIBMYSQLCLIENT
+#include <mysql.h>
+#endif 
+
+@q *** (3) @>
+
+@ This file (\filename{prsrfncs.web}) doesn't really need to include 
+\filename{prsrclnt.h++} or \filename{scnrclnt.h},
+nor does {\bf optdbsrv} need to link with the corresponding files of 
+object code.   However, doing so helps to ensure that the two scanner-parser pairs
+(|yylex| and |yyparse| on the one hand and |zzlex| and |zzparse| on the other) are 
+compatible.
+\initials{LDF 2010.01.19.}\hfil\break 
+\initials{LDF 2010.02.10.}
+
+@<Include files@>=
+
+#include "parser.h++"
+#include "prsrclnt.h++"
+#include "scanner.h++"
+#include "scnrclnt.h++"
+#include "utilfncs.h++"
+
+@q *** (3) @>
+@
+@<Include files@>=
+
+#include "x509cert.h++"
+#include "rspnstp.h++"
+#include "dstngnmt.h++"
+#include "entries.h++"
+#include "glsinftp.h++"
+#include "scprpmtp.h++"
+#include "glblvrbl.h++"
+#include "glblfncs.h++"
+#include "gntlsfnc.h++"
+
+#ifndef _XOPEN_SOURCE
+#define _XOPEN_SOURCE
+#endif 
+
+@q ** (2) @>
+@
+@<External function declarations@>=
+int 
+yyparse(yyscan_t parameter);
+
+@q ** (2) Parse Input.  @>
+@ Parse Input.  
+\initials{LDF 2009.09.28.}
+
+\LOG
+\initials{LDF 2009.09.28.}
+Added this function.
+
+\initials{LDF 2009.10.07.}
+Replaced |int thread_ctr| argument with |Scan_Parse_Parameter_Type* param|.
+
+\initials{LDF 2010.04.09.}
+Added |char* buffer| argument.  Now calling |yy_scan_buffer| if the input fit 
+into |buffer|.
+\ENDLOG
+
+@q *** (3) Declaration @>
+
+@<|parse_input| declaration@>=
+
+#if HAVE_LIBMYSQLCLIENT
+
+int
+parse_input(FILE* fp, char* buffer, Scan_Parse_Parameter_Type* param);
+
+#endif /* |#ifndef IS_CLIENT|  */
+
+@q *** (3) Definition  @>
+@
+@<|parse_input| definition@>=
+
+#if HAVE_LIBMYSQLCLIENT
+
+int
+parse_input(FILE* fp, char* buffer, Scan_Parse_Parameter_Type* param)
+{
+@q **** (4) @>
+
+    bool DEBUG = false;  /* |true|  */
+    set_debug_level(DEBUG);
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex();
+        cerr << "Entering `parse_input'."
+             << endl;
+        unlock_cerr_mutex();
+
+    }  /* |if (DEBUG)|  */ 
+
+@q **** (4) @>
+
+    if (fp == 0 && (buffer == 0 || strlen(buffer) == 0 || buffer[0] == 0))
+    {
+        lock_cerr_mutex();
+        cerr << "ERROR!  In `parse_input':  No input to parse."
+             << endl
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+        unlock_cerr_mutex();
+
+        return 1;
+
+    }  /* |if|  */
+
+@q **** (4) @>
+@
+\LOG 
+\initials{LDF 2012.05.15.}
+Now setting |param->PARSER_DEBUG = parser_trace|.
+\ENDLOG 
+
+@<|parse_input| definition@>=
+
+    int status = 0;
+
+    param->PARSER_DEBUG = parser_trace;  /* Set here for |yyparse|.  
+                                            \initials{LDF 2010.05.27.}*/
+
+    set_debug_level(param->PARSER_DEBUG);
+
+    yyscan_t parameter;
+
+    yylex_init(&parameter);      
+
+    yyset_extra(param, parameter);
+
+    YY_BUFFER_STATE yy_buffer_state;
+
+    if (fp != 0)
+    {
+
+       if (DEBUG)
+       {
+           lock_cerr_mutex();
+           cerr << "In `parse_input':  Calling `yyset_in' (reading from file)."
+                << endl;
+           unlock_cerr_mutex();
+           
+       }  /* |if (DEBUG)|  */ 
+
+       yyset_in(fp, parameter);
+    }
+    else
+    {
+       if (DEBUG)
+       {
+           lock_cerr_mutex();
+           cerr << "In `parse_input':  Calling `yy_scan_string' (reading from char buffer)."
+                << endl;
+           unlock_cerr_mutex();
+           
+       }  /* |if (DEBUG)|  */ 
+
+       yy_buffer_state = yy_scan_string(buffer, parameter);
+    }
+
+    status = yyparse(parameter);
+
+    if (fp == 0)
+       yy_delete_buffer(yy_buffer_state, parameter);
+
+@q **** (4) @>
+@
+\LOG
+\initials{LDF 2010.06.30.}
+Added this section.
+\ENDLOG
+
+@<|parse_input| definition@>=
+ 
+   if (status == 2)
+   {
+       lock_cerr_mutex(); 
+       cerr << get_datestamp() << " [Thread " << param->thread_ctr << "] "
+            <<  "In `parse_input':  "
+            << "`yyparse' returned  2." 
+            << endl
+            << "Exiting function with exit value 2."
+            << endl;
+
+       unlock_cerr_mutex(); 
+
+       yylex_destroy(parameter);
+
+       return 2;
+
+   }  /* |if (status == 2)|  */
+
+@q **** (4) @>
+@
+@<|parse_input| definition@>=
+
+    else if (status != 0)
+    {
+       lock_cerr_mutex(); 
+       cerr << get_datestamp() << " [Thread " << param->thread_ctr << "] "
+            <<  "ERROR!  In `parse_input':  "
+            << "`yyparse' returned  " << status
+            << endl
+             << "Exiting function with exit value 1."
+             << endl;
+
+       unlock_cerr_mutex(); 
+
+       yylex_destroy(parameter);
+
+       return 1;
+
+    }  /* |if (status != 0)|  */
+  
+    else if (DEBUG) 
+    {
+       lock_cerr_mutex(); 
+       cerr << "[Thread " << param->thread_ctr << "] "
+            <<  "In `parse_input':  "
+            << "`yyparse' succeeded."
+            << endl;
+       unlock_cerr_mutex(); 
+
+    }  /* |else if (DEBUG)|  */
+
+@q **** (4) @>
+@
+\LOG
+\initials{LDF 2009.10.12.}
+Added this section.
+\ENDLOG
+
+@<|parse_input| definition@>=
+
+    yylex_destroy(parameter);
+
+    if (param->entries.size() > 0)
+    {
+
+        if (DEBUG)
+        {
+           lock_cerr_mutex(); 
+           cerr << "[Thread " << param->thread_ctr << "] "
+                <<  "In `parse_input':  "
+                << "`param->entries.size()' > 0" 
+                << endl
+                << "Calling `param->write_entries'."
+                << endl;
+           unlock_cerr_mutex(); 
+
+        }  /* |if (DEBUG)|  */ 
+
+        status = param->write_entries();
+
+        if (status != 0)
+        {
+           lock_cerr_mutex(); 
+           cerr << get_datestamp() << " [Thread " << param->thread_ctr << "] "
+                <<  "ERROR!  In `parse_input':  "
+                << "`write_entries' returned  " << status << endl
+                << endl
+                 << "Exiting function with exit value 1."
+                 << endl;
+
+           unlock_cerr_mutex(); 
+
+
+           return 1;
+        }
+        else if (DEBUG) 
+        {
+           lock_cerr_mutex(); 
+           cerr << "[Thread " << param->thread_ctr << "] "
+                <<  "In `parse_input':  "
+                << "`write_entries' succeeded."
+                << endl;
+           unlock_cerr_mutex(); 
+
+        }  /* |else if (DEBUG)|  */
+    
+    }  /* |if (param->entries.size() > 0)|  */
+
+    else if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << param->thread_ctr << "] "
+             <<  "In `parse_input':  "
+             << "`param->entries.size()' == 0" 
+             << endl
+             << "Not calling `param->write_entries'."
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |else if (DEBUG)|  */ 
+
+@q **** (4) @>
+@
+@<|parse_input| definition@>=
+
+    if (param->emendations.size() > 0)
+    {
+
+        if (DEBUG)
+        {
+           lock_cerr_mutex(); 
+           cerr << "[Thread " << param->thread_ctr << "] "
+                <<  "In `parse_input':  "
+                << "`param->emendations.size()' > 0" 
+                << endl
+                << "Calling `param->write_emendations'."
+                << endl;
+           unlock_cerr_mutex(); 
+
+        }  /* |if (DEBUG)|  */ 
+
+        status = param->write_emendations();
+
+        if (status != 0)
+        {
+           lock_cerr_mutex(); 
+           cerr << get_datestamp() << " [Thread " << param->thread_ctr << "] "
+                <<  "ERROR!  In `parse_input':  "
+                << "`write_emendations' returned  " << status << endl
+                << endl
+                 << "Exiting function with exit value 1."
+                 << endl;
+
+           unlock_cerr_mutex(); 
+
+
+           return 1;
+        }
+        else if (DEBUG) 
+        {
+           lock_cerr_mutex(); 
+           cerr << "[Thread " << param->thread_ctr << "] "
+                <<  "In `parse_input':  "
+                << "`write_emendations' succeeded."
+                << endl;
+           unlock_cerr_mutex(); 
+
+        }  /* |else if (DEBUG)|  */
+    
+    }  /* |if (param->emendations.size() > 0)|  */
+
+    else if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << param->thread_ctr << "] "
+             <<  "In `parse_input':  "
+             << "`param->emendations.size()' == 0" 
+             << endl
+             << "Not calling `param->write_emendations'."
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |else if (DEBUG)|  */ 
+   
+@q **** (4) @>
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex();
+        cerr << "[Thread " << param->thread_ctr << "] "
+             << "Exiting `parse_input' successfully with return value 0."
+             << endl;
+        unlock_cerr_mutex();
+
+    }  /* |if (DEBUG)|  */ 
+
+    return 0;
+
+}  /* End of |parse_input| definition  */
+
+#endif /* |#ifndef IS_CLIENT|  */
+
+@q ** (2) |accept_data|.  @>
+@ |accept_data|.
+\initials{LDF 2010.01.12.}
+
+\LOG
+\initials{LDF 2010.01.12.}
+Added this function.
+
+\initials{LDF 2010.01.19.}
+Added the argument |bool server_or_client|.
+
+\initials{LDF 2010.03.19.}
+Removed |bool server_or_client| argument.  The global |bool| variables |is_server| 
+and |is_client| can be used instead.
+
+\initials{LDF 2010.03.19.}
+Added code for the case |file_type == Response_Type::SEND_ENVIRONMENT_SHELLSCRIPT_TYPE|.
+
+\initials{LDF 2010.03.19.}
+Modified this function so that it works for the case
+|file_type == Response_Type::SEND_ENVIRONMENT_SHELLSCRIPT_TYPE && is_client|.
+
+\initials{LDF 2011.05.06.}
+Modified this function so that it works for the case
+|file_type == Response_Type::AUTHORIZATION_TYPE && is_client|.
+
+\initials{LDF 2011.09.29.}
+Added optional argument |string *return_filename|.  Currently only used for 
+passing the name of a proxy credential file back to |yyparse|.
+\ENDLOG
+
+@<|accept_data| declaration@>=
+int
+accept_data(Scan_Parse_Parameter_Type* param, 
+            char* filename, 
+            int entry_id, 
+            int file_type,
+            string *return_filename = 0);
+
+@q *** (3) Definition  @>
+@
+@<|accept_data| definition@>=
+int
+accept_data(Scan_Parse_Parameter_Type* param, 
+            char* filename,
+            int entry_id, 
+            int file_type,
+            string *return_filename)
+{
+
+@q **** (4) @>
+
+    bool DEBUG = false;  /* |true| */
+
+    bool server_wrote_to_out_strm = false;
+
+    string proxy_filename;
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << param->thread_ctr << "] *** Entering `accept_data'."
+             << endl;
+        unlock_cerr_mutex();  
+
+
+    }  /* |if (DEBUG)|  */ 
+
+
+@q **** (4) @>
+@
+\LOG
+\initials{LDF 2010.11.04.}
+Now allowing |file_type == Response_Type::SHOW_CERTIFICATES_TYPE|.
+
+\initials{LDF 2012.03.20.}
+Now allowing |Response_Type::RETURN_ENVIRONMENT_SHELLSCRIPT_TYPE|.
+
+\initials{LDF 2012.05.07.}
+Now allowing |file_type == Response_Type::SHOW_PRIVILEGES_TYPE|.
+\ENDLOG 
+
+@<|accept_data| definition@>=
+
+   if (!(   file_type == Response_Type::INSTALLATION_SCRIPT_TYPE
+         || file_type == Response_Type::INSTALLATION_SCRIPT_ENCRYPTED_TYPE
+         || file_type == Response_Type::SEND_ENVIRONMENT_SHELLSCRIPT_TYPE
+         || file_type == Response_Type::SHOW_ENTRIES_TYPE
+         || file_type == Response_Type::SHOW_CERTIFICATES_TYPE
+         || file_type == Response_Type::SHOW_ENVIRONMENT_SHELLSCRIPTS_TYPE
+         || file_type == Response_Type::SHOW_GLOBUS_SITES_TYPE
+         || file_type == Response_Type::SHOW_PRIVILEGES_TYPE
+         || file_type == Response_Type::DOWNLOAD_URL_ENCRYPTED_TYPE
+         || file_type == Response_Type::DOWNLOAD_COMMAND_ENCRYPTED_TYPE
+         || file_type == Response_Type::AUTHORIZATION_TYPE
+         || file_type == Response_Type::PROXY_CREDENTIAL_TYPE
+         || file_type == Response_Type::REMOTE_INSTALL_TYPE
+         || file_type == Response_Type::KEY_PAIR_TYPE
+         || file_type == Response_Type::PUBLIC_KEY_TYPE
+         || file_type == Response_Type::RETURN_ENVIRONMENT_SHELLSCRIPT_TYPE))
+   {
+       lock_cerr_mutex(); 
+       cerr << get_datestamp() << " [Thread " << param->thread_ctr << "] ERROR! In `accept_data':"
+            << endl
+            << "`file_type' == " << file_type
+            << endl 
+            << "`file_type' != `Response_Type::INSTALLATION_SCRIPT_TYPE'"
+            << endl 
+            << "or `Response_Type::INSTALLATION_SCRIPT_ENCRYPTED_TYPE'"
+            << endl 
+            << "or `Response_Type::SEND_ENVIRONMENT_SHELLSCRIPT_TYPE'"
+            << endl 
+            << "or `Response_Type::SHOW_ENTRIES_TYPE'"
+            << endl 
+            << "or `Response_Type::SHOW_CERTIFICATES_TYPE'"
+            << endl 
+            << "or `Response_Type::SHOW_ENVIRONMENT_SHELLSCRIPTS_TYPE'"
+            << endl 
+            << "or `Response_Type::SHOW_GLOBUS_SITES_TYPE'"
+            << endl 
+            << "or `Response_Type::SHOW_PRIVILEGES_TYPE'"
+            << endl 
+            << "or `Response_Type::DOWNLOAD_URL_ENCRYPTED_TYPE'"
+            << endl 
+            << "or `Response_Type::DOWNLOAD_COMMAND_ENCRYPTED_TYPE'"
+            << endl
+            << "or `Response_Type::AUTHORIZATION_TYPE'"
+            << endl
+            << "or `Response_Type::PROXY_CREDENTIAL_TYPE'"
+            << endl
+            << "or `Response_Type::REMOTE_INSTALL_TYPE'"
+            << endl
+            << "or `Response_Type::KEY_PAIR_TYPE'"
+            << endl 
+            << "or `Response_Type::PUBLIC_KEY_TYPE'"
+            << endl 
+            << "or `Response_Type::RETURN_ENVIRONMENT_SHELLSCRIPT_TYPE'"
+            << endl 
+            << "This case is not yet accounted for.  "
+            << "Exiting function unsuccessfully with return value 1."
+            << endl;
+       unlock_cerr_mutex();  
+
+       return 1;
+
+   }  /* |if| */
+
+@q **** (4) @>
+@
+\LOG
+\initials{LDF 2010.03.19.}
+Added this section.
+\ENDLOG
+
+@<|accept_data| definition@>=
+
+   if (file_type == Response_Type::SEND_ENVIRONMENT_SHELLSCRIPT_TYPE && is_client)
+   {
+
+       lock_cerr_mutex(); 
+       cerr << get_datestamp() << " [Thread " << param->thread_ctr << "] ERROR! In `accept_data'."
+            << endl
+            << "`file_type' == `Response_Type::SEND_ENVIRONMENT_SHELLSCRIPT_TYPE'"
+            << endl 
+            << "and `is_client' == `true'."
+            << endl
+            << "This function isn't currently called in this case."
+            << endl 
+            << "Exiting function unsuccessfully with return value 1."
+            << endl;
+       unlock_cerr_mutex();  
+
+       return 1;
+
+   }  /* |if (file_type == Response_Type::SEND_ENVIRONMENT_SHELLSCRIPT_TYPE && is_client)|  */
+
+@q **** (4) @>
+@
+\LOG
+\initials{LDF 2010.05.21.}
+Added this section.
+\ENDLOG
+
+@<|accept_data| definition@>=
+
+   if (file_type == Response_Type::SHOW_ENTRIES_TYPE && is_server)
+   {
+
+       lock_cerr_mutex(); 
+       cerr << get_datestamp() << " [Thread " << param->thread_ctr << "] ERROR! In `accept_data'."
+            << endl
+            << "`file_type' == `Response_Type::SHOW_ENTRIES_TYPE'"
+            << endl 
+            << "and `is_server' == `true'."
+            << endl
+            << "This function isn't currently called in this case."
+            << endl 
+            << "Exiting function unsuccessfully with return value 1."
+            << endl;
+       unlock_cerr_mutex();  
+
+       return 1;
+
+   }  /* |if (file_type == Response_Type::SHOW_ENTRIES_TYPE && is_server)|  */
+
+@q **** (4) For server:  Create temporary file to store the data received from the client.  @>
+
+@ For server:  Create temporary file to store the data received from the client.  
+\initials{LDF 2010.01.12.}
+
+@<|accept_data| definition@>=
+
+    ofstream out_strm;
+    ifstream in_strm;
+
+    char temp_filename[64];
+
+    memset(temp_filename, 0, 64);
+
+@q **** (4) For client:  Open file |filename|.                               @>
+
+@ For client:  Open file |filename|.  
+\initials{LDF 2010.01.19.}
+
+\LOG
+\initials{LDF 2011.03.30.}
+Added test for |file_type == Response_Type::DOWNLOAD_COMMAND_ENCRYPTED_TYPE|
+to conditional.
+
+\initials{LDF 2012.03.20.}
+Added test for |file_type == Response_Type::RETURN_ENVIRONMENT_SHELLSCRIPT_TYPE|
+to conditional.
+\ENDLOG 
+
+@<|accept_data| definition@>=
+
+    if (   is_client 
+        && (   file_type == Response_Type::INSTALLATION_SCRIPT_TYPE
+            || file_type == Response_Type::INSTALLATION_SCRIPT_ENCRYPTED_TYPE
+            || file_type == Response_Type::SHOW_ENTRIES_TYPE
+            || file_type == Response_Type::DOWNLOAD_URL_ENCRYPTED_TYPE
+            || file_type == Response_Type::DOWNLOAD_COMMAND_ENCRYPTED_TYPE
+            || file_type == Response_Type::AUTHORIZATION_TYPE
+            || file_type == Response_Type::REMOTE_INSTALL_TYPE
+            || file_type == Response_Type::KEY_PAIR_TYPE
+            || file_type == Response_Type::RETURN_ENVIRONMENT_SHELLSCRIPT_TYPE))
+    {
+
+        if (filename != 0)
+        {
+           out_strm.open(filename);
+
+           if (!out_strm)
+           {
+                lock_cerr_mutex(); 
+                cerr << get_datestamp() << " [Thread " << param->thread_ctr 
+                     << " ERROR!  In `accept_data':  `ofstream::open' failed to " 
+                     << "open file `" << filename << "'."
+                     << endl
+                     << "Exiting function unsuccessfully with return value 1."
+                     << endl;
+                unlock_cerr_mutex(); 
+
+                return 1;
+
+           }  /* |if (!out_strm)| */
+
+        }  /* |if (filename != 0)|  */
+
+    } /* |if|  */ 
+
+@q **** (4) @>
+@
+@<|accept_data| definition@>=
+
+    if (filename != 0 && DEBUG) 
+    {
+         lock_cerr_mutex(); 
+         cerr << "[Thread " << param->thread_ctr 
+              << "] In `accept_data':  `ofstream::open' succeeded." 
+              << endl;
+         unlock_cerr_mutex(); 
+
+    }  /* |else if (DEBUG)|  */
+
+@q **** (4) @>
+
+    char buffer[param->MAX_BUFFER + 1];
+ 
+    int status = 0;
+
+    bool data_received = false;
+
+    do
+    {
+@q ***** (5) @>
+
+       memset (buffer, 0, param->MAX_BUFFER + 1);
+
+       if (DEBUG)
+       {
+           if (param->session == 0)
+              cerr << "`param->session' == 0" << endl;
+           else
+              cerr << "`param->session' != 0" << endl; 
+
+       }  /* |if (DEBUG)|  */ 
+
+@q ***** (5) @>
+@
+@<|accept_data| definition@>=
+
+       status = gnutls_record_recv(*param->session, buffer, param->MAX_BUFFER);
+
+       if (status == 0)
+       {
+         lock_cerr_mutex(); 
+         cerr << get_datestamp() << " [Thread " << param->thread_ctr 
+              << "] In `accept_data':  Peer has closed the TLS connection" 
+              << endl;
+         unlock_cerr_mutex(); 
+         break;
+
+       }
+       else if (status < 0)
+       {
+         lock_cerr_mutex(); 
+         cerr << get_datestamp() << " [Thread " << param->thread_ctr 
+              << "] In `accept_data':  *** Received corrupted "
+              << "data(" << status << "). Breaking."
+              << endl 
+              << endl;
+  
+         unlock_cerr_mutex(); 
+         break;
+       }
+
+@q ***** (5) @>
+
+       else if (status > 0)
+       {
+@q ****** (6) @>
+
+          if (DEBUG)
+          {
+             lock_cerr_mutex(); 
+             cerr << "[Thread " << param->thread_ctr 
+                  << "] In `accept_data':  Got data.  `status' == " 
+                  << status 
+                  << endl 
+                  << "`buffer' == "
+                  << endl 
+                  << buffer 
+                  << endl;
+              unlock_cerr_mutex(); 
+
+          }  /* |if (DEBUG)|  */ 
+
+@q ****** (6) @>
+@
+\LOG
+\initials{LDF 2010.04.12.}
+Moved this code.  Previously, a temporary file was always created if |is_server == true|.
+Now, it's only created if the size of the input exceeds |param->MAX_BUFFER|.
+
+\initials{LDF 2011.09.26.}
+A temporary file is now always created if 
+|file_type == Response_Type::PROXY_CERTIFICATE_TYPE|.
+
+\initials{LDF 2011.11.04.}
+@:BUG FIX@> BUG FIX:  Now calling |strcpy| to initialize |temp_filename| if
+|file_type != Response_Type::PROXY_CERTIFICATE_TYPE|.  I forgot to have this done, 
+when I added the conditional.
+
+\initials{LDF 2011.11.04.}
+A temporary file is now always created if 
+|file_type == Response_Type::KEY_PAIR_TYPE|.
+
+\initials{LDF 2012.05.15.}
+Changed |Response_Type::PROXY_CERTIFICATE_TYPE| to |Response_Type::PROXY_CREDENTIAL_TYPE|.
+\ENDLOG
+
+@<|accept_data| definition@>=
+
+          if (   is_server 
+              && (   status == param->MAX_BUFFER 
+                  || file_type == Response_Type::PROXY_CREDENTIAL_TYPE
+                  || file_type == Response_Type::KEY_PAIR_TYPE
+                  || file_type == Response_Type::PUBLIC_KEY_TYPE)
+              && !data_received)
+          {
+              
+@q ******* (7) @>
+             
+              if (file_type == Response_Type::PROXY_CREDENTIAL_TYPE)
+              {
+
+                 strcpy(temp_filename, "/tmp/proxy.XXXXXX");
+              }
+             else
+                strcpy(temp_filename, "/tmp/GGXXXXXX");
+
+              int fd = mkstemp(temp_filename);
+
+              if (fd)
+              {
+                  if (DEBUG)
+                  {
+                      lock_cerr_mutex(); 
+                      cerr << get_datestamp() << " [Thread " << param->thread_ctr 
+                           << "] In `accept_data':  `mkstemp' succeeded." 
+                           << endl;
+                      unlock_cerr_mutex(); 
+
+                  } /* |if (DEBUG)| */
+
+              } /* |if (fd)|  */
+
+              else /* |!fd|  */
+              {
+                  lock_cerr_mutex(); 
+                  cerr << get_datestamp() << " [Thread " << param->thread_ctr 
+                       << "] ERROR!  In `accept_data':  `mkstemp' failed." 
+                       << endl
+                       << "Exiting function unsuccessfully with return value 1."
+                       << endl;
+                  unlock_cerr_mutex(); 
+
+                  return 1;
+
+              }  /* |else| (|!fd|)  */
+
+              if (file_type == Response_Type::PROXY_CREDENTIAL_TYPE)
+              {
+                  lock_cerr_mutex(); 
+                  cerr << "[Thread " << param->thread_ctr << "] In `accept_data':"
+                       << endl
+                       << "Storing proxy credential for user " 
+                       << param->user_id << " in file "
+                       << "`" << temp_filename << "'."
+                       << endl;
+                  unlock_cerr_mutex();  
+
+                  proxy_filename = temp_filename;
+
+              }
+
+              close(fd);
+
+              out_strm.open(temp_filename);
+
+              if (!out_strm)
+              {
+                  lock_cerr_mutex(); 
+                  cerr << get_datestamp() << " [Thread " << param->thread_ctr 
+                       << "] ERROR!  In `accept_data':  `ofstream::open' failed to open "
+                       << "file `" << temp_filename << "'."
+                       << endl
+                       << "Exiting function unsuccessfully with return value 1."
+                       << endl;
+                  unlock_cerr_mutex(); 
+
+                  return 1;
+
+              } /* |if (!out_strm)| */
+ 
+
+@q ******* (7) @>
+
+          }  /* |if|  */
+
+@q ****** (6) @>
+@
+@<|accept_data| definition@>=
+
+          if (buffer[0] == EOF && !data_received)
+          {
+              lock_cerr_mutex(); 
+              cerr << get_datestamp() << " [Thread " << param->thread_ctr 
+                   << "] WARNING!  In `accept_data':  `buffer[0]' == EOF and no data received."
+                   << endl
+                   << "Exiting function unsuccessfully with return value 1."
+                   << endl;
+              unlock_cerr_mutex(); 
+
+              return 1;
+
+          }  /* |if (buffer[0] == EOF && !data_received)|  */
+          
+@q ****** (6) @>
+
+          else if (buffer[0] != EOF) 
+          {
+
+               if (   is_client 
+                   || file_type == Response_Type::PROXY_CREDENTIAL_TYPE
+                   || (is_server && file_type == Response_Type::KEY_PAIR_TYPE)
+                   || (is_server && file_type == Response_Type::PUBLIC_KEY_TYPE)
+                   || data_received || status == param->MAX_BUFFER)
+               {
+
+                  if (filename != 0 
+                      || file_type == Response_Type::PROXY_CREDENTIAL_TYPE
+                      || (is_server && file_type == Response_Type::KEY_PAIR_TYPE)
+                      || (is_server && file_type == Response_Type::PUBLIC_KEY_TYPE))
+                  {
+
+                      out_strm << buffer;
+                      server_wrote_to_out_strm = true;
+                  }
+                  else
+                  { 
+                     cout << buffer;
+                     log_strm << buffer;
+
+#if 0 
+                     if(log_strm)
+                        printf("log_strm is true.\n");
+                     else 
+                        printf("log_strm is false.\n");
+                     if (log_strm.is_open())
+                        printf("log_strm is open.\n");
+                     else 
+                        printf("log_strm is not open.\n");
+                     printf("log_filename == %s\n", log_filename.c_str());
+#endif 
+
+
+                  }  /* |else|  */
+
+                  if (is_server)
+                     server_wrote_to_out_strm = true;
+
+               }
+   
+               data_received = true;
+
+          } /* |else if buffer[0] != EOF| */
+
+          /* if (|buffer[0] && data_received == true|), do nothing.  
+             \initials{LDF 2010.01.13.}  */
+
+@q ****** (6) @>
+
+       } /* |else if (status > 0)|  */
+
+@q ***** (5) @>
+
+   }  /* |do|  */
+
+   while (status == param->MAX_BUFFER);    
+
+   if (filename != 0 && out_strm.is_open())
+      out_strm.close();
+
+@q **** (4) For client only:  Exit.  @>
+
+@ For client only:  Exit.  
+\initials{LDF 2010.01.19.}
+
+@<|accept_data| definition@>=
+
+   if (is_client)
+   {
+
+      if (DEBUG)
+      {
+          lock_cerr_mutex(); 
+          cerr << "[Thread " << param->thread_ctr << "] *** Exiting `accept_data' "
+               << "successfully with return value 0."
+               << endl;
+          unlock_cerr_mutex();  
+
+      }  /* |if (DEBUG)|  */ 
+
+      return 0;
+
+   }  /* |if (is_client)|  */
+
+@q **** (4) For server only:  If transferred proxy credential, exit.  @>
+
+@ For server only:  If transferred proxy credential, exit.
+\initials{LDF 2011.09.26.}
+
+Currently, \.{optinum-srv.gwdg.de} and \.{pcfinston.gwdg.de}
+are the only machines on which the server program \.{optdbsrv} is running, 
+as far as I know.
+
+\initials{LDF 2011.09.29.}
+
+
+@<|accept_data| definition@>=
+
+   if (is_server && file_type == Response_Type::PROXY_CREDENTIAL_TYPE)
+   {
+
+#if HAVE_LIBMYSQLCLIENT
+
+#if IS_OPTINUM_SRV | IS_PCFINSTON_GWDG  
+
+       if (DEBUG)
+       {
+
+           lock_cerr_mutex(); 
+           cerr << "[Thread " << param->thread_ctr << "] "
+                << "param->user_name == " << param->user_name << endl
+                << "param->user_id == " << param->user_id << endl
+                << "param->effective_user_dn == " << param->effective_user_dn << endl
+                << "param->effective_user_name == " << param->effective_user_name << endl
+                << "param->effective_user_id == " << param->effective_user_id << endl;
+           unlock_cerr_mutex();
+
+       } /* |if (DEBUG)|  */
+
+
+       if (param->user_name.empty() && param->effective_user_name.empty())
+       {
+            param->get_database_username(param->user_id);
+
+       }
+
+       if (DEBUG)
+       {
+
+           lock_cerr_mutex(); 
+           cerr << "[Thread " << param->thread_ctr << "] "
+                << "After call to `Scan_Parse_Parameter_Type::get_database_username':"
+                << endl 
+                << "param->user_name == " << param->user_name << endl
+                << "param->user_id == " << param->user_id << endl
+                << "param->effective_user_dn == " << param->effective_user_dn << endl
+                << "param->effective_user_name == " << param->effective_user_name << endl
+                << "param->effective_user_id == " << param->effective_user_id << endl;
+           unlock_cerr_mutex();
+
+       } /* |if (DEBUG)|  */
+
+       stringstream temp_strm;
+#if IS_OPTINUM_SRV 
+
+       temp_strm << "sudo /opt/optinum/dbsrvcli/bin/cpprxcrt.sh '" << proxy_filename 
+                 << "' '";
+#elif  IS_PCFINSTON_GWDG
+
+       temp_strm << "sudo /home/lfinsto/opt_rep/optinum/Installer/dbsrvcli/src/cpprxcrt.sh '" 
+                 << proxy_filename 
+                 << "' '";
+
+#endif 
+
+       if (!param->effective_user_name.empty())
+   
+           temp_strm << param->effective_user_name << "' > /dev/null";
+       else 
+           temp_strm << param->user_name << "' > /dev/null";
+
+       if (DEBUG)
+       {
+          lock_cerr_mutex();  
+          cerr << "[Thread " << param->thread_ctr << "] In `accept_data':  "
+               << "temp_strm.str() == " << temp_strm.str() << endl;
+          unlock_cerr_mutex(); 
+
+       }
+
+       status = system(temp_strm.str().c_str());
+
+       if (status == -1 || !WIFEXITED(status) || WEXITSTATUS(status) != 0)
+       {
+           lock_cerr_mutex();
+           cerr << "[Thread " << param->thread_ctr << "] "
+                << "WARNING!  In `accept_data':  "
+                << "`system' failed, returning " << status << "."
+                << endl
+                << "WEXITSTATUS(status) == " << WEXITSTATUS(status) 
+                << endl 
+                << "Couldn't store proxy credential for user `" 
+                << param->effective_user_name << "'."
+                << endl
+                << "Exiting function unsuccessfully with return value 1."
+                << endl;
+           unlock_cerr_mutex();
+
+           return 1;
+
+       }   /* |(status != 0)|  */
+
+       if (DEBUG)
+       {
+
+           lock_cerr_mutex();
+           cerr << "`system' succeeded." << endl;
+           unlock_cerr_mutex();        
+
+       }  /* |if (DEBUG)|  */ 
+
+       if (return_filename)
+          *return_filename = proxy_filename;
+
+#else /* Neither \.{IS\_OPTINUM\_SRV} nor \.{IS\_PCFINSTON\_GWDG}  */
+
+      cerr << "[Thread " << param->thread_ctr << "] "
+           << "WARNING!  In `accept_data':"
+           << endl 
+           << "Not storing proxy credential.  This requires changing the "
+           << "`sudoers' file." 
+           << endl 
+           << "This has been set up for `optinum-srv.gwdg.de' and `pcfinston.gwdg.de'."
+           << endl
+           << "To set this up for servers running on other machines, see `accept_data' "
+           << "in `prsrfncs.web'."
+           << endl;
+
+#endif /* \.{IS\_OPTINUM\_SRV}, \.{IS\_PCFINSTON\_GWDG} or neither  */
+
+#endif /* |HAVE_LIBMYSQLCLIENT|  */
+
+       return 0;
+
+   }  /* |if (is_server && file_type == Response_Type::PROXY_CREDENTIAL_TYPE)|  */
+
+@q **** (4) Store secret key (Server).  @>
+
+@ Store secret key (Server).
+\initials{LDF 2011.11.04.}
+
+\LOG
+\initials{LDF 2011.11.04.}
+Added this section.
+\ENDLOG
+
+@<|accept_data| definition@>=
+
+   if (is_server && file_type == Response_Type::KEY_PAIR_TYPE)
+   {
+#if 1 /* 0 */
+bool save_DEBUG = DEBUG;
+DEBUG = false; /* |true|  */
+#endif 
+
+#if HAVE_LIBMYSQLCLIENT
+
+        status = param->store_key_pair(temp_filename);
+
+        if (status == 2)
+        {
+
+           if (DEBUG)
+           {
+               lock_cerr_mutex();
+               cerr << "[Thread " << param->thread_ctr << "] "
+                    << "In `accept_data':  "
+                    << "`Scan_Parse_Parameter_Type::store_key_pair' succeeded, returning 2:"
+                    << "  Replaced secret key."
+                    << endl
+                    << "Exiting function successfully with return value 2."
+                    << endl;
+               unlock_cerr_mutex();
+
+           }  /* |if (DEBUG)|  */ 
+
+        }
+        else if (status != 0)
+        {
+            lock_cerr_mutex();
+            cerr << "[Thread " << param->thread_ctr << "] "
+                 << "WARNING!  In `accept_data':  "
+                 << "`Scan_Parse_Parameter_Type::store_key_pair' failed, returning " 
+                 << status << "."
+                 << endl
+                 << "Couldn't store key pair."
+                 << endl
+                 << "Exiting function unsuccessfully with return value 1."
+                 << endl;
+            unlock_cerr_mutex();
+
+            return 1;
+
+        }  /* |if (status != 0)| */
+  
+        else if (DEBUG)
+        {
+
+            lock_cerr_mutex();
+            cerr << "[Thread " << param->thread_ctr << "] "
+                 << "In `accept_data':  "
+                 << "`Scan_Parse_Parameter_Type::store_key_pair' succeeded."
+                 << endl
+                 << "Exiting function successfully with return value 0."
+                 << endl;
+            unlock_cerr_mutex();
+
+        }  /* |else if (DEBUG)|  */ 
+
+        unlink(temp_filename);
+
+#endif /* |HAVE_LIBMYSQLCLIENT|  */
+
+#if 1 /* 0 */
+DEBUG = save_DEBUG; 
+#endif 
+
+       if (status == 2)  /* Replaced secret key  */
+          return 2;
+       else
+           return 0;
+
+   }  /* |if (is_server && file_type == Response_Type::KEY_PAIR_TYPE)|  */
+
+@q **** (4) Store public key (Server).  @>
+
+@ Store public key (Server).
+\initials{LDF 2011.12.12.}
+
+\LOG
+\initials{LDF 2011.12.12.}
+Added this section.
+\ENDLOG
+
+@<|accept_data| definition@>=
+
+   if (is_server && file_type == Response_Type::PUBLIC_KEY_TYPE)
+   {
+#if 1 /* 0 */
+bool save_DEBUG = DEBUG;
+DEBUG = false; /* |true|  */
+#endif 
+
+#if HAVE_LIBMYSQLCLIENT
+
+        status = param->store_public_key(temp_filename);
+
+        if (status == 2)
+        {
+
+           if (DEBUG)
+           {
+               lock_cerr_mutex();
+               cerr << "[Thread " << param->thread_ctr << "] "
+                    << "In `accept_data':  "
+                    << "`Scan_Parse_Parameter_Type::store_public_key' succeeded, returning 2:"
+                    << "  Replaced public key."
+                    << endl
+                    << "Exiting function successfully with return value 2."
+                    << endl;
+               unlock_cerr_mutex();
+
+           }  /* |if (DEBUG)|  */ 
+
+        }
+        else if (status == 4)
+        {
+
+           if (DEBUG)
+           {
+               lock_cerr_mutex();
+               cerr << "[Thread " << param->thread_ctr << "] "
+                    << "In `accept_data':  "
+                    << "`Scan_Parse_Parameter_Type::store_public_key' succeeded, returning 4:"
+                    << "  Public key already in database.  Not replaced."
+                    << endl
+                    << "Exiting function successfully with return value 4."
+                    << endl;
+               unlock_cerr_mutex();
+
+           }  /* |if (DEBUG)|  */ 
+
+        }
+
+        else if (status != 0)
+        {
+            lock_cerr_mutex();
+            cerr << "[Thread " << param->thread_ctr << "] "
+                 << "WARNING!  In `accept_data':  "
+                 << "`Scan_Parse_Parameter_Type::store_public_key' failed, returning " 
+                 << status << "."
+                 << endl
+                 << "Couldn't store public key."
+                 << endl
+                 << "Exiting function unsuccessfully with return value 1."
+                 << endl;
+            unlock_cerr_mutex();
+
+            return 1;
+
+        }  /* |if (status != 0)| */
+  
+        else if (DEBUG)
+        {
+
+            lock_cerr_mutex();
+            cerr << "[Thread " << param->thread_ctr << "] "
+                 << "In `accept_data':  "
+                 << "`Scan_Parse_Parameter_Type::store_public_key' succeeded."
+                 << endl
+                 << "Exiting function successfully with return value 0."
+                 << endl;
+            unlock_cerr_mutex();
+
+        }  /* |else if (DEBUG)|  */ 
+
+        unlink(temp_filename);
+
+#endif /* |HAVE_LIBMYSQLCLIENT|  */
+
+#if 1 /* 0 */
+DEBUG = save_DEBUG; 
+#endif 
+
+       if (status == 2)  /* Replaced public key  */
+          return 2;
+       if (status == 4)  /* Public key already in database, not replaced  */
+          return 4;
+       else
+           return 0;
+
+   }  /* |if (is_server && file_type == Response_Type::PUBLIC_KEY_TYPE)|  */
+
+
+
+@q **** (4) For server only:  Write entry data to database.  @>
+
+@ For server only:  Write entry data to database.  
+\initials{LDF 2010.01.19.}
+
+\LOG
+\initials{LDF 2010.04.12.}
+Now only opening |in_strm| if a temporary file was used.
+
+\initials{LDF 2011.04.21.}
+Removed code for encrypting the installation script.  Users must now supply
+one that has already been encrypted.  The code for handling them has now been 
+integrated into the code for handling unencrypted ones.
+\ENDLOG 
+
+@<|accept_data| definition@>=
+
+#if HAVE_LIBMYSQLCLIENT
+
+   stringstream sql_strm;
+   MYSQL_RES* result = 0;
+
+   bool encrypted = false;
+
+   string key_name;
+   string owner;
+
+   status = param->get_encrypted(entry_id, &key_name, &owner);
+   
+   if (status < 0 || status > 1)
+   {
+
+       lock_cerr_mutex(); 
+       cerr << get_datestamp() << " [Thread " << param->thread_ctr 
+            << "] ERROR!  In `accept_data':  "
+            << "`Scan_Parse_Parameter_Type::get_encrypted' failed, "
+            << "returning " << status << "."
+            << endl
+            << "Exiting function unsuccessfully with return value 1."
+            << endl;
+       unlock_cerr_mutex(); 
+
+       return 1;
+
+    }  /* |if (status < 0 || status > 1)|  */
+
+@q **** (4) @>
+
+    if (status == 1)
+    {
+@q ***** (5) @>
+
+        encrypted = true;
+
+        if (DEBUG)
+        {
+            lock_cerr_mutex(); 
+            cerr << " [Thread " << param->thread_ctr 
+                 << "] In `accept_data':  "
+                 << "`Scan_Parse_Parameter_Type::get_encrypted' succeeded, "
+                 << "returning " << status << "."
+                 << endl 
+                 << "`owner' == " << owner
+                 << endl 
+                 << "`key_name' == " << key_name
+                 << endl;
+            unlock_cerr_mutex(); 
+
+        }  /* |if (DEBUG)|  */ 
+
+@q ***** (5) @>
+ 
+    }  /* |if (status == 1)|  */
+
+    else
+       encrypted = false;
+
+@q **** (4) @>
+@
+@<|accept_data| definition@>=
+
+
+   if (server_wrote_to_out_strm)
+   {
+      in_strm.open(temp_filename);
+
+      if (DEBUG)
+      {
+          lock_cerr_mutex(); 
+          cerr << "[Thread " << param->thread_ctr 
+               << "] In `accept_data':  Opening in_strm."
+               << endl;
+          unlock_cerr_mutex(); 
+
+      }  /* |if (DEBUG)|  */ 
+
+      if (!in_strm)
+      {
+          lock_cerr_mutex(); 
+          cerr << get_datestamp() << " [Thread " << param->thread_ctr 
+               << "] ERROR!  In `accept_data':  `ifstream::open' failed to open " 
+               << "file `" << temp_filename << "'."
+               << endl
+               << "Exiting function unsuccessfully with return value 1."
+               << endl;
+          unlock_cerr_mutex(); 
+
+          return 1;
+
+      } /* |if (!in_strm)| */
+
+      else if (DEBUG) 
+      {
+           lock_cerr_mutex(); 
+           cerr << "[Thread " << param->thread_ctr 
+                << "] In `accept_data':  `ifstream::open' succeeded." 
+                << endl;
+           unlock_cerr_mutex(); 
+
+      }  /* |else if (DEBUG)|  */
+
+   }  /* |if (server_wrote_to_out_strm)|  */
+
+
+   else if (DEBUG)
+   {
+       lock_cerr_mutex(); 
+       cerr << "[Thread " << param->thread_ctr 
+            << "] In `accept_data':  Not opening in_strm." 
+            << endl;
+       unlock_cerr_mutex(); 
+
+   }  /* |if (DEBUG)|  */ 
+
+
+@q **** (4) @>
+@
+@<|accept_data| definition@>=
+
+
+   int i = 0;
+
+   string s;
+   
+   string::size_type pos = 0;
+
+@q **** (4) @>
+@
+@<|accept_data| definition@>=
+
+   bool first_time = true;
+
+   param->environment_strm.str("");
+
+   for (;;)
+   {
+
+@q ***** (5) @>
+
+       sql_strm.str("");
+
+       if (server_wrote_to_out_strm)
+       {
+          memset (buffer, 0, param->MAX_BUFFER + 1);
+          in_strm.read(buffer, param->MAX_BUFFER);       
+       }
+   
+       if (strlen(buffer) > 0)
+       {
+           if (DEBUG) 
+           {
+               lock_cerr_mutex(); 
+               cerr << "[Thread " << param->thread_ctr 
+                    << "] In `accept_data':  `buffer' == " 
+                    << endl
+                    << buffer 
+                    << endl;
+               unlock_cerr_mutex(); 
+
+           } /* |if (DEBUG)|  */
+
+@q ***** (5) |file_type == Response_Type::SEND_ENVIRONMENT_SHELLSCRIPT_TYPE|  @>
+
+@ |file_type == Response_Type::SEND_ENVIRONMENT_SHELLSCRIPT_TYPE|.
+\initials{LDF 2012.03.16.}
+
+This case is handled more simply than in the case of download URLs 
+or installation scripts.  We assume that writing the contents of the 
+environment shellscript file to a |stringstream| won't cause any problems and 
+we will write the contents to the database with one command below, 
+rather than using \.{UPDATE} and \.{CONCAT}.
+\initials{LDF 2012.03.16.}
+
+@<|accept_data| definition@>=
+
+           if (file_type == Response_Type::SEND_ENVIRONMENT_SHELLSCRIPT_TYPE)
+           {
+
+               param->environment_strm << buffer;
+
+           }  /* |if (file_type == Response_Type::SEND_ENVIRONMENT_SHELLSCRIPT_TYPE)|  */
+
+
+@q ***** (5) @>
+@
+\LOG
+\initials{LDF 2011.04.21.}
+Added tests for |file_type == Response_Type::INSTALLATION_SCRIPT_ENCRYPTED_TYPE|,
+|file_type == Response_Type::DOWNLOAD_URL_ENCRYPTED_TYPE| 
+and |file_type == Response_Type::DOWNLOAD_COMMAND_ENCRYPTED_TYPE| 
+to this conditional.
+\ENDLOG 
+
+@<|accept_data| definition@>=
+
+           else if (   file_type == Response_Type::INSTALLATION_SCRIPT_TYPE
+                    || file_type == Response_Type::INSTALLATION_SCRIPT_ENCRYPTED_TYPE
+                    || file_type == Response_Type::DOWNLOAD_URL_ENCRYPTED_TYPE
+                    || file_type == Response_Type::DOWNLOAD_COMMAND_ENCRYPTED_TYPE
+                    || file_type == Response_Type::AUTHORIZATION_TYPE)
+           {
+
+@q ****** (6) @>
+
+@ Check for backslash-single-quote and backslash-backslash.
+If found, a backslash is prepended.  I don't remember why this is necessary,
+probably so MySQL can handle them correctly.
+\initials{LDF 2011.01.27.}
+
+@<|accept_data| definition@>=
+
+               string column;
+
+               if (file_type == Response_Type::INSTALLATION_SCRIPT_TYPE)
+                  column = "installation_script";
+               else if (file_type == Response_Type::INSTALLATION_SCRIPT_ENCRYPTED_TYPE)
+                  column = "installation_script_encrypted";
+               else if (file_type == Response_Type::DOWNLOAD_URL_ENCRYPTED_TYPE)
+                  column = "download_url_encrypted";
+               else if (file_type == Response_Type::DOWNLOAD_COMMAND_ENCRYPTED_TYPE)
+                  column = "download_command_encrypted";
+               else if (file_type == Response_Type::AUTHORIZATION_TYPE)
+                  column = "authorization";
+
+               i = strcspn("\'\\", buffer);
+
+               if (DEBUG)
+               {
+           
+                   lock_cerr_mutex();
+                   if (i < 2)
+                      cerr << "[Thread " << param->thread_ctr 
+                           << "] In `accept_data':  `buffer' contains '\\\\' and/or '\\'' ."
+                           << endl;
+                   else
+                      cerr << "[Thread " << param->thread_ctr 
+                           << "] In `accept_data':  `buffer' does not contain '\\\\' or '\\''."
+                           << endl;
+                   unlock_cerr_mutex(); 
+
+               }  /* |if (DEBUG)|  */ 
+
+               if (i >= 2) 
+               {
+                  sql_strm << "update Entries set " << column << " = ";
+        
+                  if (first_time)
+                     sql_strm << "'" << buffer << "' ";
+                  else
+                  {
+                     sql_strm << "concat(" << column << ", '" << buffer << "') ";
+                  }
+                  
+                  sql_strm << "where entry_id = " << entry_id;
+
+               }  /* |if|  */
+
+               else if (i < 2)
+               {
+@q ******* (7) @>
+
+                   s = buffer;
+
+                   pos = 0;
+ 
+                   int i = 0;
+
+@q ******* (7) @>
+               
+                   while (pos < s.size())
+                   {
+                     
+                      pos = s.find_first_of("\'\\", pos + i);
+ 
+                      if (i == 0)
+                         i = 1;
+
+                      if (pos == string::npos)
+                         break;
+
+                      if (DEBUG)
+                      {
+                           lock_cerr_mutex(); 
+                           cerr << "pos == " << pos << endl
+                                << "s[" << pos << "] == " << s[pos]
+                                << endl;
+                           unlock_cerr_mutex(); 
+
+                      }  /* |if (DEBUG)|  */ 
+                      
+                      s.insert(pos, "\\");
+                      pos += 1;
+
+                      
+                   }  /* |while|  */
+ 
+
+                  sql_strm << "update Entries set " << column << " = ";
+        
+                  if (first_time)
+                     sql_strm << "'" << s << "' ";
+                  else
+                  {
+                      sql_strm << "concat(" << column << ", '" << s << "') ";
+
+                  }
+
+                  sql_strm << "where entry_id = " << entry_id;
+
+@q ******* (7) @>
+
+               }  /* |else if|  */
+
+               if (DEBUG)
+               {
+                   lock_cerr_mutex(); 
+                   cerr << "[Thread " << param->thread_ctr 
+                        << "] In `accept_data':  `sql_strm.str()' == " 
+                        << endl
+                        << sql_strm.str()
+                        << endl;
+                   unlock_cerr_mutex(); 
+
+               }  /* |if (DEBUG)|  */ 
+
+               status = param->submit_mysql_query(sql_strm.str(), result);
+
+               if (status)
+               {
+                   lock_cerr_mutex(); 
+                   cerr << get_datestamp() << " [Thread " << param->thread_ctr << "]:  "
+                        << "WARNING!  In `accept_data':"
+                        << endl 
+                        << "`Scan_Parse_Parameter_Type::submit_mysql_query' failed, returning " 
+                        << status << "."
+                        << endl
+                        << "Exiting function unsuccessfully with return value 1."
+                        << endl;
+                   unlock_cerr_mutex(); 
+
+                  if (result) 
+                     mysql_free_result(result);
+
+                  return 1;
+
+               }  /* |if (status)|  */
+
+               else if (DEBUG)
+               {
+                   lock_cerr_mutex(); 
+                   cerr << "[Thread " << param->thread_ctr << "]:  "
+                        << "In `accept_data':"
+                        << endl 
+                        << "`Scan_Parse_Parameter_Type::submit_mysql_query' succeeded."
+                        << endl;
+                   unlock_cerr_mutex(); 
+
+               }  /* |if (DEBUG)|  */
+
+               mysql_free_result(result);
+
+@q ****** (6) Set `encrypted' field, if appropriate.  @>
+
+@ Set |encrypted| field, if appropriate.   It is not set if 
+|Response_Type::DOWNLOAD_COMMAND_ENCRYPTED_TYPE|.
+\initials{LDF 2011.11.22.}
+
+@:NOTE@> !! PLEASE NOTE:  It is possible to add encrypted fields to an |Entry| that already 
+contains unencrypted ones and vice versa.  This will probably cause problems.
+@:TODO@> !! TODO:  Do something about this.
+\initials{LDF 2011.11.22.}
+
+\LOG
+\initials{LDF 2011.11.22.}
+Added this section.
+\ENDLOG
+
+@<|accept_data| definition@>=
+
+               sql_strm.str("");
+
+               if (   file_type == Response_Type::INSTALLATION_SCRIPT_ENCRYPTED_TYPE
+                   || file_type == Response_Type::DOWNLOAD_URL_ENCRYPTED_TYPE
+                   || file_type == Response_Type::DOWNLOAD_COMMAND_ENCRYPTED_TYPE)
+               {
+@q ******* (7) @>
+
+                   sql_strm << "update Entries set encrypted = 1 where entry_id = " 
+                            << entry_id;
+
+                   if (DEBUG)
+                   {
+                       lock_cerr_mutex(); 
+                       cerr << "[Thread " << param->thread_ctr 
+                            << "] In `accept_data':  `sql_strm.str()' == " 
+                            << endl
+                            << sql_strm.str()
+                            << endl;
+                       unlock_cerr_mutex(); 
+
+                   }  /* |if (DEBUG)|  */ 
+
+                   status = param->submit_mysql_query(sql_strm.str(), result);
+
+                   if (status)
+                   {
+                       lock_cerr_mutex(); 
+                       cerr << get_datestamp() << " [Thread " << param->thread_ctr << "]:  "
+                            << "WARNING!  In `accept_data':"
+                            << endl 
+                            << "`Scan_Parse_Parameter_Type::submit_mysql_query' failed, "
+                            << "returning " << status << "."
+                            << endl
+                            << "Exiting function unsuccessfully with return value 1."
+                            << endl;
+                       unlock_cerr_mutex(); 
+
+                      if (result) 
+                         mysql_free_result(result);
+
+                      return 1;
+
+                   }  /* |if (status)|  */
+
+                   else if (DEBUG)
+                   {
+                       lock_cerr_mutex(); 
+                       cerr << "[Thread " << param->thread_ctr << "]:  "
+                            << "In `accept_data':"
+                            << endl 
+                            << "`Scan_Parse_Parameter_Type::submit_mysql_query' succeeded."
+                            << endl;
+                       unlock_cerr_mutex(); 
+
+                   }  /* |if (DEBUG)|  */
+
+                   mysql_free_result(result);
+
+                   sql_strm.str("");
+
+@q ******* (7) @>
+
+               }  /* |if| (encrypted types, except for |Response_Type::AUTHORIZATION_TYPE|.  */  
+ 
+
+
+@q ****** (6) @>
+
+           }  /* |else if (   file_type == Response_Type::INSTALLATION_SCRIPT_TYPE
+                           || file_type 
+                                 == Response_Type::INSTALLATION_SCRIPT_ENCRYPTED_TYPE
+                           || file_type == Response_Type::DOWNLOAD_URL_ENCRYPTED_TYPE
+                           || file_type 
+                                 == Response_Type::DOWNLOAD_COMMAND_ENCRYPTED_TYPE)  
+                           || file_type 
+                                 == Response_Type::AUTHORIZATION_TYPE)|  */
+@q ***** (5) @>
+
+
+       }  /* |if (strlen(buffer) > 0)| */
+
+       if (!(server_wrote_to_out_strm && in_strm))
+          break;
+
+       first_time = false;
+     
+   }  /* |for| */
+
+@q **** (4) @>
+@
+\LOG
+\initials{LDF 2012.03.16.}
+Added this section.
+\ENDLOG
+
+@<|accept_data| definition@>=
+
+#if 1 /* 0 */
+bool save_DEBUG = DEBUG;
+DEBUG = false; /* |true|  */
+#endif 
+
+   if (file_type == Response_Type::SEND_ENVIRONMENT_SHELLSCRIPT_TYPE)
+   {
+        
+         status = param->store_environment_shellscript();
+
+         if (status != 0)
+         {
+             lock_cerr_mutex(); 
+             cerr << get_datestamp() << " [Thread " << param->thread_ctr << "]:  "
+                  << "WARNING!  In `accept_data':"
+                  << endl 
+                  << "`Scan_Parse_Parameter_Type::store_environment_shellscript' failed, "
+                  << "returning " << status << "."
+                  << endl
+                  << "Failed to store environment."
+                  << endl 
+                  << "Continuing."
+                  << endl;
+             unlock_cerr_mutex(); 
+  
+         }  /* |if (status != 0)|  */
+
+         else if (DEBUG)
+         {
+             lock_cerr_mutex(); 
+             cerr << get_datestamp() << " [Thread " << param->thread_ctr << "]:  "
+                  << "In `accept_data':"
+                  << endl 
+                  << "`Scan_Parse_Parameter_Type::store_environment_shellscript' succeeded."
+                  << endl;
+             unlock_cerr_mutex(); 
+
+         }  /* |else if (DEBUG)|  */ 
+
+   }  /* |if (file_type == Response_Type::SEND_ENVIRONMENT_SHELLSCRIPT_TYPE)|  */
+
+#if 1 /* 0 */
+DEBUG = save_DEBUG; 
+#endif 
+
+@q **** (4) @>
+@
+@<|accept_data| definition@>=
+
+#if 0 
+/* This will only be needed if |buffer| is used below.  Presently, it is not.
+   \initials{LDF 2010.01.13.}  */
+
+   memset (buffer, 0, param->MAX_BUFFER + 1);
+#endif 
+
+@q **** (4) @>
+@
+\LOG
+\initials{LDF 2010.05.20.}
+@:BUG FIX@> BUG FIX:  Now checking the value of |temp_filename[0]|:  If it's 0, |unlink| 
+isn't called.
+\ENDLOG 
+
+@<|accept_data| definition@>=
+
+   if(!save_temp_files && temp_filename[0] != 0)
+   {
+      status = unlink(temp_filename);
+
+      if (status == -1)
+      {
+          lock_cerr_mutex(); 
+          cerr << get_datestamp() << " [Thread " << param->thread_ctr
+               << "] WARNING!  In `accept_data':" 
+               << endl 
+               << "`unlink' failed to removed temporary file `" 
+               << temp_filename << "'."
+               << endl 
+               << "Continuing."
+               << endl;
+          unlock_cerr_mutex(); 
+   
+      }  /* |if (status == -1)|  */
+
+    }   /* |if(!save_temp_files)|  */
+
+   if (DEBUG)
+   {
+       lock_cerr_mutex(); 
+       cerr << "[Thread " << param->thread_ctr << "] *** Exiting `accept_data' "
+            << "successfully with return value 0."
+            << endl;
+       unlock_cerr_mutex();  
+
+   }  /* |if (DEBUG)|  */ 
+
+   return 0;
+
+#endif /* |#ifndef IS_CLIENT|  */
+
+@q **** (4) @>
+
+}  /* End of |accept_data| definition  */
+
+@q *** (3) @>
+
+@q ** (2) Remote install rule function.  @>
+@ Remote install rule function.
+\initials{LDF 2012.02.07.}
+
+\LOG
+\initials{LDF 2012.02.07.}
+Added this function.
+\ENDLOG
+
+@q *** (3) Declaration  @>
+
+@<|remote_install_rule_func| declaration@>=
+#if HAVE_LIBMYSQLCLIENT
+int
+remote_install_rule_func(Scan_Parse_Parameter_Type *param, 
+                         int install_or_reinstall,
+                         string package_name,
+                         string package_version,
+                         string globus_site,
+                         string stdout_filename,
+                         string stderr_filename,
+                         int timeout,
+                         int reinstall_prerequisites,
+                         string link_expression);
+#endif 
+
+@q *** (3) Definition  @>
+@
+@<|remote_install_rule_func| definition@>=
+#if HAVE_LIBMYSQLCLIENT
+int
+remote_install_rule_func(Scan_Parse_Parameter_Type *param, 
+                         int install_or_reinstall,
+                         string package_name,
+                         string package_version,
+                         string globus_site,
+                         string stdout_filename,
+                         string stderr_filename,
+                         int timeout,
+                         int reinstall_prerequisites,
+                         string link_expression)
+{
+@q **** (4) @>
+
+   bool DEBUG = false;  /* |true|  */ 
+
+   if (DEBUG)
+   {
+      lock_cerr_mutex();
+      cerr << "Entering `remote_install_rule_func'." << endl;
+      unlock_cerr_mutex(); 
+   }  /* |if (DEBUG)|  */ 
+
+@q **** (4) @>
+@
+@<|remote_install_rule_func| definition@>=
+
+    if (param->effective_user_name.empty() && param->user_name.empty())
+    {
+            param->get_database_username(param->user_id);
+    }
+
+#if IS_PCFINSTON_GWDG
+
+    param->user_name = "ldf";
+
+#if 0
+    param->user_name = "";
+    param->effective_user_name = "";
+#endif 
+
+    lock_cerr_mutex(); 
+    cerr << "TESTING!  Set `param->user_name' to " << param->user_name 
+         << " (on pcfinston only)."
+         << endl;
+    unlock_cerr_mutex(); 
+ 
+#else
+    if (param->PARSER_DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "Not pcfinston." << endl;
+        unlock_cerr_mutex(); 
+
+    }
+
+#endif 
+
+    map<string, bool>::const_iterator iter = globus_site_map.find(globus_site);
+
+    if (iter == globus_site_map.end())
+    {
+
+       lock_cerr_mutex();
+       cerr << "[Thread " << param->thread_ctr 
+            << "] ERROR!  In `remote_install_rule_func':"
+            << endl
+            << "Globus site `" << globus_site << "' not found." << endl
+            << "Not starting remote installation."
+            << endl
+            << "Exiting function unsuccessfully with return value 1."
+            << endl;
+        unlock_cerr_mutex(); 
+
+        Response_Type response;
+        response.type = Response_Type::COMMAND_ONLY_TYPE;
+
+        stringstream temp_strm;
+
+        temp_strm << "REMOTE INSTALLATION FAILED FOR PACKAGE_NAME <"
+                  << package_name << "> ";
+
+        if (package_version.size() > 0)
+
+           temp_strm << "PACKAGE_VERSION <" << package_version << "> ";
+
+        temp_strm << "GLOBUS_SITE <" << globus_site << "> NOT FOUND";
+
+        response.command = temp_strm.str();
+
+        temp_strm.str("");
+
+        pthread_mutex_lock(&param->response_deque_mutex);
+        param->response_deque.push_back(response);
+        pthread_mutex_unlock(&param->response_deque_mutex); 
+
+        return 1;
+
+    }  /* |if (iter == globus_site_map.end())|  */
+
+
+@q ****** (6) @>
+@
+\LOG
+\initials{LDF 2011.11.21.}
+Added this section.
+\ENDLOG
+
+@<|remote_install_rule_func| definition@>=
+
+    else if (iter->second == false)
+    {
+
+       lock_cerr_mutex();
+       cerr << "[Thread " << param->thread_ctr 
+            << "] ERROR!  In `remote_install_rule_func':"
+            << endl
+            << "Globus site `" << globus_site << "' disabled." << endl
+            << "Not starting remote installation."
+            << endl
+            << "Exiting function unsuccessfully with return value 1."
+            << endl;
+        unlock_cerr_mutex(); 
+
+        Response_Type response;
+        response.type = Response_Type::COMMAND_ONLY_TYPE;
+
+        stringstream temp_strm;
+
+        temp_strm << "REMOTE INSTALLATION FAILED FOR PACKAGE_NAME <"
+                  << package_name << "> ";
+
+        if (package_version.size() > 0)
+
+           temp_strm << "PACKAGE_VERSION <" << package_version << "> ";
+
+        temp_strm << "GLOBUS_SITE <" << globus_site << "> DISABLED";
+
+        response.command = temp_strm.str();
+
+        temp_strm.str("");
+
+        pthread_mutex_lock(&param->response_deque_mutex);
+        param->response_deque.push_back(response);
+        pthread_mutex_unlock(&param->response_deque_mutex); 
+
+        return 1;
+
+    }  /* |else if (iter->second == false)|  */
+
+@q ****** (6) @>
+@
+@<|remote_install_rule_func| definition@>=
+
+   else if (param->user_name.empty())
+   {
+
+       lock_cerr_mutex();
+       cerr << "[Thread " << param->thread_ctr 
+            << "] ERROR!  In `remote_install_rule_func':"
+            << endl
+            << "`param->user_name' is empty.  Not starting remote installation."
+            << endl
+            << "Exiting function unsuccessfully with return value 1."
+            << endl;
+        unlock_cerr_mutex(); 
+
+        Response_Type response;
+        response.type = Response_Type::COMMAND_ONLY_TYPE;
+
+        stringstream temp_strm;
+
+        temp_strm << "REMOTE INSTALLATION FAILED FOR PACKAGE_NAME <"
+                  << package_name << "> ";
+
+        if (package_version.size() > 0)
+
+           temp_strm << "PACKAGE_VERSION <" << package_version << "> ";
+
+        temp_strm << "USER NAME NOT FOUND";
+
+        response.command = temp_strm.str();
+
+        temp_strm.str("");
+
+        pthread_mutex_lock(&param->response_deque_mutex);
+        param->response_deque.push_back(response);
+        pthread_mutex_unlock(&param->response_deque_mutex); 
+ 
+        return 1;
+
+   }  /* |if (param->user_name.empty())|  */
+
+@q ****** (6) @>
+
+   else 
+   {
+@q ****** (6) @>
+
+        if (param->PARSER_DEBUG)
+        {
+            lock_cerr_mutex(); 
+            cerr << "Found Globus site `" << globus_site << "'." << endl;
+            unlock_cerr_mutex();        
+
+        }  /* |if (param->PARSER_DEBUG)|  */ 
+
+
+        Entry_Type entry;
+
+        entry.package_name = package_name;
+        entry.package_version = package_version;
+        entry.globus_site = globus_site;
+        entry.install_or_reinstall_flag = install_or_reinstall;
+        entry.stdout_filename = stdout_filename;
+        entry.stderr_filename = stderr_filename;
+        entry.param = param;
+        entry.remote_install_timeout = timeout;
+        entry.remote_install_reinstall_prerequisites = reinstall_prerequisites;
+
+        if (link_expression.size() == 0)
+        {
+
+           entry.remote_install_create_links = false;
+        }
+        else if (link_expression ==  "1")
+        {
+           entry.remote_install_create_links = true;
+        }
+        else if (link_expression ==  "0")
+        {
+           entry.remote_install_create_links = false;
+        }
+        else
+        {
+            entry.remote_install_create_links = true;
+            entry.remote_install_link_directory = link_expression;
+        }
+
+        if (param->PARSER_DEBUG)
+        {
+            lock_cerr_mutex();
+            cerr << "[Thread " << param->thread_ctr 
+                 << "] In `remote_install_rule_func':"
+                 << endl;
+
+            entry.show("entry:");
+
+
+#if 0 
+            if (entry.param == 0)
+                cerr << "entry.param == 0" << endl;
+            else
+                 cerr << "entry.param != 0" << endl;
+
+#endif 
+
+
+            unlock_cerr_mutex();
+
+        }  /* |if (param->PARSER_DEBUG)| */
+        
+
+@q ****** (6) @>
+
+        param->install_vector.push_back(entry);
+        Response_Type response;
+        response.type = Response_Type::REMOTE_INSTALL_TYPE;
+
+        pthread_mutex_lock(&param->response_deque_mutex);
+        param->response_deque.push_back(response);
+        pthread_mutex_unlock(&param->response_deque_mutex); 
+
+
+@q ****** (6) @>
+
+   }  /* |else|  */
+
+@q **** (4) @>
+@
+@<|remote_install_rule_func| definition@>=
+
+   if (DEBUG)
+   {
+      lock_cerr_mutex();
+      cerr << "Exiting `remote_install_rule_func' successfully with return value 0." 
+           << endl;
+      unlock_cerr_mutex(); 
+
+   }  /* |if (DEBUG)|  */ 
+
+   return 0;
+
+@q **** (4) @>
+
+}  /* End of |remote_install_rule_func| definition  */
+
+#endif /* |HAVE_LIBMYSQLCLIENT|  */
+
+
+@q ** (2) Garbage.  @>
+@
+@<Garbage@>=
+#if 0
+#endif
+
+@q ** (2) Putting Parser Functions together.@>
+
+@ Putting Parser Functions together.
+@c
+using namespace std;
+@<Include files@>@;@/
+@<Version control identifier@>@;@/
+@<External function declarations@>@;@/
+@<|parse_input| declaration@>@;@/ 
+@<|accept_data| declaration@>@;@/
+@<|remote_install_rule_func| declaration@>@;@/
+@<|parse_input| definition@>@;@/
+@<|accept_data| definition@>@;@/
+@<|remote_install_rule_func| definition@>@;@/
+
+
+#if 0 /* 1 */ 
+@<Garbage@>@;@/
+#endif 
+
+@
+@(prsrfncs.h@>=
+@<|parse_input| declaration@>@;@/ 
+@<|accept_data| declaration@>@;@/
+@<|remote_install_rule_func| declaration@>@;@/
+
+
+@q (progn (cweb-mode) (outline-minor-mode))   @>
+
+@q * (1) Local variables for Emacs @>
+
+@q * Local variables for Emacs.@>
+@q Local Variables: @>
+@q mode:CWEB @>
+@q eval:(display-time) @>
+@q abbrev-mode:t @>
+@q eval:(read-abbrev-file) @>
+@q indent-tabs-mode:nil @>
+@q eval:(outline-minor-mode) @>
+@q fill-column:80 @>
+@q End: @>

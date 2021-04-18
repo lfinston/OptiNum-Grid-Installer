@@ -1,0 +1,1228 @@
+@q spptprvl.web  @>
+@q Created by Laurence D. Finston (LDF) Mon May  7 13:45:19 CEST 2012 @>
+
+@q * (1) Top @>
+
+@q * (1) Copyright and License.@>
+
+@q This file is part of the OptiNum Grid Installer @>
+@q Copyright (C) 2010, 2011, 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen @>
+
+@q The OptiNum Grid Installer is free software; you can redistribute it and/or modify @>
+@q it under the terms of the GNU General Public License as published by @>
+@q the Free Software Foundation; either version 3 of the License, or @>
+@q (at your option) any later version.  @>
+
+@q The OptiNum Grid Installer is distributed in the hope that it will be useful, @>
+@q but WITHOUT ANY WARRANTY; without even the implied warranty of @>
+@q MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the @>
+@q GNU General Public License for more details.  @>
+
+@q You should have received a copy of the GNU General Public License          @>
+@q along with the OptiNum Grid Installer; if not, write to the Free Software                    @>
+@q Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA @>
+
+@q ("@@" stands for a single at-sign in the following paragraph.) @>
+
+@q Please send bug reports to Laurence.Finston@@gwdg.de@>
+
+@q Laurence D. Finston                                                   @>
+@q Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen  @>
+@q Am Fassberg 11         					         @>
+@q 37077 Goettingen              					 @>
+@q Germany                           					 @>                                
+
+@q Laurence.Finston@@gwdg.de (@@ stands for a single "at" sign.)@>
+
+
+@ {\bf Scan\_Parse\_Parameter\_Type} member function definitions for privileges.
+
+@q ** (2) Include files  @>
+
+@ Include files.
+
+@<Include files@>=
+#include <stdlib.h>  /* Standard Library for C  */
+#include <stdio.h>
+#include <errno.h>
+#include <unistd.h>
+
+#include <algorithm> /* Standard Template Library (STL) for C++  */
+#include <fstream> 
+#include <iomanip>
+#include <ios>
+#include <iostream>
+#include <map>
+#include <string>
+#include <time.h>
+#include <math.h>
+#include <sstream>  
+
+#include <set>
+#include <vector>
+#include <deque>
+
+
+#include <pthread.h>  /* POSIX threads  */
+
+#include <gcrypt.h> /* for |gcry_control| */
+#include <gnutls/gnutls.h>
+
+#if HAVE_CONFIG_H
+#include <config.h>
+#endif 
+
+#if IS_ROCKS_GOEGRID
+#undef HAVE_LIBMYSQLCLIENT
+#endif 
+
+#if HAVE_LIBMYSQLCLIENT
+#include <mysql.h>
+#endif 
+
+#include "entries.h++"  /* Headers generated from CWEB files belonging to this package  */
+#include "dstngnmt.h++"
+
+#include "glblvrbl.h++"  
+#include "glblfncs.h++"
+#include "utilfncs.h++"
+#include "parser.h++"    
+#include "scanner.h++"
+#include "x509cert.h++"
+#include "rspnstp.h++"
+#include "thrdfncs.h++"
+#include "sssndttp.h++"
+#include "glsinftp.h++"
+#include "scprpmtp.h++"
+
+
+@q **** (4) Show privileges.  @>
+
+@ Show privileges.
+\initials{LDF 2012.05.07.}
+
+\vskip\baselineskip
+\halign{#:\quad&#\hfil\cr
+%
+{\bf Error codes returned to the client}\span\cr
+\noalign{\vskip.5\baselineskip}
+0&No data for user |curr_user_id| in Privileges database table.\cr
+\omit&Function returns 2.\cr
+%
+1&MySQL API function error.\cr
+%
+2&Request to show privileges info for other users, but user not permitted to view it\cr
+\omit&Privileges data for user shown and a warning is issued in addition.\cr
+%
+3&|mkstemp| failed to open a temporary file.\cr
+%
+4&Set by |exchange_data_with_client|:\cr
+\omit&This function succeeded, but |strlen(buffer) > 0| and |response.local_filename|
+is not empty upon return.\cr
+\omit&This isn't supposed to happen.\cr
+}
+
+\LOG
+\initials{LDF 2012.05.07.}
+Added this function.
+\ENDLOG
+
+@q ***** (5) Definition  @>
+@
+@<|Scan_Parse_Parameter_Type::show_privileges| definition@>=
+
+#if HAVE_LIBMYSQLCLIENT
+int
+Scan_Parse_Parameter_Type::show_privileges(Response_Type &response, 
+                                           char buffer[])
+{
+@q ****** (6) @>
+
+    bool DEBUG = false;  /* |true|  */
+    set_debug_level(DEBUG);
+
+    int status = 0;
+
+    MYSQL_RES* result          = 0;
+    unsigned int row_ctr       = 0;
+    unsigned int field_ctr     = 0;
+   
+    MYSQL_ROW curr_row;
+
+    stringstream sql_strm;
+
+    stringstream temp_strm;
+
+    unsigned int curr_user_id = (effective_user_id > 0) ? effective_user_id : user_id;
+    string curr_user_name = (effective_user_id > 0) ? effective_user_name : user_name;
+
+    bool html = (response.output_format == Response_Type::OUTPUT_FORMAT_HTML) ? true : false;
+
+@q ****** (6) @>
+
+    if (DEBUG) 
+    { 
+       lock_cerr_mutex(); 
+       cerr << "[Thread " << thread_ctr << "]:  "
+            << "Entering `Scan_Parse_Parameter_Type::show_privileges'."
+            << endl
+            << "response.privileges_user == " << response.privileges_user
+            << endl 
+            << "response.privileges_all == " << response.privileges_all
+            << endl;
+       unlock_cerr_mutex(); 
+
+    } /* |if (DEBUG)| */
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::show_privileges| definition@>=
+
+    bool dump_to_file = false;
+    ofstream out_strm;
+
+    sql_strm << "select P.user_id, UI.user_name, UI.commonName, UI.organizationalUnitName, "
+             << "P.superuser, P.show_certificates, P.show_privileges, "
+             << "P.add_globus_site, P.delete_globus_site, P.enable_globus_site, "
+             << "P.edit_globus_site, P.add_globus_site_admin, P.delete_globus_site_admin, "
+             << "P.delegate "
+             << "from Privileges as P, User_Info as UI where P.user_id = " << curr_user_id
+             << " and P.user_id = UI.user_id";
+
+
+    if (DEBUG)
+    {
+       lock_cerr_mutex();
+       cerr << "sql_strm.str() == " << sql_strm.str() << endl;
+       unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */ 
+
+    status = submit_mysql_query(sql_strm.str(), result, &row_ctr, &field_ctr);
+
+    if (status != 0)
+    {
+         lock_cerr_mutex(); 
+         cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+              << "ERROR!  In `Scan_Parse_Parameter_Type::show_privileges':"
+              << endl 
+              << "`Scan_Parse_Parameter_Type::submit_mysql_query' failed, returning " 
+              << status << "."
+              << endl
+              << "Exiting function unsuccessfully with return value 1."
+              << endl;
+         unlock_cerr_mutex(); 
+
+         if (result) 
+            mysql_free_result(result);
+
+         return 1;
+
+    }  /* |if (status != 0)|  */
+
+
+    else if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "In `Scan_Parse_Parameter_Type::show_privileges':"
+             << endl 
+             << "`Scan_Parse_Parameter_Type::submit_mysql_query' succeeded."
+             << endl 
+             << "row_ctr == " << row_ctr 
+             << endl
+             << "field_ctr == " << field_ctr 
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */
+
+    if (row_ctr == 0)
+    {
+
+        response.command = "SERVER SHOW PRIVILEGES FAILED 0";
+ 
+        response.local_filename = "";
+
+        memset(buffer, 0, MAX_BUFFER + 1);
+
+        if (result)
+           mysql_free_result(result);
+
+        return 2;
+
+    }  /* |if (row_ctr == 0)|  */
+
+@q ****** (6) @>
+@
+Here, the message to be sent to the client is stored in |buffer| instead of storing it 
+in |response.command|.  This is because of what |exchange_data_with_client| 
+(in \filename{connect.web}) does after this function returns.  
+\initials{LDF 2012.05.07.}
+
+@<|Scan_Parse_Parameter_Type::show_privileges| definition@>=
+
+    else /* |row_ctr > 0|  There should only be 1 row.  \initials{LDF 2012.05.07.}  */
+    {
+@q ******* (7) @>
+
+       if ((curr_row = mysql_fetch_row(result)) == 0)
+       {
+            lock_cerr_mutex(); 
+            cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+                 << "ERROR!  In `Scan_Parse_Parameter_Type::show_privileges':"
+                 << endl 
+                 << "`mysql_fetch_row' failed:"
+                 << endl
+                 << mysql_error(mysql_ptr)
+                 << endl 
+                 << "Exiting function unsuccessfully with return value 1."
+                 << endl;
+            unlock_cerr_mutex(); 
+
+            mysql_free_result(result);
+
+            response.command = "SERVER SHOW PRIVILEGES FAILED 1";
+
+            return 1;
+
+       }  /* |if (curr_row = mysql_fetch_row(result) == 0)|  */
+
+@q ******* (7) @>
+@
+@<|Scan_Parse_Parameter_Type::show_privileges| definition@>=
+
+       else /* |mysql_fetch_row(result)| succeeded  */
+       {
+@q ******** (8) @>
+
+           temp_strm.str("");
+
+           temp_strm << "*** Privileges info for user " << curr_user_id 
+                     << " (" << curr_user_name << ") ***";
+
+           temp_strm << endl << endl;
+
+           if (DEBUG)
+           {
+       
+               lock_cerr_mutex(); 
+               cerr << "[Thread " << thread_ctr << "]:  "
+                    << "In `Scan_Parse_Parameter_Type::show_privileges':"
+                    << endl 
+                    << "`mysql_fetch_row' succeeded."
+                    << endl;
+               unlock_cerr_mutex(); 
+ 
+
+           }  /* |if (DEBUG)|  */ 
+
+           @<Format column values for Privileges@>@;@/
+
+@q ******** (8) @>
+
+       }  /* |else| (|mysql_fetch_row(result)| succeeded)  */
+
+       @<Conditionally dump to file @>@;@/
+
+@q ******* (7) @>
+@
+@<|Scan_Parse_Parameter_Type::show_privileges| definition@>=
+
+      bool permitted = false;
+  
+      if (   (curr_row[4] && strlen(curr_row[4]) > 0 && atoi(curr_row[4]) == 1)
+          || (curr_row[6] && strlen(curr_row[6]) > 0 && atoi(curr_row[6]) == 1))
+         permitted = true;
+
+      if (response.privileges_all && !permitted)
+      {
+
+           lock_cerr_mutex(); 
+           cerr << "[Thread " << thread_ctr << "]:  "
+                << "ERROR!  In `Scan_Parse_Parameter_Type::show_privileges':"
+                << endl
+                << "`response.privileges_all' == `true' and `permitted' == `false'."
+                << endl 
+                << "Not showing privileges for other users.  Continuing."
+                << endl;
+           unlock_cerr_mutex(); 
+
+           Response_Type new_response;
+           new_response.type = Response_Type::COMMAND_ONLY_TYPE;
+           new_response.command = "SERVER SHOW PRIVILEGES FAILED 2";
+
+           pthread_mutex_lock(&response_deque_mutex);
+           response_deque.push_back(new_response);
+           pthread_mutex_unlock(&response_deque_mutex);
+
+      }  /* |if (response.privileges_all && !permitted)|  */
+
+      else if (DEBUG)
+      {
+          lock_cerr_mutex(); 
+          cerr << "`response.privileges_all' == " << response.privileges_all
+               << endl 
+               << "`permitted' == " << permitted
+               << endl;
+          unlock_cerr_mutex(); 
+
+      }  /* |else if (DEBUG)|  */ 
+
+@q ******* (7) @>
+@ 
+\LOG
+\initials{LDF 2012.05.08.}
+@:BUG FIX@> BUG FIX:  Added the conditional |if (response.privileges_all && permitted)|.
+Formerly, the  privileges for other users were always shown if this code was reached.
+\ENDLOG 
+
+@<|Scan_Parse_Parameter_Type::show_privileges| definition@>=
+
+       mysql_free_result(result);
+       result = 0;
+
+       if (response.privileges_all && permitted)
+       {
+@q ******** (8) @>
+
+           sql_strm.str("");
+
+           sql_strm << "select P.user_id, UI.user_name, UI.commonName, UI.organizationalUnitName, "
+                    << "P.superuser, P.show_certificates, P.show_privileges, "
+                    << "P.add_globus_site, P.delete_globus_site, P.enable_globus_site, "
+                    << "P.edit_globus_site, P.add_globus_site_admin, P.delete_globus_site_admin, "
+                    << "P.delegate from Privileges as P, User_Info as UI where "
+                    << "P.user_id > 0 and P.user_id <> " 
+                    << curr_user_id << " and P.user_id = UI.user_id order by P.user_id";
+
+     
+           if (DEBUG)
+           {
+              lock_cerr_mutex();
+              cerr << "sql_strm.str() == " << sql_strm.str() << endl;
+              unlock_cerr_mutex(); 
+
+           }  /* |if (DEBUG)|  */ 
+
+           status = submit_mysql_query(sql_strm.str(), result, &row_ctr, &field_ctr);
+
+           if (status != 0)
+           {
+                lock_cerr_mutex(); 
+                cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+                     << "ERROR!  In `Scan_Parse_Parameter_Type::show_privileges':"
+                     << endl 
+                     << "`Scan_Parse_Parameter_Type::submit_mysql_query' failed, returning " 
+                     << status << "."
+                     << endl
+                     << "Exiting function unsuccessfully with return value 1."
+                     << endl;
+                unlock_cerr_mutex(); 
+
+                if (result) 
+                   mysql_free_result(result);
+
+                return 1;
+
+           }  /* |if (status != 0)|  */
+
+           else if (DEBUG)
+           {
+               lock_cerr_mutex(); 
+               cerr << "[Thread " << thread_ctr << "]:  "
+                    << "In `Scan_Parse_Parameter_Type::show_privileges':"
+                    << endl 
+                    << "`Scan_Parse_Parameter_Type::submit_mysql_query' succeeded."
+                    << endl 
+                    << "row_ctr == " << row_ctr 
+                    << endl
+                    << "field_ctr == " << field_ctr 
+                    << endl;
+               unlock_cerr_mutex(); 
+
+           }  /* |if (DEBUG)|  */
+
+           if (row_ctr == 0)
+           {
+               temp_strm << "*** No privileges info for other users ***" << endl << endl;
+
+               @<Conditionally dump to file @>@;@/
+               
+           }  /* |if (row_ctr == 0)|  */
+
+           else /* |row_ctr > 0|  */
+           {
+@q ********* (9) @>
+
+
+                if (DEBUG)
+                {
+                    lock_cerr_mutex(); 
+                    cerr << "row_ctr == " << row_ctr << endl;
+                    unlock_cerr_mutex(); 
+
+                }  /* |if (DEBUG)|  */ 
+
+                temp_strm << "*** Privileges info for other users ***" << endl << endl;
+
+@q ********* (9) @>
+
+                for (int i = 0; i < row_ctr; ++i)
+                {
+@q ********** (10) @>
+
+                     if (DEBUG)
+                     {
+                         lock_cerr_mutex(); 
+                         cerr << "In loop:  `i' == " << i << endl;
+                         unlock_cerr_mutex(); 
+
+                     }  /* |if (DEBUG)|  */ 
+
+                     if ((curr_row = mysql_fetch_row(result)) == 0)
+                     {
+                          lock_cerr_mutex(); 
+                          cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+                               << "ERROR!  In `Scan_Parse_Parameter_Type::show_privileges':"
+                               << endl 
+                               << "`mysql_fetch_row' failed:"
+                               << endl
+                               << mysql_error(mysql_ptr)
+                               << endl 
+                               << "Exiting function unsuccessfully with return value 1."
+                               << endl;
+                          unlock_cerr_mutex(); 
+
+                          mysql_free_result(result);
+
+                          response.command = "SERVER SHOW PRIVILEGES FAILED 1";
+
+                          return 1;
+
+                     }  /* |if (curr_row = mysql_fetch_row(result) == 0)|  */
+
+@q ********** (10) @>
+@
+@<|Scan_Parse_Parameter_Type::show_privileges| definition@>=
+
+                     else /* |mysql_fetch_row(result)| succeeded  */
+                     {
+@q *********** (11) @>
+
+                         if (DEBUG)
+                         {
+       
+                             lock_cerr_mutex(); 
+                             cerr << "[Thread " << thread_ctr << "]:  "
+                                  << "In `Scan_Parse_Parameter_Type::show_privileges':"
+                                  << endl 
+                                  << "`mysql_fetch_row' succeeded."
+                                  << endl;
+                             unlock_cerr_mutex(); 
+ 
+
+                         }  /* |if (DEBUG)|  */ 
+
+                         @<Format column values for Privileges@>@;@/
+      
+                         @<Conditionally dump to file @>@;@/
+
+@q *********** (11) @>
+
+                     }  /* |else| (|mysql_fetch_row(result)| succeeded)  */
+
+@q ********** (10) @>
+
+               }  /* |for|  */
+
+@q ********* (9) @>
+
+           }  /* |else| (|row_ctr > 0|)  */
+
+@q ******** (8) @>
+
+       }  /* |if (response.privileges_all && permitted)|  */
+
+@q ******* (7) @>
+@
+@<|Scan_Parse_Parameter_Type::show_privileges| definition@>=
+
+       if (dump_to_file)
+       {
+          out_strm << endl;
+          out_strm.close();
+       }
+       else 
+       {
+          temp_strm << endl;
+       }
+
+       memset (buffer, 0, MAX_BUFFER + 1);      
+
+       if (!dump_to_file)
+          strcpy(buffer, temp_strm.str().c_str());
+                  
+       response.command = "SERVER SENDING PRIVILEGES INFO";
+
+@q ******* (7) @>
+
+    }  /* |else| (|row_ctr > 0|)  */
+
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::show_privileges| definition@>=
+
+    if (result)
+       mysql_free_result(result);
+
+    if (DEBUG) 
+    { 
+       lock_cerr_mutex(); 
+       cerr << "[Thread " << thread_ctr << "]:  "
+            << "Exiting `Scan_Parse_Parameter_Type::show_privileges' successfully "
+            << "with return value 0."
+            << endl;
+       unlock_cerr_mutex(); 
+
+    } /* |if (DEBUG)| */
+
+    return 0;
+
+@q ****** (6) @>
+
+}  /* End of |Scan_Parse_Parameter_Type::show_privileges| definition  */
+
+#endif /* |HAVE_LIBMYSQLCLIENT|  */
+
+@q **** (4) Format column values for Privileges.  @>
+
+@ Format column values for Privileges.  
+\initials{LDF 2012.05.07.}
+
+\LOG
+\initials{LDF 2012.05.07.}
+Added this section.  It's used in the definition of |Scan_Parse_Parameter_Type::show_privileges| 
+(see above).
+\ENDLOG
+
+\begingroup
+\obeylines
+Columns:
+\.{Privileges.user\_id}
+\.{User\_Info.user\_name}
+\.{User\_Info.commonName}
+\.{User\_Info.organizationalUnitName}
+\.{Privileges.superuser}
+\.{Privileges.show\_certificates}
+\.{Privileges.show\_privileges}
+\.{Privileges.add\_globus\_site}
+\.{Privileges.delete\_globus\_site}
+\.{Privileges.enable\_globus\_site}
+\.{Privileges.edit\_globus\_site}
+\.{Privileges.add\_globus\_site\_admin}
+\.{Privileges.delete\_globus\_site\_admin}
+\endgroup
+
+@q ***** (5) |user_id|  @>
+@ |user_id|.
+
+@<Format column values for Privileges@>=
+
+   {  /* Beginning of group  */
+
+       int setw_val = 27;
+
+       if (curr_row[0] && strlen(curr_row[0]))
+       {
+           if (DEBUG)
+           {
+               cerr << "user_id  == " << curr_row[0] << endl;
+
+           }  /* |if (DEBUG)|  */ 
+
+           temp_strm << setw(setw_val) << left << "user_id:" << curr_row[0]
+             << endl;
+
+
+       } /* |if (curr_row[0])|  */
+
+       else  /* |curr_row[0] == 0 || strlen(curr_row[0]) == 0|  */
+       {
+           if (DEBUG)
+           {
+               cerr << "user_id  == NULL" << endl;
+
+           }  /* |if (DEBUG)|  */ 
+
+
+           temp_strm << setw(setw_val) << left << "user_id:" << "NULL" << endl;
+
+       }  /* |else| (|curr_row[0] == 0 || strlen(curr_row[0]) == 0|)  */
+
+
+@q ***** (5) |user_name|  @>
+@ |user_name|.
+
+
+
+@<Format column values for Privileges@>=
+ 
+       if (curr_row[1] && strlen(curr_row[1]))
+       {
+           if (DEBUG)
+           {
+               cerr << "user_name  == " << curr_row[1] << endl;
+
+           }  /* |if (DEBUG)|  */ 
+
+           temp_strm << setw(setw_val) << left << "user_name:" << curr_row[1]
+                     << endl;
+
+
+       } /* |if (curr_row[1])|  */
+
+       else  /* |curr_row[1] == 0 || strlen(curr_row[1]) == 0|  */
+       {
+           if (DEBUG)
+           {
+               cerr << "user_name  == NULL" << endl;
+
+           }  /* |if (DEBUG)|  */ 
+
+
+           temp_strm << setw(setw_val) << left << "user_name:" << "NULL" << endl;
+
+       }  /* |else| (|curr_row[1] == 0 || strlen(curr_row[1]) == 0|)  */
+
+
+@q ***** (5) |commonName|  @>
+@ |commonName|.
+
+@<Format column values for Privileges@>=
+ 
+       if (curr_row[2] && strlen(curr_row[2]))
+       {
+           if (DEBUG)
+           {
+               cerr << "commonName  == " << curr_row[2] << endl;
+
+           }  /* |if (DEBUG)|  */ 
+
+           temp_strm << setw(setw_val) << left << "commonName:" << curr_row[2]
+             << endl;
+
+
+       } /* |if (curr_row[2])|  */
+
+       else  /* |curr_row[2] == 0 || strlen(curr_row[2]) == 0|  */
+       {
+           if (DEBUG)
+           {
+               cerr << "commonName  == NULL" << endl;
+
+           }  /* |if (DEBUG)|  */ 
+
+
+           temp_strm << setw(setw_val) << left << "commonName:" << "NULL" << endl;
+
+       }  /* |else| (|curr_row[2] == 0 || strlen(curr_row[2]) == 0|)  */
+
+
+@q ***** (5) |organizationalUnitName|  @>
+@ |organizationalUnitName|.
+
+@<Format column values for Privileges@>=
+ 
+       if (curr_row[3] && strlen(curr_row[3]))
+       {
+           if (DEBUG)
+           {
+               cerr << "organizationalUnitName  == " << curr_row[3] << endl;
+
+           }  /* |if (DEBUG)|  */ 
+
+           temp_strm << setw(setw_val) << left << "organizationalUnitName:" << curr_row[3]
+             << endl;
+
+
+       } /* |if (curr_row[3])|  */
+
+       else  /* |curr_row[3] == 0 || strlen(curr_row[3]) == 0|  */
+       {
+           if (DEBUG)
+           {
+               cerr << "organizationalUnitName  == NULL" << endl;
+
+           }  /* |if (DEBUG)|  */ 
+
+
+           temp_strm << setw(setw_val) << left << "organizationalUnitName:" << "NULL" << endl;
+
+       }  /* |else| (|curr_row[3] == 0 || strlen(curr_row[3]) == 0|)  */
+
+@q ***** (5) |superuser|  @>
+@ |superuser|.
+
+@<Format column values for Privileges@>=
+
+       if (curr_row[0] && strlen(curr_row[0]))
+       {
+           if (DEBUG)
+           {
+               cerr << "superuser  == " << curr_row[4] << endl;
+
+           }  /* |if (DEBUG)|  */ 
+
+           temp_strm << setw(setw_val) << left << "superuser:" << curr_row[4]
+             << endl;
+
+
+       } /* |if (curr_row[4])|  */
+
+       else  /* |curr_row[4] == 0 || strlen(curr_row[4]) == 0|  */
+       {
+           if (DEBUG)
+           {
+               cerr << "superuser  == NULL" << endl;
+
+           }  /* |if (DEBUG)|  */ 
+
+
+           temp_strm << setw(setw_val) << left << "superuser:" << "NULL" << endl;
+
+       }  /* |else| (|curr_row[4] == 0 || strlen(curr_row[4]) == 0|)  */
+
+
+
+@q ***** (5) |show_certificates|  @>
+@ |show_certificates|.
+
+@<Format column values for Privileges@>=
+ 
+       if (curr_row[5] && strlen(curr_row[5]))
+       {
+           if (DEBUG)
+           {
+               cerr << "show_certificates  == " << curr_row[5] << endl;
+
+           }  /* |if (DEBUG)|  */ 
+
+           temp_strm << setw(setw_val) << left << "show_certificates:" << curr_row[5]
+             << endl;
+
+       } /* |if (curr_row[5])|  */
+
+       else  /* |curr_row[5] == 0 || strlen(curr_row[5]) == 0|  */
+       {
+           if (DEBUG)
+           {
+               cerr << "show_certificates  == NULL" << endl;
+
+           }  /* |if (DEBUG)|  */ 
+
+
+           temp_strm << setw(setw_val) << left << "show_certificates:" << "NULL" << endl;
+
+       }  /* |else| (|curr_row[5] == 0 || strlen(curr_row[5]) == 0|)  */
+
+@q ***** (5) |show_privileges|  @>
+@ |show_privileges|.
+
+@<Format column values for Privileges@>=
+ 
+       if (curr_row[6] && strlen(curr_row[6]))
+       {
+           if (DEBUG)
+           {
+               cerr << "show_privileges  == " << curr_row[6] << endl;
+
+           }  /* |if (DEBUG)|  */ 
+
+           temp_strm << setw(setw_val) << left << "show_privileges:" << curr_row[6]
+             << endl;
+
+
+       } /* |if (curr_row[6])|  */
+
+       else  /* |curr_row[6] == 0 || strlen(curr_row[6]) == 0|  */
+       {
+           if (DEBUG)
+           {
+               cerr << "show_privileges  == NULL" << endl;
+
+           }  /* |if (DEBUG)|  */ 
+
+
+           temp_strm << setw(setw_val) << left << "show_privileges:" << "NULL" << endl;
+
+       }  /* |else| (|curr_row[6] == 0 || strlen(curr_row[6]) == 0|)  */
+
+@q ***** (5) |add_globus_site|  @>
+@ |add_globus_site|.
+
+@<Format column values for Privileges@>=
+ 
+       if (curr_row[7] && strlen(curr_row[7]))
+       {
+           if (DEBUG)
+           {
+               cerr << "add_globus_site  == " << curr_row[7] << endl;
+
+           }  /* |if (DEBUG)|  */ 
+
+           temp_strm << setw(setw_val) << left << "add_globus_site:" << curr_row[7]
+             << endl;
+
+
+       } /* |if (curr_row[7])|  */
+
+       else  /* |curr_row[7] == 0 || strlen(curr_row[7]) == 0|  */
+       {
+           if (DEBUG)
+           {
+               cerr << "add_globus_site  == NULL" << endl;
+
+           }  /* |if (DEBUG)|  */ 
+
+
+           temp_strm << setw(setw_val) << left << "add_globus_site:" << "NULL" << endl;
+
+       }  /* |else| (|curr_row[7] == 0 || strlen(curr_row[7]) == 0|)  */
+
+
+@q ***** (5) |delete_globus_site|  @>
+@ |delete_globus_site|.
+
+@<Format column values for Privileges@>=
+ 
+       if (curr_row[8] && strlen(curr_row[8]))
+       {
+           if (DEBUG)
+           {
+               cerr << "delete_globus_site  == " << curr_row[8] << endl;
+
+           }  /* |if (DEBUG)|  */ 
+
+           temp_strm << setw(setw_val) << left << "delete_globus_site:" << curr_row[8]
+             << endl;
+
+
+       } /* |if (curr_row[8])|  */
+
+       else  /* |curr_row[8] == 0 || strlen(curr_row[8]) == 0|  */
+       {
+           if (DEBUG)
+           {
+               cerr << "delete_globus_site  == NULL" << endl;
+
+           }  /* |if (DEBUG)|  */ 
+
+
+           temp_strm << setw(setw_val) << left << "delete_globus_site:" << "NULL" << endl;
+
+       }  /* |else| (|curr_row[8] == 0 || strlen(curr_row[8]) == 0|)  */
+
+
+@q ***** (5) |enable_globus_site|  @>
+@ |enable_globus_site|.
+
+@<Format column values for Privileges@>=
+ 
+       if (curr_row[9] && strlen(curr_row[9]))
+       {
+           if (DEBUG)
+           {
+               cerr << "enable_globus_site  == " << curr_row[9] << endl;
+
+           }  /* |if (DEBUG)|  */ 
+
+           temp_strm << setw(setw_val) << left << "enable_globus_site:" << curr_row[9]
+             << endl;
+
+
+       } /* |if (curr_row[9])|  */
+
+       else  /* |curr_row[9] == 0 || strlen(curr_row[9]) == 0|  */
+       {
+           if (DEBUG)
+           {
+               cerr << "enable_globus_site  == NULL" << endl;
+
+           }  /* |if (DEBUG)|  */ 
+
+
+           temp_strm << setw(setw_val) << left << "enable_globus_site:" << "NULL" << endl;
+
+       }  /* |else| (|curr_row[9] == 0 || strlen(curr_row[9]) == 0|)  */
+
+
+
+
+@q ***** (5) |edit_globus_site|  @>
+@ |edit_globus_site|.
+
+@<Format column values for Privileges@>=
+ 
+       if (curr_row[10] && strlen(curr_row[10]))
+       {
+           if (DEBUG)
+           {
+               cerr << "edit_globus_site  == " << curr_row[10] << endl;
+
+           }  /* |if (DEBUG)|  */ 
+
+           temp_strm << setw(setw_val) << left << "edit_globus_site:" << curr_row[10]
+             << endl;
+
+
+       } /* |if (curr_row[10])|  */
+
+       else  /* |curr_row[10] == 0 || strlen(curr_row[10]) == 0|  */
+       {
+           if (DEBUG)
+           {
+               cerr << "edit_globus_site  == NULL" << endl;
+
+           }  /* |if (DEBUG)|  */ 
+
+
+           temp_strm << setw(setw_val) << left << "edit_globus_site:" << "NULL" << endl;
+
+       }  /* |else| (|curr_row[10] == 0 || strlen(curr_row[10]) == 0|)  */
+
+@q ***** (5) |add_globus_site_admin|  @>
+@ |add_globus_site_admin|.
+
+@<Format column values for Privileges@>=
+ 
+       if (curr_row[11] && strlen(curr_row[11]))
+       {
+           if (DEBUG)
+           {
+               cerr << "add_globus_site_admin  == " << curr_row[11] << endl;
+
+           }  /* |if (DEBUG)|  */ 
+
+           temp_strm << setw(setw_val) << left << "add_globus_site_admin:" << curr_row[11]
+             << endl;
+
+
+       } /* |if (curr_row[11])|  */
+
+       else  /* |curr_row[11] == 0 || strlen(curr_row[11]) == 0|  */
+       {
+           if (DEBUG)
+           {
+               cerr << "add_globus_site_admin  == NULL" << endl;
+
+           }  /* |if (DEBUG)|  */ 
+
+
+           temp_strm << setw(setw_val) << left << "add_globus_site_admin:" << "NULL" << endl;
+
+       }  /* |else| (|curr_row[11] == 0 || strlen(curr_row[11]) == 0|)  */
+
+@q ***** (5) |delete_globus_site_admin|  @>
+@ |delete_globus_site_admin|.
+
+@<Format column values for Privileges@>=
+ 
+       if (curr_row[12] && strlen(curr_row[12]))
+       {
+           if (DEBUG)
+           {
+               cerr << "delete_globus_site_admin  == " << curr_row[12] << endl;
+
+           }  /* |if (DEBUG)|  */ 
+
+           temp_strm << setw(setw_val) << left << "delete_globus_site_admin:" << curr_row[12]
+             << endl;
+
+
+       } /* |if (curr_row[12])|  */
+
+       else  /* |curr_row[12] == 0 || strlen(curr_row[12]) == 0|  */
+       {
+           if (DEBUG)
+           {
+               cerr << "delete_globus_site_admin  == NULL" << endl;
+
+           }  /* |if (DEBUG)|  */ 
+
+
+           temp_strm << setw(setw_val) << left << "delete_globus_site_admin:" 
+             << "NULL" << endl;
+
+       }  /* |else| (|curr_row[12] == 0 || strlen(curr_row[12]) == 0|)  */
+
+@q ***** (5) |delegate|  @>
+@ |delegate|.
+\initials{LDF 2012.05.08.}
+
+\LOG
+\initials{LDF 2012.05.08.}
+Added this section.
+\ENDLOG
+
+@<Format column values for Privileges@>=
+ 
+       if (curr_row[13] && strlen(curr_row[13]))
+       {
+           if (DEBUG)
+           {
+               cerr << "delegate  == " << curr_row[13] << endl;
+
+           }  /* |if (DEBUG)|  */ 
+
+           temp_strm << setw(setw_val) << left << "delegate:" << curr_row[13]
+             << endl;
+
+
+       } /* |if (curr_row[13])|  */
+
+       else  /* |curr_row[13] == 0 || strlen(curr_row[13]) == 0|  */
+       {
+           if (DEBUG)
+           {
+               cerr << "delegate  == NULL" << endl;
+
+           }  /* |if (DEBUG)|  */ 
+
+
+           temp_strm << setw(setw_val) << left << "delegate:" 
+             << "NULL" << endl;
+
+       }  /* |else| (|curr_row[13] == 0 || strlen(curr_row[13]) == 0|)  */
+
+
+@q ***** (5) @>
+@
+@<Format column values for Privileges@>=
+
+       temp_strm << endl;
+
+   }  /* End of group  */
+
+
+@q **** (4) Conditionally dump to file.  @>
+
+@ Conditionally dump to file.
+\initials{LDF 2012.05.07.}
+
+After the loop, a newline character or two are added to the end 
+of the text that's sent to the client, so we dump it to a file even if |temp_strm.str()| 
+contains a number of characters somewhat smaller than |MAX_BUFFER|.  Currently, 
+|MAX_BUFFER - 10| is used. 
+\initials{LDF 2012.05.07.}
+
+\LOG
+\initials{LDF 2012.05.07.}
+Added this section.
+\ENDLOG
+
+@<Conditionally dump to file @>=
+
+       if (!dump_to_file && temp_strm.str().size() >= MAX_BUFFER - 10)  
+       {
+
+           char temp_filename[] = "/tmp/TTXXXXXX";
+
+           int temp_fd = mkstemp(temp_filename);
+
+           if (temp_fd == -1)
+           {
+
+               lock_cerr_mutex(); 
+               cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+                    << "ERROR!  In "
+                    << "`Scan_Parse_Parameter_Type::show_privileges':"
+                    << endl 
+                    << "`mkstemp' failed.  Can't open temporary file."
+                    << endl
+                    << "Exiting function unsuccessfully with return value 1."
+                    << endl;
+               unlock_cerr_mutex(); 
+
+               mysql_free_result(result);
+
+               memset (buffer, 0, MAX_BUFFER + 1);      
+               response.command = "SERVER SHOW PRIVILEGES FAILED 3";
+
+               return 1;
+
+           }  /* |if (temp_fd == -1)|  */
+
+           temp_file_vector.push_back(string(temp_filename));
+
+           close(temp_fd);
+
+           response.local_filename  = temp_filename;
+
+           out_strm.open(response.local_filename.c_str());
+
+           dump_to_file = true;
+         
+       }  /* |if|  */
+
+       if (dump_to_file)
+       {
+           out_strm << temp_strm.str() << endl;
+           temp_strm.str("");
+       }
+
+
+@q **** (4) @>
+@
+@<Garbage@>=
+
+@q **** (4) @>
+
+@q *** (3) Putting `spptprvl.web.web' together.  @>
+
+@ Putting {\tt spptprvl.web\PERIOD web} together.
+
+@q **** (4) This is what's compiled.  @>
+@ This is what's compiled.
+@c
+@<Include files@>@;@/
+using namespace std;
+@<|Scan_Parse_Parameter_Type::show_privileges| definition@>@;@/
+
+
+#if 0 
+@<Garbage@>@;@/
+#endif 
+
+@q **** (4) This is what's written to the header file `spptprvl.h'.  @>
+
+@ This is what's written to the header file \filename{spptprvl.h}.
+
+That is, no {\CPLUSPLUS/} code is written to the header file, but it's helpful 
+for it to exist, so that this CWEB file can be handled in exactly the same 
+way as the others.
+\initials{LDF 2012.01.13.}
+
+@(spptprvl.h@>=
+#ifndef SPPTPRVL.WEB_H
+#define SPPTPRVL.WEB_H 1
+/* Empty  */
+#endif 
+
+@q * (1) Emacs-Lisp code for use in indirect buffers  @>
+
+@q (progn (cweb-mode) (outline-minor-mode))                          @>
+
+@q * (1) Local variables for Emacs @>
+
+@q * Local variables for Emacs.@>
+@q Local Variables: @>
+@q mode:CWEB @>
+@q eval:(display-time) @>
+@q abbrev-mode:t @>
+@q eval:(read-abbrev-file) @>
+@q indent-tabs-mode:nil @>
+@q eval:(outline-minor-mode) @>
+@q fill-column:80 @>
+@q End: @>

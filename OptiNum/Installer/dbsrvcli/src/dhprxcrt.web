@@ -1,0 +1,1075 @@
+@q dhprxcrt.web @>
+
+@q Created by Laurence D. Finston (LDF) Wed Jun  1 15:51:10 CEST 2011 @>
+
+@q * (1) Top @>
+
+@q * (1) Copyright and License.@>
+
+@q This file is part of the OptiNum Grid Installer @>
+@q Copyright (C) 2010, 2011, 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen @>
+
+@q The OptiNum Grid Installer is free software; you can redistribute it and/or modify @>
+@q it under the terms of the GNU General Public License as published by @>
+@q the Free Software Foundation; either version 3 of the License, or @>
+@q (at your option) any later version.  @>
+
+@q The OptiNum Grid Installer is distributed in the hope that it will be useful, @>
+@q but WITHOUT ANY WARRANTY; without even the implied warranty of @>
+@q MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the @>
+@q GNU General Public License for more details.  @>
+
+@q You should have received a copy of the GNU General Public License          @>
+@q along with the OptiNum Grid Installer; if not, write to the Free Software                    @>
+@q Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA @>
+
+@q ("@@" stands for a single at-sign in the following paragraph.) @>
+
+@q Please send bug reports to Laurence.Finston@@gwdg.de@>
+
+@q Laurence D. Finston                                                   @>
+@q Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen  @>
+@q Am Fassberg 11         					         @>
+@q 37077 Goettingen              					 @>
+@q Germany                           					 @>                                
+
+@q Laurence.Finston@@gwdg.de (@@ stands for a single "at" sign.)@>
+
+@q * (0) Handle Proxy Credential (dhprxcrt.web).  @>
+
+@*  Handle Proxy Credential.
+\initials{LDF 2011.06.01.}
+
+\LOG
+\initials{LDF 2011.06.01.}
+Created this file.
+\ENDLOG
+
+@ Version control identifier.
+@<Version control identifier@>=
+static char version_control_id[] 
+   = "$Id: dhprxcrt.web 8356 2012-05-25 08:01:31Z finston $";
+  
+@q ** (2) Include files  @>
+
+@ Include files.
+
+@<Include files@>=
+
+#include <stdlib.h>
+#include <stdio.h>
+#include <errno.h>
+#include <string.h>
+#include <math.h>
+
+#include <iomanip>
+#include <ios>
+#include <iostream>
+#include <fstream>   
+#include <sstream>   
+#include <string>
+#include <vector>
+#include <deque>
+
+#if HAVE_CONFIG_H
+#include <config.h>
+#endif
+
+#if IS_ROCKS_GOEGRID
+#undef HAVE_LIBMYSQLCLIENT
+#endif 
+
+#include "utilfncs.h++"
+
+#ifndef _XOPEN_SOURCE
+#define _XOPEN_SOURCE
+#endif 
+
+
+using namespace std;
+
+@q ** (2) File-local variable declarations.  @>
+@
+\LOG
+\initials{LDF 2011.06.15.}
+Added this section.
+\ENDLOG
+
+@<File-local variable declarations@>=
+
+#if IS_OPTINUM_SRV
+   const string certtool_path = "/opt/optinum/dbsrvcli/bin/certtool";
+#else
+   const string certtool_path = "certtool";
+#endif 
+
+@q ** (2) Handle proxy credential.  @>
+
+@ Handle proxy credential.
+\initials{LDF 2011.05.25.}
+
+
+@:NOTE@> !! PLEASE NOTE:  If return values are added, code that (indirectly) 
+evaluates the return value in |remote_install_func| in \filename{thrdfncs.web}
+and |exchange_data_with_client| in \filename{connect.web}, must be altered accordingly.
+\par
+The direct call to this function that is evaluated in the two functions named
+above occurs in |main| in \filename{strtinst.web}
+\initials{LDF 2012.02.07.}
+
+\hpxretvaltoks={\halign{#:\quad&#\hfil\cr
+0&Success\cr
+1&Local proxy credential filename is empty\cr
+2&Failed to open local proxy credential file\cr
+3&|popen| error:  Call to \.{certtool} failed\cr
+4&|fread| error:  Failed to read output of \.{certtool}.\cr
+5&Too many characters in \.{certtool} output ($> 1048575$)\cr
+6&Failed to verify certificate chain:  Expired\cr
+7&Failed to verify certificate chain:  Other reason\cr
+8&|popen| error:  Call to \.{certtool -i} failed\cr
+9&|fread| error:  Failed to read output of \.{certtool -i}\cr
+10&Failed to find ``Validity'' information in proxy credential\cr
+11&Failed to find ``Validity:  Not Before'' information in proxy credential\cr
+12&Failed to find ``Validity:  Not After'' information in proxy credential\cr
+13&|popen| error:  Calls to \.{date} failed\cr
+14&|fscanf| or |getline| error:  Failed to read output of calls to \.{date}\cr
+15&Failed to set time in ``seconds since the epoch'' correctly\cr
+16&Proxy credential not yet valid:  Present time $<$ ``Not Before'' value\cr
+17&Proxy credential expired:  Present time $>$ ``Not After'' value\cr}}
+
+\vskip\baselineskip
+\noindent{\bf Return values}:\vskip.5\baselineskip
+\the\hpxretvaltoks
+
+\LOG
+\initials{LDF 2011.05.25.}
+Added this function.
+
+\initials{LDF 2011.05.26.}
+Added code for testing the proxy credential's 
+validity timestamps (``Not Before'' and ``Not After'') against the current time.
+
+\initials{LDF 2012.02.07.}
+Now returning different values for error exits.
+\ENDLOG
+
+@:NOTE@> !! PLEASE NOTE:  If this function is changed, it must be changed
+in \.{scrinstl}, too!
+\initials{LDF 2011.05.26.}
+
+@<|handle_proxy_cred| declaration@>=
+
+@q *** (3) Declaration  @>
+
+int
+handle_proxy_cred(string local_proxy_cred_filename = proxy_cred_filename);
+
+@q *** (3) Definition  @>
+@
+@<|handle_proxy_cred| definition@>=
+int
+handle_proxy_cred(string local_proxy_cred_filename)
+{
+@q **** (4) @>
+
+
+    bool DEBUG = false;  /* |true|  */
+    set_debug_level(DEBUG);
+
+    int status;
+
+    if (DEBUG) 
+        cerr << "Entering `handle_proxy_cred'." << endl;
+
+    if (local_proxy_cred_filename.empty())
+    {
+        cerr << "ERROR!  In `handle_proxy_cred':  "
+             << "`local_proxy_cred_filename' is empty."
+             << endl 
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+
+        proxy_cred_verified = false;
+        return 1;
+    }
+
+@q **** (4) @>
+@
+\LOG
+\initials{LDF 2011.06.01.}
+Now using |ca_filenames[0]| or |DEFAULT_CA_FILENAME|.  Previously, 
+|"DFN-VereinPCAGrid-G01.pem"| was used literally.
+\ENDLOG 
+
+@<|handle_proxy_cred| definition@>=
+
+    stringstream temp_strm;
+
+    ifstream proxy_file_strm;
+
+    proxy_file_strm.open(local_proxy_cred_filename.c_str());
+
+    if (!proxy_file_strm.is_open())
+    {
+        cerr << "ERROR!  In `handle_proxy_cred':  "
+             << "Failed to open `" << local_proxy_cred_filename << "'."
+             << endl 
+             << "Exiting function unsuccessfully with return value 2."
+             << endl;
+
+        proxy_cred_verified = false;
+        return 2;
+    }
+    else if (DEBUG)
+    {
+        cerr << "In `handle_proxy_cred':  "
+             << "Opened `" << local_proxy_cred_filename << "' successfully."
+             << endl;
+
+    }  /* |else if (DEBUG)|  */ 
+
+    proxy_file_strm.close();
+
+    temp_strm << "cat '" << local_proxy_cred_filename 
+              << "' ";
+
+/* !! TODO:  LDF 2011.05.25.  !! TODO:  Find out where to put it on 
+   `faui3cluster.informatik.uni-erlangen.de' and elsewhere.  Maybe use an environment
+   variable?
+*/
+
+    /* !! TODO:  Check whether a CRL file can be used.  LDF 2011.06.01.  */
+
+    if (ca_filenames.size() > 0)
+       temp_strm << ca_filenames[0];
+    else 
+       temp_strm << DEFAULT_CA_FILENAME;
+
+    temp_strm << " | " << certtool_path << " --verify-chain 2>&1";
+
+    if (DEBUG)
+       cerr << "temp_strm.str() == " << temp_strm.str() << endl;
+
+    FILE *fp = popen(temp_strm.str().c_str(), "r");
+
+    if (fp == 0)
+    {
+        cerr << "ERROR!  In `handle_proxy_cred':  "
+             << "`popen' failed, returning NULL."
+             << endl;
+
+        perror("popen error");
+
+        cerr << "Exiting function unsuccessfully with return value 3"
+             << endl;
+
+        proxy_cred_verified = false;
+
+        return 3;
+
+    }  /* |if (fp == 0)|  */
+
+    else if (DEBUG)
+    
+       cerr << "`popen' succeeded." << endl;
+
+    
+@q **** (4) @>
+@
+\LOG
+\initials{LDF 2011.06.17.}
+Increased the size of |buffer| from 2048 to 1048576.
+\ENDLOG 
+
+@<|handle_proxy_cred| definition@>=
+
+     char buffer[1048576];
+     memset(buffer, 0, 1048576);
+
+     status = fread(buffer, 1, 1048576, fp);
+
+     if (status <= 0)
+     {
+        cerr << "ERROR!  In `handle_proxy_cred':  "
+             << "`fread' failed, returning " << status
+             << endl;
+
+        perror("fread error");
+
+        cerr << "Exiting function unsuccessfully with return value 4."
+             << endl;
+
+        proxy_cred_verified = false;
+
+        return 4;
+
+
+     }  /* |if (status <= 0)|  */
+
+
+     else if (status > 1048575)
+     {
+        cerr << "ERROR!  In `handle_proxy_cred':  "
+             << "`fread' read " << status << " (> 1048575) characters."
+             << endl
+             << "This isn't permitted."
+             << endl
+             << "Exiting function unsuccessfully with return value 5."
+             << endl;
+
+        proxy_cred_verified = false;
+
+        return 5;
+
+     }  /* |if (status > 1048575)|  */
+
+@q **** (4) @>
+   
+    pclose(fp);
+
+    if (DEBUG)
+        cerr << "buffer == " << buffer << endl;
+
+    temp_strm.str("");
+    temp_strm.clear();
+
+    temp_strm << buffer;
+ 
+    string curr_line;
+
+    int i = 0;
+
+    string::size_type pos;
+
+    bool verify_failed = false;
+    bool expired       = false;
+
+    while (temp_strm)
+    {
+       getline(temp_strm, curr_line);
+
+       if (DEBUG) 
+          cerr << "Line " << i++ << ":  " << curr_line << endl;
+
+       pos = curr_line.find("Error");
+
+       if (pos != string::npos)
+       {
+            if (DEBUG) 
+               cerr << "*** Line contains Error.  Breaking." << endl;
+
+            verify_failed = true;
+
+            break;
+       }
+   
+       pos = curr_line.find("Verification output: Verified");
+
+       if (pos != string::npos)
+       {
+            if (DEBUG) 
+               cerr << "*** Line contains verification output:  Verified." << endl;
+   
+            continue;
+       }
+   
+       pos = curr_line.find("Verification output: Not verified, Issuer is not a CA.");
+
+       if (pos != string::npos)
+       {
+            if (DEBUG) 
+               cerr << "*** Line contains verification output:  "
+                    << "Not verified, Issuer is not a CA." 
+                    << endl;
+
+            continue;
+       }
+
+
+       pos = curr_line.find("Verification output: Not verified, Issuer is not a CA, Expired.");
+
+       if (pos != string::npos)
+       {
+            if (DEBUG) 
+               cerr << "*** Line contains verification output:  Issuer is not a CA, Expired.  "
+                    << "Not verified.  Breaking."
+                    << endl;
+
+            expired       = true;
+            verify_failed = true;
+            break;
+          
+       }
+
+       pos = curr_line.find("Verification output:");
+
+       if (pos != string::npos)
+       {
+            if (DEBUG) 
+               cerr << "*** Line contains verification output:  Other.  "
+                    << "Not verified.  Breaking."
+                    << endl;
+
+            verify_failed = true;
+            break;
+          
+       }
+
+
+    }  /* |while|  */
+
+    if (DEBUG) 
+       cerr << "verify_failed == " << verify_failed << endl;
+
+@q **** (4) @>
+@
+@<|handle_proxy_cred| definition@>=
+
+    if (verify_failed)
+    {
+
+        proxy_cred_verified = false;
+
+        cerr << "ERROR!  In `handle_proxy_cred':  Failed to verify proxy credential `"
+             << local_proxy_cred_filename << "'."
+             << endl
+             << "Exiting function unsuccessfully with return value 6."
+             << endl;
+
+        proxy_cred_verified = false;
+
+        if (expired)
+           return 6;
+        else 
+           return 7;
+
+
+    }  /* |if (verify_failed)|  */
+
+    else if (DEBUG) 
+    {
+        cerr << "`certtool --verify-chain' succeeded.  About to check validity"
+             << endl 
+             << "(timestamps, \"Not Before\" and \"Not After\")."
+             << endl;
+    }
+
+@q **** (4) @>
+@
+@<|handle_proxy_cred| definition@>=
+
+    temp_strm.str("");
+    temp_strm.clear();
+
+    temp_strm << "cat '" << local_proxy_cred_filename << "' | " << certtool_path << " -i 2>&1";
+
+    if (DEBUG)
+       cerr << "temp_strm.str() == " << temp_strm.str() << endl;
+
+    fp = popen(temp_strm.str().c_str(), "r");
+
+    if (fp == 0)
+    {
+        cerr << "ERROR!  In `handle_proxy_cred':  "
+             << "`popen' failed, returning NULL."
+             << endl;
+
+        perror("popen error");
+
+        cerr << "Exiting function unsuccessfully with return value 8."
+             << endl;
+
+        proxy_cred_verified = false;
+
+        return 8;
+
+    }  /* |if (fp == 0)|  */
+  
+    else if (DEBUG) 
+    {
+        cerr << "`popen' succeeded." << endl;
+
+    }  /* |else if (DEBUG)|  */
+
+    memset(buffer, 0, 1048576);
+
+    status = fread(buffer, 1, 1048575, fp);
+
+    if (status <= 0)
+    {
+       cerr << "ERROR!  In `handle_proxy_cred':  "
+            << "`fread' failed, returning " << status
+            << endl;
+
+       perror("fread error");
+
+       cerr << "Exiting function unsuccessfully with return value 9."
+            << endl;
+
+
+       proxy_cred_verified = false;
+
+       return 9;
+
+
+    }  /* |if (status <= 0)|  */
+
+@q **** (4) @>
+   
+    pclose(fp);
+
+    if (DEBUG)
+        cerr << "`status' == " << status << "`buffer' == " 
+             << endl << buffer << endl;
+
+    temp_strm.str("");
+    temp_strm.clear();
+
+    temp_strm << buffer;
+
+    string not_before;
+    string not_after;
+ 
+    unsigned int pre_expire  = 0;
+    unsigned int post_expire = 0;
+    unsigned int now = 0;
+
+    while (temp_strm)
+    {
+       getline(temp_strm, curr_line);
+
+       if (DEBUG) 
+          cerr << "curr_line == " << curr_line << endl;
+ 
+       if (pos = curr_line.find("Validity:") == string::npos)
+          continue;
+
+       if (DEBUG) 
+          cerr << "Validity found!  curr_line == " << curr_line << endl;
+
+       getline(temp_strm, not_before);
+       getline(temp_strm, not_after);
+
+       break;
+
+    }  /* |while|  */
+
+    if (!temp_strm)
+    {
+        cerr << "ERROR!  In `handle_proxy_cred':  "
+             << "Failed to find \"Validity\" information in proxy credential."
+             << endl 
+             << "Exiting function unsuccessfully with return value 10."
+             << endl;
+
+        proxy_cred_verified = false;
+
+        return 10;
+       
+    }  /* |if (!temp_strm)|  */
+
+    temp_strm.str("");
+    temp_strm.clear();
+
+    if (DEBUG) 
+       cerr << "not_before == " << not_before << endl
+            << "not_after == " << not_after << endl;
+
+    pos = not_before.find(":");
+
+    if (pos == string::npos)
+    {
+        cerr << "ERROR!  In `handle_proxy_cred':  "
+             << "Failed to find \"Validity: Not Before\" information in proxy credential."
+             << endl 
+             << "Exiting function unsuccessfully with return value 11."
+             << endl;
+
+        proxy_cred_verified = false;
+
+        return 11;
+       
+    }  /* |temp_strm|  */
+
+    not_before.erase(0, pos + 2);
+
+    pos = not_after.find(":");
+
+    if (pos == string::npos)
+    {
+        cerr << "ERROR!  In `handle_proxy_cred':  "
+             << "Failed to find \"Validity: Not After\" information in proxy credential."
+             << endl 
+             << "Exiting function unsuccessfully with return value 12."
+             << endl;
+
+        proxy_cred_verified = false;
+
+        return 12;
+       
+    }  /* |temp_strm|  */
+
+    not_after.erase(0, pos + 2);
+
+    if (DEBUG) 
+       cerr << "not_before == `" << not_before << "'" << endl
+            << "not_after == `" << not_after << "'" << endl;
+    
+
+    temp_strm << "export LANG=en; a=`date --utc`;date +%s --date=\"$a\"; date --date='" 
+              << not_before << "' +%s;"
+              << "date --date='" << not_after << "' +%s;echo \"$a\"";
+
+    if (DEBUG) 
+       cerr << "temp_strm.str("") == " << temp_strm.str() << endl;
+
+    fp = popen(temp_strm.str().c_str(), "r");
+
+    if (fp == 0)
+    {
+        cerr << "ERROR!  In `handle_proxy_cred':  "
+             << "`popen' failed, returning NULL."
+             << endl;
+
+        perror("popen error");
+
+        cerr << "Exiting function unsuccessfully with return value 13."
+             << endl;
+
+        proxy_cred_verified = false;
+
+        return 13;
+
+    }  /* |if (fp == 0)|  */
+  
+    else if (DEBUG) 
+    {
+        cerr << "`popen' succeeded." << endl;
+
+    }  /* |else if (DEBUG)|  */
+
+    char *now_str = (char*) malloc(128);  
+
+    size_t len = 128;
+    
+    memset(now_str, 0, 128);
+
+    status = fscanf(fp, "%d\n%d\n%d\n", &now, &pre_expire, &post_expire);
+
+    if (status > 0)
+    {
+#ifdef _GNU_SOURCE 
+
+        status = getline(&now_str, &len, fp);
+
+#else
+
+         status = fread(now_str, 1, 128, fp);
+         now_str[127] = '\0';
+
+         char* ppos = strchr(now_str, '\n');
+        
+         if (ppos != 0)
+            ppos[0] = '\0';
+
+#endif 
+    
+    }  /* |if (status > 0)|  */
+
+
+    if (DEBUG) 
+    {
+       cerr << "now_str == `" << now_str << "'" << endl;
+    }
+
+    if (status <= 0)
+    {
+        cerr << "ERROR!  In `handle_proxy_cred':" << endl
+             << "Failed to read date info from pipe."
+             << endl;
+
+        perror("fscanf or getline error");
+
+        cerr << "Exiting function unsuccessfully with return value 14."
+             << endl;
+
+        free(now_str);
+
+        proxy_cred_verified = false;
+
+        return 14;
+           
+    }  /* |if (status <= 0)|  */
+
+    for (i = strlen(now_str); i > 0; --i)  /* Remove blanks and/or newlines from end of 
+                                              |now_str|  */
+    {
+       if (!isprint(now_str[i]))
+          now_str[i] = '\0';
+       else
+          break;
+
+    }  /* |for|  */
+
+    pclose(fp);
+ 
+    fp = 0;
+
+    if (DEBUG)
+    {
+        cerr << "status == " << status << endl
+             << "now_str == " << now_str << endl
+             << "now == " << now << endl
+             << "pre_expire == " << pre_expire << endl
+             << "post_expire == " << post_expire << endl;
+
+    }  /* |if (DEBUG)|  */ 
+    
+    if (now <= 0 || pre_expire <= 0 || post_expire <= 0)
+    {
+        cerr << "ERROR!  In `handle_proxy_cred':  "
+             << "Failed to set time in seconds since the epoch correctly."
+             << endl 
+             << "Exiting function unsuccessfully with return value 15."
+             << endl;
+
+        proxy_cred_verified = false;
+
+        free(now_str);
+
+        return 15;
+
+    }
+
+    temp_strm.str("");
+
+@q **** (4) @>
+@
+\LOG
+\initials{LDF 2011.06.01.}
+@:BUG FIX@> BUG FIX:  Now using |<| and |>| instead 
+of |<=| and |>=|, respectively, in the following conditional.
+\ENDLOG 
+
+@<|handle_proxy_cred| definition@>=
+
+    if (now < pre_expire || now > post_expire)
+    {
+
+        int return_val;
+
+        if (now < pre_expire)
+           return_val = 16;
+        else 
+           return_val = 17;
+
+        proxy_cred_verified = false;
+
+        cerr << "ERROR!  In `handle_proxy_cred':  "
+             << "Credential invalid." << endl
+             << "Not Before:         " << not_before
+             << endl
+             << "Current date/time:  " << now_str 
+             << endl 
+             << "Not After:          " << not_after
+             << endl;
+
+        if (now < pre_expire)
+            cerr << "Proxy credential not yet valid (present time < \"Not Before\" value)";
+        else 
+            cerr << "Proxy credential expired (present time > \"Not After\" value)";
+
+        cerr << endl 
+             << "Exiting function unsuccessfully with return value " 
+             << return_val << "."
+             << endl;
+
+        free(now_str);
+
+        return return_val;
+
+    }  /* |if|  */
+
+@q **** (4) @>
+@
+@<|handle_proxy_cred| definition@>=
+
+    if (DEBUG)
+    {
+       cerr << "Credential valid." << endl;
+
+    }  /* |if (DEBUG)|  */ 
+   
+@q **** (4) @>
+
+@ |proxy_cred_verified| is currently only ever needed if the user tries 
+to have a package installed based on encrypted entries.
+\initials{LDF 2011.05.25.}
+
+@<|handle_proxy_cred| definition@>=
+
+    if (DEBUG) 
+        cerr << "Exiting `handle_proxy_cred' successfully with return value 0." 
+             << endl;
+
+    proxy_cred_verified = true;
+
+    free(now_str);
+
+    return 0;
+
+}  /* End of |handle_proxy_cred| definition  */
+
+@q ** (2) Extract Distinguished Name.  @>
+@ Extract Distinguished Name.
+\initials{LDF 2011.06.01.}
+
+\LOG
+\initials{LDF 2011.06.01.}
+Added this function.
+
+\initials{LDF 2011.11.04.}
+Changed name of argument |string proxy_filename| to |cert_filename| and added 
+the optional argument |bool is_proxy| with default value |false|.  
+\par
+I am now using 
+this function to extract the ``Distinguished Name'' from ``normal'' (i.e., non-proxy) 
+certificates.  Modified code accordingly.
+\ENDLOG
+
+@q *** (3) Declaration  @>
+
+@<|extract_distinguished_name| declaration@>=
+int
+extract_distinguished_name(string cert_filename, string& dn, bool is_proxy = false);
+
+@q *** (3) Definition  @>
+@
+@<|extract_distinguished_name| definition@>=
+int
+extract_distinguished_name(string cert_filename, string& dn, bool is_proxy)
+{
+@q **** (4) @>
+
+    int status;
+
+    bool DEBUG = false;  /* |true|  */
+    set_debug_level(DEBUG); 
+
+    if (DEBUG)
+       cerr << "Entering `extract_distinguished_name'." << endl;
+
+    stringstream temp_strm;
+
+    temp_strm << certtool_path << " -i < " << cert_filename 
+              << " 2>&1 | grep ";
+
+
+    if (is_proxy)
+        temp_strm << "\"Issuer:\"";
+    else
+        temp_strm << "\"Subject:\"";
+
+    if (DEBUG)
+        cerr << "temp_strm.str() == " << temp_strm.str() << endl;
+
+    FILE *fp = popen(temp_strm.str().c_str(), "r");
+
+    if (fp == 0)
+    {
+       cerr << "ERROR!  In `extract_distinguished_name':"
+            << endl 
+            << "`popen' failed, returning NULL."
+            << endl;
+
+       perror("popen error");
+
+       cerr << "Exiting function unsuccessfully with return value 1."
+            << endl;
+
+       return 1;
+
+    }  /* |if|  */
+
+    char buffer[1024];
+
+    memset(buffer, 0, 1024);
+
+    status = fread(buffer, 1, 1024, fp);
+
+    if (status <= 0)
+    {
+       cerr << "ERROR!  In `extract_distinguished_name':"
+            << endl 
+            << "`fread' failed, returning " << status << "."
+            << endl;
+
+       perror("fread error");
+
+       cerr << "Exiting function unsuccessfully with return value 1."
+            << endl;
+
+       return 1;
+
+
+    }  /* |if (status <= 0)|  */
+
+    pclose(fp);
+    fp = 0;
+
+    temp_strm.str("");
+    temp_strm.clear();
+
+    temp_strm << buffer;
+
+    string curr_line;
+
+    getline(temp_strm, curr_line);
+
+    if (DEBUG) 
+       cerr << "curr_line == " << curr_line << endl;
+
+    if (curr_line.empty())
+    {
+       cerr << "ERROR!  In `extract_distinguished_name':"
+            << endl 
+            << "Failed to read \"Issuer\" from proxy credential."
+            << endl
+            << "Exiting function unsuccessfully with return value 1."
+            << endl;
+
+       return 1;
+    }
+
+@q **** (4) @>
+
+    if (DEBUG)
+        cerr << "curr_line == " << curr_line << endl;
+
+
+    string::size_type pos;
+    string::size_type pos_1;
+
+    if (is_proxy)
+       pos = curr_line.find("Issuer:");
+    else
+       pos = curr_line.find("Subject:");
+
+    if (DEBUG) 
+       cerr << "pos == " << pos << endl;
+
+    if (pos == string::npos)
+    {
+       cerr << "ERROR!  In `extract_distinguished_name':"
+            << endl 
+            << "Failed to read ";
+
+       if (is_proxy)
+          cerr << "\"Issuer\" ";
+       else
+          cerr << "\"Subject\" ";
+
+       cerr << "from proxy credential."
+            << endl
+            << "Exiting function unsuccessfully with return value 1."
+            << endl;
+
+       return 1;
+
+    }
+
+    if (is_proxy)
+       curr_line.erase(0, pos + 8);
+    else
+       curr_line.erase(0, pos + 9);
+
+    pos   = curr_line.find(",CN=");
+
+    if (pos == string::npos)
+    {
+       cerr << "ERROR!  In `extract_distinguished_name':"
+            << endl 
+            << "Failed to read \"Common Name (CN)\" from proxy credential."
+            << endl
+            << "Exiting function unsuccessfully with return value 1."
+            << endl;
+
+       return 1;
+
+    }  /* |if (pos == string::npos)|  */
+
+    if (is_proxy)
+    {
+       for(;;)
+       {
+           pos_1 = curr_line.rfind(",CN=");
+           if (pos == pos_1)
+              break;
+           curr_line.erase(pos_1);
+
+       }
+    }
+
+    curr_line.insert(0, "/");
+
+    while((pos = curr_line.find(",")) != string::npos)
+    {
+        curr_line.replace(pos, 1, "/");
+    }
+
+    if (DEBUG)
+        cerr << "curr_line == `" << curr_line << "'" << endl;
+
+@q **** (4) @>
+
+    dn = curr_line;   
+
+@q **** (4) @>
+
+    if (DEBUG)
+       cerr << "Exiting `extract_distinguished_name' successfully with "
+            << "return value 0" << endl;
+
+    return 0;
+
+}  /* End of |extract_distinguished_name| definition  */
+
+
+@q ** (2) Putting dhprxcrt together.@>
+
+@ Putting {\tt dhprxcrt} together.
+@c
+@<Include files@>@;@/
+using namespace std;
+extern string proxy_cred_filename;
+extern bool proxy_cred_verified;
+extern vector<string> ca_filenames;
+extern const string DEFAULT_CA_FILENAME;
+@<File-local variable declarations@>@;@/
+@<Version control identifier@>@;@/
+@<|handle_proxy_cred| declaration@>@;@/
+@<|extract_distinguished_name| declaration@>@;@/
+@<|handle_proxy_cred| definition@>@;@/
+@<|extract_distinguished_name| definition@>@;@/
+
+@
+@(dhprxcrt.h@>=
+using namespace std;
+extern string proxy_cred_filename;
+@<|handle_proxy_cred| declaration@>@;@/
+@<|extract_distinguished_name| declaration@>@;@/
+
+@q (progn (cweb-mode) (outline-minor-mode))                          @>
+
+@q * (1) Local variables for Emacs @>
+
+@q * Local variables for Emacs.@>
+@q Local Variables: @>
+@q mode:CWEB @>
+@q eval:(display-time) @>
+@q abbrev-mode:t @>
+@q eval:(read-abbrev-file) @>
+@q indent-tabs-mode:nil @>
+@q eval:(outline-minor-mode) @>
+@q fill-column:80 @>
+@q End: @>

@@ -1,0 +1,1061 @@
+@q utilfncs.web @>
+
+@q Created by Laurence D. Finston (LDF) Thu Sep  2 11:19:05 CEST 2010 @>
+
+@q * (1) Top @>
+
+@q * (1) Copyright and License.@>
+
+@q This file is part of the OptiNum Grid Installer @>
+@q Copyright (C) 2010, 2011, 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen @>
+
+@q The OptiNum Grid Installer is free software; you can redistribute it and/or modify @>
+@q it under the terms of the GNU General Public License as published by @>
+@q the Free Software Foundation; either version 3 of the License, or @>
+@q (at your option) any later version.  @>
+
+@q The OptiNum Grid Installer is distributed in the hope that it will be useful, @>
+@q but WITHOUT ANY WARRANTY; without even the implied warranty of @>
+@q MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the @>
+@q GNU General Public License for more details.  @>
+
+@q You should have received a copy of the GNU General Public License          @>
+@q along with the OptiNum Grid Installer; if not, write to the Free Software                    @>
+@q Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA @>
+
+@q ("@@" stands for a single at-sign in the following paragraph.) @>
+
+@q Please send bug reports to Laurence.Finston@@gwdg.de@>
+
+@q Laurence D. Finston                                                   @>
+@q Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen  @>
+@q Am Fassberg 11         					         @>
+@q 37077 Goettingen              					 @>
+@q Germany                           					 @>                                
+
+@q Laurence.Finston@@gwdg.de (@@ stands for a single "at" sign.)@>
+
+
+@q * (1) Utility functions (utilfncs.web).  @>
+
+@*  Utility functions (utilfncs\PERIOD web).
+
+\LOG
+\initials{LDF 2010.09.02.}
+Copied from ``quali'' project and modified.
+\ENDLOG 
+
+@ Version control identifier.
+@<Version control identifier@>=
+static char version_control_id[] 
+   = "$Id: utilfncs.web 8356 2012-05-25 08:01:31Z finston $";
+
+@q ** (2) Include files  @>
+
+@ Include files.
+
+@<Include files@>=
+
+#ifndef _XOPEN_SOURCE
+#define _XOPEN_SOURCE
+#endif 
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <stddef.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <sys/time.h>
+
+#include <sys/types.h>
+#include <dirent.h>
+#include <string.h>
+#include <pwd.h>
+#include <errno.h>
+
+#include <fstream>
+#include <iomanip>
+#include <ios>
+#include <iostream>
+#include <string>
+#include <sstream>  
+#include <deque>    
+#include <map>   
+#include <vector>   
+
+
+#if HAVE_CONFIG_H
+#include <config.h>
+#endif
+
+#if IS_ROCKS_GOEGRID
+#undef HAVE_LIBMYSQLCLIENT
+#endif 
+
+#include "entries.h++"
+#include "dstngnmt.h++"
+#include "glblvrbl.h++"
+#include "glblfncs.h++"
+
+@q ** (2) Time and date functions.@>
+@ Time and date functions.
+\initials{LDF 2008.12.05.}
+
+@q *** (3) Get date-time.  @>
+@ Get date-time.
+\initials{LDF 2008.12.05.}
+
+\LOG
+\initials{LDF 2008.12.05.}
+Added this function.
+
+\initials{LDF 2010.09.24.}
+@:BUG FIX@> BUG FIX:  Fixed the way the number of the month is handled.  The range of |tm.tm_mon| 
+is 0--11.
+\ENDLOG 
+
+@q **** (4) Declaration  @>
+
+@<Utility function declarations@>=
+int 
+get_date_time(time_t* t = 0, char* d = 0, time_t s = 0);
+
+@q **** (4) Definition  @>
+@
+@<Define |get_date_time|@>=
+int
+get_date_time(time_t* t, char* d, time_t s)
+{
+@q ***** (5) @>
+
+    bool DEBUG = false; /* |true|  */ 
+
+    tm curr_tm;
+
+    if (s == 0)
+      s = time(0);
+
+    if (t)
+       *t = s;
+
+    curr_tm = *gmtime(&s);
+
+    stringstream temp_strm;
+
+    if (d)
+    {
+        temp_strm << curr_tm.tm_year + 1900 << "-";
+   
+        if (curr_tm.tm_mon + 1 < 10)
+           temp_strm << 0;
+
+        temp_strm << (curr_tm.tm_mon + 1) << "-";
+
+        if (curr_tm.tm_mday < 10)
+           temp_strm << 0;
+
+        temp_strm << curr_tm.tm_mday << " ";
+
+        if (curr_tm.tm_hour < 10)
+           temp_strm << 0;
+
+        temp_strm << curr_tm.tm_hour << ":";
+
+        if (curr_tm.tm_min < 10)
+           temp_strm << 0;
+
+         temp_strm << curr_tm.tm_min << ":";
+
+        if (curr_tm.tm_sec < 10)
+           temp_strm << 0;
+
+        temp_strm << curr_tm.tm_sec;
+
+        strcpy(d, temp_strm.str().c_str());
+
+        if (DEBUG)
+        {
+             cerr << "`d' == " << d << endl;
+
+        }  /* |if (DEBUG)|  */ 
+          
+
+    }  /* |if (d)| */
+
+    return 0;
+
+@q ***** (5) @>
+
+}  /* End of |get_date_time| definition  */
+
+@q *** (3) @>
+
+@q ** (2) Create and delete temporary files.  @>
+
+@ Create and delete temporary files.
+\initials{LDF 2011.05.18.}
+
+\LOG
+\initials{LDF 2011.05.18.}
+Added this section.  |create_temporary_file| existed previously.  
+Added |delete_temporary_files|.
+\ENDLOG
+
+@q *** (3) Create Temporary File  @>
+@ Create Temporary File.
+\initials{LDF 2011.02.10.}
+
+\LOG
+\initials{LDF 2011.02.10.}
+Added this function.
+
+\initials{LDF 2011.12.16.}
+Added the optional argument |string prefix| with the default |"FF"|.
+Now using the system call |fchmod| instead of calling the shell command |chmod| via |system|.
+Added error handling.
+\ENDLOG
+
+@<Utility function declarations@>=
+
+int
+create_temp_file(string& filename, ofstream* out_strm = 0, string prefix = "FF");
+
+@
+@<Define |create_temp_file|@>=
+
+int
+create_temp_file(string& filename, ofstream* out_strm, string prefix)
+{
+
+    if (prefix.size() != 2)
+    {
+       lock_cerr_mutex(); 
+       cerr << "ERROR!  In `create_temp_file':  `prefix.size()' == " << prefix.size()
+            << endl
+            << "`prefix' == " << prefix << endl
+            << "The length of `prefix' must be exactly two characters (default \"FF\")."
+            << endl
+            << "Exiting function unsuccessfully with return value 1.";
+       unlock_cerr_mutex(); 
+
+       return 1;            
+
+    }  /* |if (prefix.size() != 2)|  */
+
+    char temp_filename[14];
+
+    strcpy(temp_filename, "/tmp/");
+    strcat(temp_filename, prefix.c_str());
+    strcat(temp_filename, "XXXXXX");
+
+    int fd = mkstemp(temp_filename);
+
+    if (fd == -1)
+    {
+
+        lock_cerr_mutex(); 
+        cerr << "ERROR!  In `create_temp_file':  "
+             << "`mkstemp' failed, returning -1:"
+             << endl;
+        perror("mkstemp error");
+        cerr << "Exiting function unsuccessfully with return value 1.";
+        unlock_cerr_mutex(); 
+
+        return 1;
+
+    }  /* |if (fd == -1)|  */
+
+    filename = temp_filename;
+  
+    temp_file_vector.push_back(string(temp_filename));
+
+    int status = fchmod(fd, S_IRUSR | S_IWUSR | S_IRGRP);
+
+    if (status == -1)
+    {
+        lock_cerr_mutex(); 
+        cerr << "ERROR!  In `create_temp_file':  "
+             << "`fchmod' failed, returning -1:"
+             << endl;
+        perror("fchmod error");
+        cerr << "Exiting function unsuccessfully with return value 1.";
+        unlock_cerr_mutex(); 
+
+        return 1;
+
+    }  /* |if (status == -1)|  */
+
+    status = close(fd);
+
+    if (status == -1)
+    {
+        lock_cerr_mutex(); 
+        cerr << "ERROR!  In `create_temp_file':  "
+             << "`close' failed, returning -1:"
+             << endl;
+        perror("close error");
+        cerr << "Exiting function unsuccessfully with return value 1.";
+        unlock_cerr_mutex(); 
+
+        return 1;
+
+    }  /* |if (status == -1)|  */
+
+    if (out_strm)
+    {
+       out_strm->open(temp_filename);
+
+       if (!out_strm->is_open())
+       {
+           lock_cerr_mutex(); 
+           cerr << "ERROR!  In `create_temp_file':  "
+                << "Failed to open `|*out_strm|'."
+                << endl
+                << "Exiting function unsuccessfully with return value 1.";
+           unlock_cerr_mutex(); 
+
+           return 1;
+
+       }  /* |if (!out_strm->is_open())|  */
+
+    }  /* |if (out_strm)|  */
+
+    return 0;
+
+}  /* End of |create_temp_file| definition  */
+
+@q *** (3) Delete temporary files.  @>
+@ Delete temporary files.
+\initials{LDF 2011.05.18.}
+
+\LOG
+\initials{LDF 2011.05.18.}
+Added this function.
+\ENDLOG
+
+@<Utility function declarations@>=
+void
+delete_temp_files(void);
+
+@
+@<|delete_temp_files| definition@>=
+void
+delete_temp_files(void)
+{
+
+   bool DEBUG = false;  /* |true|  */
+   set_debug_level(DEBUG);
+
+   if (save_temp_files)
+   {
+
+      if (DEBUG) 
+         cerr << "In `delete_temp_files':  `save_temp_files' == `true'."
+              << endl
+              << "Not deleting."
+              << endl;
+
+            return;
+
+   }
+
+   if (DEBUG)
+      cerr << "In `delete_temp_files'."
+           << endl
+           << "`temp_file_vector.size()' == " << temp_file_vector.size() 
+           << endl;
+
+   for (vector<string>::const_iterator iter = temp_file_vector.begin();
+        iter != temp_file_vector.end();
+        ++iter)
+   {
+
+       if (DEBUG) 
+          cerr << "Unlinking " << iter->c_str() << endl;
+
+       unlink(iter->c_str());
+   }
+   
+   temp_file_vector.clear();
+
+   return;
+    
+}
+
+@q *** (3) Delete FIFOs.  @>
+@ Delete FIFOs.
+\initials{LDF 2011.05.18.}
+
+\LOG
+\initials{LDF 2011.05.18.}
+Added this function.
+\ENDLOG
+
+@<Utility function declarations@>=
+void
+delete_fifos(void);
+
+@
+@<|delete_fifos| definition@>=
+void
+delete_fifos(void)
+{
+
+   bool DEBUG = false;  /* |true|  */
+   set_debug_level(DEBUG);
+
+   if (DEBUG)
+      cerr << "In `delete_fifos'."
+           << endl
+           << "fifo_vector.size() == " 
+           << fifo_vector.size() << endl;
+
+   for (vector<string>::const_iterator iter = fifo_vector.begin();
+        iter != fifo_vector.end();
+        ++iter)
+   {
+
+       if (DEBUG) 
+          cerr << "Unlinking " << iter->c_str() << endl;
+
+       unlink(iter->c_str());
+   }
+   
+   fifo_vector.clear();
+
+   return;
+    
+}
+
+
+@q ** (2) Get home directory.  @>
+@ Get home directory.
+\initials{LDF 2011.04.15.}
+
+\LOG
+\initials{LDF 2011.04.15.}
+Added this function.  It's copied from \filename{scrinstl.web}.
+\ENDLOG
+
+@<Utility function declarations@>=
+const char*
+get_dir(uid_t uid);
+
+@
+@<|get_dir| definition@>=
+
+const char*
+get_dir(uid_t uid)
+{
+
+   bool DEBUG = false;  /* |true|  */
+   set_debug_level(DEBUG);
+
+   int status;
+ 
+   struct passwd pwbuf;
+    
+   char buf[sysconf(_SC_GETPW_R_SIZE_MAX)]; 
+
+   struct passwd *pwbufp;
+
+   status = getpwuid_r(uid, &pwbuf,
+                       buf, sysconf(_SC_GETPW_R_SIZE_MAX), &pwbufp);
+
+   if (pwbufp == 0)
+   {
+       cerr << "ERROR!  In `get_dir':  `getpwuid_r' failed." << endl
+            << "Exiting function unsuccessfully with return value -1." << endl;
+
+       return "";
+   }
+
+   if (DEBUG) 
+      cerr << "`getpwuid_r' succeeded." << endl;
+
+   return pwbuf.pw_dir;
+
+}  /* End of |get_dir| definition  */
+
+
+@q ** (2) Check directory.  @>
+@ Check directory.
+\initials{LDF 2011.07.07.}
+
+\LOG
+\initials{LDF 2011.07.07.}
+Added this function.
+\ENDLOG
+
+@<Utility function declarations@>=
+
+int 
+check_dir(const string path, bool exit_on_found = false);
+
+@
+@<|check_dir| definition@>=
+int 
+check_dir(const string path, bool exit_on_found)
+{
+    bool DEBUG = false; /* |true|  */
+
+    int status;
+
+    int ctr = 0;
+
+
+    if (DEBUG) 
+    {
+        lock_cerr_mutex(); 
+        cerr << "Entering `check_dir'." << endl;
+        unlock_cerr_mutex(); 
+
+    }
+
+    if (path.empty())
+    {
+         lock_cerr_mutex(); 
+         cerr << "ERROR!  In `check_dir':  `path' is empty."
+              << endl
+              << "Exiting function unsuccessfully with exit status -1." << endl;
+         unlock_cerr_mutex(); 
+
+         return -1;
+    }
+
+    DIR* dir = opendir(path.c_str());
+
+    if (DEBUG)
+    {
+         cerr << "path.c_str() == " << path.c_str() << endl;
+
+ 
+         if (dir == 0)
+            cerr << "dir == 0" << endl;
+         else
+         {
+            cerr << "dir != 0" << endl;
+            perror("opendir error:");
+         }
+
+    }  /* |if (DEBUG)|  */ 
+
+    if (dir == 0 && errno == ENOENT)
+    {
+
+         if (DEBUG)
+         {
+
+             lock_cerr_mutex(); 
+             cerr << "In `check_dir':  Directory `" << path << "' doesn't exist."
+                  << endl
+                  << "Exiting function successfully with exit status -2." << endl;
+             unlock_cerr_mutex(); 
+
+         }  /* |if (DEBUG)|  */ 
+
+         return -2;
+    }
+
+    else if (dir == 0)
+    {
+
+        lock_cerr_mutex(); 
+        cerr << "ERROR!  In `check_dir':  `opendir' failed, returning NULL:"
+             << endl;
+
+        perror("opendir error");
+ 
+        cerr << "Exiting function successfully with exit status -1." << endl;
+        unlock_cerr_mutex(); 
+
+
+        return -1;
+
+    }
+
+    else if (DEBUG)
+    {
+         lock_cerr_mutex(); 
+         cerr << "opendir succeeded." << endl;
+         unlock_cerr_mutex(); 
+
+    }  /* |else if (DEBUG)|  */ 
+    
+    struct dirent *entry;
+
+    size_t len = offsetof(struct dirent, d_name) +
+                          pathconf(path.c_str(), _PC_NAME_MAX) + 1;
+
+    if (DEBUG) 
+    {
+        lock_cerr_mutex(); 
+        cerr << "len == " << len << endl;
+        unlock_cerr_mutex(); 
+    }
+
+    entry = (dirent*) malloc(len);
+
+    struct dirent *result;
+
+    while((status = readdir_r(dir, entry, &result)) == 0)
+    {
+        if (result == 0)
+        {
+            if (DEBUG) 
+            {
+                lock_cerr_mutex(); 
+                cerr << "`result' == NULL.  End of directory stream." << endl
+                     << "Breaking." 
+                     << endl;
+                unlock_cerr_mutex(); 
+            }
+
+            break;
+
+        }
+        else
+        {
+            if (DEBUG) 
+            {
+                lock_cerr_mutex(); 
+                cerr << "`result' != NULL.  Not end of directory stream." << endl;
+                unlock_cerr_mutex(); 
+            }
+
+
+            if (!(strcmp(result->d_name, ".") && strcmp(result->d_name, "..")))
+               continue;
+            else
+               ++ctr;
+
+
+            if (DEBUG) 
+            {
+                lock_cerr_mutex(); 
+                cerr << "d_ino: " <<  result->d_ino << endl
+                     << "d_name: " << result->d_name << endl;
+                unlock_cerr_mutex(); 
+            }
+
+            if (exit_on_found)
+               
+                break;
+
+       }  /* |else|  */
+
+    }  /* |while|  */
+
+    free(entry);
+    entry = 0;
+
+    closedir(dir);
+
+    return ctr;
+
+}  /* End of |check_dir| definition  */
+
+@q ** (2) Directory is empty.  @>
+@ Directory is empty.
+\initials{LDF 2011.07.07.}
+
+\LOG
+\initials{LDF 2011.07.07.}
+Added this function.
+\ENDLOG
+
+@<Utility function declarations@>=
+int
+dir_is_empty(const string path);
+
+@
+@<|dir_is_empty| definition@>=
+int
+dir_is_empty(const string path)
+{
+   int status = check_dir(path, true);
+
+   if (status <= 0)
+     return status;
+
+   else if (status == 1)
+      return 0;
+
+   else if (status > 0)
+      return 1;
+     
+}  /* End of |dir_is_empty| definition  */
+
+
+@q ** (2) Deque exchange front two.  @>
+@ Deque exchange front two.
+\initials{LDF 2011.12.16.}
+
+@:TODO@> !! TODO:  Find out how to pass |deque| (or some other type) as a template parameter,
+if this is possible.
+\initials{LDF 2011.12.16.}
+
+\LOG
+\initials{LDF 2011.12.16.}
+Added this function.
+\ENDLOG
+
+@<Utility function declarations@>=
+template <class C> 
+int
+deque_exchange_front_2(deque<C> &d);
+
+@
+@<|deque_exchange_front_2| definition@>=
+template <class C> 
+int
+deque_exchange_front_2(deque<C> &d)
+{
+   if (d.size() < 2)
+   {
+      pthread_mutex_lock(&cerr_mutex);
+      cerr << "ERROR!  In `deque_exchange_front_2':  "
+           << "Size of `deque' is < 2:  " << d.size()
+           << endl
+           << "Can't exchange front two items."
+           << endl
+           << "Exiting function unsuccessfully with return value 1."
+           << endl;
+      pthread_mutex_unlock(&cerr_mutex);
+
+      return 1;
+
+   }
+
+   try
+   {
+      C c1 = d.front();
+      d.pop_front();
+      C c2 = d.front();
+      d.pop_front();
+
+      d.push_front(c1);
+      d.push_front(c2);
+
+   }
+   catch (...)
+   {
+      pthread_mutex_lock(&cerr_mutex);
+      cerr << "ERROR!  In `deque_exchange_front_2':  "
+           << "Exception occurred."
+           << endl
+           << "Exiting function unsuccessfully with return value 1."
+           << endl;
+      pthread_mutex_unlock(&cerr_mutex);
+
+      return 1;
+   }
+
+   return 0;
+     
+}  /* End of |deque_exchange_front_2| definition  */
+
+@q ** (2) Set debug level.  @>
+@ Set debug level.
+\initials{LDF 2012.01.12.}
+
+\LOG
+\initials{LDF 2012.01.12.}
+Added this function.
+\ENDLOG
+
+@q *** (3) Declaration  @>
+
+@<|set_debug_level| declaration@>=
+
+int
+set_debug_level(bool &DEBUG);
+
+@q *** (3) Definition  @>
+@
+@<|set_debug_level| definition@>=
+
+int
+set_debug_level(bool &DEBUG)
+{
+    bool debug_level;  /* Using this variable prevents the assignment below
+                          from being found by \.{grep}, when I search 
+                          for places in the code where debugging has been turned on.
+                          \initials{LDF 2012.02.07.}  */
+
+    if (trace_value > 0)
+    {
+       debug_level = true;
+       DEBUG = debug_level;
+    }
+    else if (trace_value < 0)
+    {
+       debug_level = false;
+       DEBUG = debug_level;
+    }
+
+    return 0;
+
+}  /* End of |set_debug_level| definition   */
+
+@q ** (2) Get proxy credential filename.  @>
+@ Get proxy credential filename.
+\initials{LDF 2011.10.12.}
+
+\LOG
+\initials{LDF 2011.10.12.}
+Added this function.
+
+\initials{LDF 2011.10.13.}
+Removed local variable |string proxy_cert_filename|.  
+There was no need for it.
+
+\initials{LDF 2011.10.27.}
+Improved |system_strm.str()|.
+
+\initials{LDF 2012.02.09.}
+Removed the versions of this function in \filename{thrdfncs.web} and 
+\filename{strtinst.web}, combined them and put the result into this 
+file (\filename{utilfncs.web}).   The differences were minor.
+\par
+Added code for an error exit, if the |string user_name| argument is empty.
+\ENDLOG
+
+@q *** (3) Declaration  @>
+
+@<|get_proxy_cred_filename| declaration@>=
+string
+get_proxy_cred_filename(string user_name);
+
+@q *** (3) Definition  @>
+@
+@<|get_proxy_cred_filename| definition@>=
+string
+get_proxy_cred_filename(string user_name)
+{
+@q **** (4) @>
+
+    bool DEBUG = false;  /* |true|  */
+    set_debug_level(DEBUG); 
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex();
+        cerr << "Entering `get_proxy_cred_filename'." << endl;
+        unlock_cerr_mutex();
+
+    }  /* |if (DEBUG)|  */    
+
+    if (user_name.empty())
+    {
+        lock_cerr_mutex(); 
+        cerr << "ERROR!  In `get_proxy_cred_filename':  "
+             << "`user_name' is empty."  << endl
+             << "Exiting `get_proxy_cred_filename' unsuccessfully with "
+             << "the empty string as return value."
+             << endl;
+        unlock_cerr_mutex(); 
+
+        return string("");
+
+    }
+    else if (DEBUG)
+    {
+        lock_cerr_mutex();
+        cerr << "In `get_proxy_cred_filename':  `user_name' == " 
+             << user_name << endl;
+        unlock_cerr_mutex();
+
+    }  /* |else if (DEBUG)|  */ 
+
+    stringstream system_strm;
+
+    system_strm << "a=`find /tmp/ -name \"proxy.??????\" -user " 
+                << user_name << " 2>/dev/null`; "
+                << "if test -z \"$a\"; then echo \"No proxy files\" >&2; "
+                << "echo \"\"" << "; else ls -t -1 $a | head -n 1; fi;";
+
+    if (DEBUG) 
+    {
+        lock_cerr_mutex(); 
+        cerr << "`system_strm.str()' == " << system_strm.str() << endl;
+        unlock_cerr_mutex(); 
+    }
+    
+    FILE *fp = popen(system_strm.str().c_str(), "r");
+
+    if (fp == 0)
+    {
+        lock_cerr_mutex(); 
+        cerr << "ERROR!  In `get_proxy_cred_filename':  "
+             << "`popen' failed, returning NULL." << endl;
+
+        perror("popen error");
+
+        cerr << "Exiting `get_proxy_cred_filename' unsuccessfully with "
+             << "the empty string as return value."
+             << endl;
+        unlock_cerr_mutex(); 
+
+        return string("");
+
+    }
+    else if (DEBUG)
+    {
+        lock_cerr_mutex();
+        cerr << "In `get_proxy_cred_filename':  `popen' succeeded." << endl;
+        unlock_cerr_mutex();
+
+    }  /* |else if (DEBUG)|  */ 
+ 
+    char buffer[256];
+    memset(buffer, 0, 256);
+
+    int status = fread(buffer, 1, 256, fp);
+
+    if (status == 0)
+    {
+        lock_cerr_mutex();
+        cerr << "ERROR!  In `get_proxy_cred_filename':  "
+             << "`fread' failed, returning 0." << endl
+             << "Exiting `get_proxy_cred_filename' unsuccessfully with "
+             << "the empty string as return value."
+             << endl;
+        unlock_cerr_mutex();
+
+        return string("");
+
+    }
+    else if (status == 1 && (buffer[0] == EOF || buffer[0] == '\0' || isspace(buffer[0])))
+    {
+        lock_cerr_mutex();
+        cerr << "In `get_proxy_cred_filename':  "
+             << "No proxy file." << endl
+             << "Exiting `get_proxy_cred_filename' unsuccessfully with "
+             << "the empty string as return value."
+             << endl;
+        unlock_cerr_mutex();
+
+        return string("");
+
+    }    
+    else if (status == 256 && buffer[255] != '\0')
+    {
+        lock_cerr_mutex();
+        cerr << "ERROR!  In `get_proxy_cred_filename':  "
+             << "proxy credential filename too long (> 255 characters)." 
+             << endl
+             << "This is not permitted."
+             << endl 
+             << "Exiting `get_proxy_cred_filename' unsuccessfully with "
+             << "the empty string as return value."
+             << endl;
+        unlock_cerr_mutex();
+
+         return string("");
+    }
+
+@q **** (4) @>
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex();
+        cerr << "status == " << status << endl
+             << "buffer == " << buffer << endl
+             << endl;
+        unlock_cerr_mutex();
+
+    }  /* |if (DEBUG)|  */ 
+
+    pclose(fp);
+    fp = 0;
+
+@q **** (4) @>
+ 
+    proxy_cred_filename = string(buffer);
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex();
+        cerr << "proxy_cred_filename == " << proxy_cred_filename << endl;
+        unlock_cerr_mutex();
+  
+
+    }  /* |if (DEBUG)|  */ 
+
+@q **** (4) @>
+
+    if (buffer[strlen(buffer) - 1] == '\n') 
+       buffer[strlen(buffer) - 1] = '\0';
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex();
+        cerr << "Exiting `get_proxy_cred_filename' successfully with return value " 
+             << "`" << buffer << "'" << endl;
+        unlock_cerr_mutex();
+
+    }  /* |if (DEBUG)|  */    
+
+    return string(buffer);
+
+@q **** (4) @>
+
+}  /* End of |get_proxy_cred_filename|  */
+
+@q *** (3) @>
+
+@q ** (2) Putting utility functions together.@>
+
+@ Putting utility functions  together.
+\initials{LDF 2008.12.05.}
+
+@c
+@<Include files@>@;@/
+using namespace std;
+@<Utility function declarations@>@;@/
+@<|set_debug_level| declaration@>@;@/
+@<|get_proxy_cred_filename| declaration@>@;@/
+@<Define |get_date_time|@>@;@/
+@<Define |create_temp_file|@>@;@/
+@<|get_dir| definition@>@;@/
+@<|delete_temp_files| definition@>@;@/
+@<|delete_fifos| definition@>@;@/
+@<|check_dir| definition@>@;@/
+@<|dir_is_empty| definition@>@;@/
+@<|deque_exchange_front_2| definition@>@;@/
+@<|set_debug_level| definition@>@;@/
+@<|get_proxy_cred_filename| definition@>@;@/
+
+@q *** (3) This is what's written to the header file `utilfncs.h'.  @>
+
+@ This is what's written to the header file \filename{utilfncs.h}.  
+\initials{LDF 2008.12.05.}
+
+@(utilfncs.h@>=
+#ifndef UTILFNCS_H
+#define UTILFNCS_H 1
+using namespace std;
+extern pthread_mutex_t cerr_mutex;
+@<Utility function declarations@>@;@/
+@<|set_debug_level| declaration@>@;@/
+@<|get_proxy_cred_filename| declaration@>@;@/
+@<|deque_exchange_front_2| definition@>@;@/
+#endif 
+
+
+
+
+@q (progn (cweb-mode) (outline-minor-mode))                           @>
+
+@q * (1) Local variables for Emacs @>
+
+@q * Local variables for Emacs.@>
+@q Local Variables: @>
+@q mode:CWEB @>
+@q eval:(display-time) @>
+@q eval:(read-abbrev-file) @>
+@q indent-tabs-mode:nil @>
+@q eval:(outline-minor-mode) @>
+@q fill-column:80 @>
+@q End: @>

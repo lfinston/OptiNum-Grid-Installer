@@ -1,0 +1,603 @@
+@q optdbsrv.web  @>
+@q [...]/optinum/src/optdbsrv.web  @>
+
+@q Created by Laurence D. Finston (LDF) Wed Sep 23 13:27:41 CEST 2009  @>
+
+@q * (1) Top @>
+
+@q * (1) Copyright and License.@>
+
+@q This file is part of the OptiNum Grid Installer @>
+@q Copyright (C) 2010, 2011, 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen @>
+
+@q The OptiNum Grid Installer is free software; you can redistribute it and/or modify @>
+@q it under the terms of the GNU General Public License as published by @>
+@q the Free Software Foundation; either version 3 of the License, or @>
+@q (at your option) any later version.  @>
+
+@q The OptiNum Grid Installer is distributed in the hope that it will be useful, @>
+@q but WITHOUT ANY WARRANTY; without even the implied warranty of @>
+@q MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the @>
+@q GNU General Public License for more details.  @>
+
+@q You should have received a copy of the GNU General Public License          @>
+@q along with the OptiNum Grid Installer; if not, write to the Free Software                    @>
+@q Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA @>
+
+@q ("@@" stands for a single at-sign in the following paragraph.) @>
+
+@q Please send bug reports to Laurence.Finston@@gwdg.de@>
+
+@q Laurence D. Finston                                                   @>
+@q Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen  @>
+@q Am Fassberg 11         					         @>
+@q 37077 Goettingen              					 @>
+@q Germany                           					 @>                                
+
+@q Laurence.Finston@@gwdg.de (@@ stands for a single "at" sign.)@>
+
+@q * (0) Optinum-Grid Database Server (optdbsrv.web).  @>
+
+@*  Optinum-Grid Database Server (optdbsrv\PERIOD web).
+
+@ Version control identifier.
+@<Version control identifier@>=
+static char version_control_id[] 
+   = "$Id: optdbsrv.web 8356 2012-05-25 08:01:31Z finston $";
+  
+@q ** (2) Include files  @>
+
+@ Include files.
+
+@<Include files@>=
+
+#include <unistd.h>
+#include <string.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netdb.h>
+#include <arpa/inet.h>
+#include <sys/wait.h>
+
+#include <sys/stat.h>
+#include <fcntl.h>
+
+#include <stdio.h>
+#include <stdlib.h>
+
+#include <arpa/inet.h>
+#include <errno.h>
+#include <gcrypt.h> /* for |gcry_control| */
+#include <getopt.h> 
+#include <gnutls/gnutls.h>
+#include <math.h>
+#include <netinet/in.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <time.h>
+
+
+#include <iomanip>
+#include <ios>
+#include <iostream>
+#include <map>
+#include <fstream>
+#include <sstream>   
+#include <string>
+#include <vector>
+#include <deque>
+
+#if HAVE_CONFIG_H
+#include <config.h>
+#endif
+
+#if IS_ROCKS_GOEGRID
+#undef HAVE_LIBMYSQLCLIENT
+#endif 
+
+#if HAVE_PTHREAD_H
+#include <pthread.h>
+#endif 
+
+#if HAVE_LIBMYSQLCLIENT
+#include <mysql.h>
+#endif
+
+#include "entries.h++"
+#include "dstngnmt.h++"
+#include "glblvrbl.h++"
+#include "glblfncs.h++"
+#include "utilfncs.h++"
+#include "cmdlnopt.h++"
+#include "lstnfncs.h++"
+#include "thrdfncs.h++"
+
+#ifndef _XOPEN_SOURCE
+#define _XOPEN_SOURCE
+#endif 
+
+GCRY_THREAD_OPTION_PTHREAD_IMPL;
+
+@q ** (2) |main| definition.@>
+@ {\bf main} definition.
+\initials{LDF 2009.09.23.}
+
+\LOG
+\initials{LDF 2009.09.23.}
+Added this function.
+\ENDLOG
+
+@q *** (3) @>
+
+@<|main| for optdbsrv@>=
+int 
+main(int argc, char** argv)
+{
+
+@q **** (4) @>
+
+#if HAVE_LIBMYSQLCLIENT  /* Matched at end of function.
+                            \initials{LDF 2012.03.29.}  */
+
+    int status;
+
+    bool DEBUG = false;  /* |true|  */
+    set_debug_level(DEBUG);
+
+@q **** (4) Set default for |gpg_homedir|.  @>
+
+@ Set default for |gpg_homedir|.  
+\initials{LDF 2011.12.06.}
+
+@:TODO@> !! TODO:  Add command-line option for resetting.
+\initials{LDF 2011.12.06.}
+
+\LOG
+\initials{LDF 2011.12.06.}
+Added this section.
+\ENDLOG
+
+@<|main| for optdbsrv@>=
+
+#if 1 /* 0 */
+bool save_DEBUG = DEBUG;
+DEBUG = false; /* |true|  */
+#endif 
+
+   char *temp_str = getenv("HOME");
+
+   if (temp_str == 0)
+   {
+       lock_cerr_mutex(); 
+       cerr << "[Initial Thread] ERROR!  In `main':  `getenv(HOME)' returned NULL."
+            << endl 
+            << "Can't set `gpg_homedir'."
+            << endl
+            << "Exiting `optdbsrv' unsuccessfully with exit status 1."
+            << endl;
+       unlock_cerr_mutex();
+
+       exit(1);
+
+
+   }  /* |if (temp_str == 0)|  */
+   else
+   {
+       gpg_homedir = temp_str;
+       gpg_homedir += "/.gnupg";
+       if (DEBUG)
+       {
+           lock_cerr_mutex(); 
+           cerr << "[Initial Thread] In `main':  Set `gpg_homedir' to "
+                << gpg_homedir << endl;
+           unlock_cerr_mutex();
+
+       }  /* |if (DEBUG)|  */ 
+
+   } /* |else|  */
+ 
+
+#if 1 /* 0 */
+DEBUG = save_DEBUG; 
+#endif 
+
+
+@q **** (4) @>
+@
+\LOG
+\initials{LDF 2011.11.21.}
+Now initializing |global_variable_mutex|.
+
+\initials{LDF 2012.01.05.}
+Now initializing |session_data_mutex|.
+\ENDLOG
+
+@<|main| for optdbsrv@>=
+
+    is_client = false;
+    is_server = true;
+
+    DEFAULT_CERT_FILENAME = "hostcert.pem";
+    DEFAULT_KEY_FILENAME  = "hostkey.pem";
+
+    pthread_mutex_init(&cerr_mutex, 0);
+    pthread_mutex_init(&thread_ctr_mutex, 0);
+    pthread_mutex_init(&log_strm_mutex, 0);
+    pthread_mutex_init(&err_log_strm_mutex, 0);
+    pthread_mutex_init(&global_variable_mutex, 0);
+    pthread_mutex_init(&session_data_mutex, 0);
+
+   if (DEBUG)
+   {
+
+      lock_cerr_mutex(); 
+      cerr << "Entering `main'."
+           << endl 
+           << "GNUTLS version:  " << gnutls_check_version(0) << endl;
+
+#if IS_OPTINUM_SRV
+      cerr << "IS_OPTINUM_SRV is non-null." << endl;
+#else
+      cerr << "IS_OPTINUM_SRV is null." << endl;
+#endif
+
+      unlock_cerr_mutex(); 
+
+   }  /* |if (DEBUG)|  */ 
+
+
+@q **** (4) Process command line options.  @>
+@ Process command line options.  
+
+
+@<|main| for optdbsrv@>=
+
+    port_str_auth = DEFAULT_PORT_STR_AUTH;
+    port_num_auth = DEFAULT_PORT_NUM_AUTH;
+
+    port_str_non_auth = DEFAULT_PORT_STR_NON_AUTH;
+    port_num_non_auth = DEFAULT_PORT_NUM_NON_AUTH;
+
+    status = process_command_line_options(argc, argv);
+
+@q **** (4) Show filename arguments for certificates, keys, CAs, and CRLs.  @>
+@ Show filename arguments for certificates, keys, CAs, and CRLs.
+\initials{LDF 2009.12.08.}
+
+\LOG
+\initials{LDF 2009.12.08.}
+Removed the code from this section and put it into the function |show_filename_arguments| 
+in \filename{cmdlnopt.web} so that I could call it in the |main| function in the client as well 
+(in \filename{optdbcli.web}). 
+\ENDLOG 
+
+@<|main| for optdbsrv@>=
+
+    if (DEBUG) 
+    {
+
+       lock_cerr_mutex(); 
+       show_filename_arguments();
+       unlock_cerr_mutex(); 
+
+    } /* |if (DEBUG) | */
+
+@q **** (4) Initialize maps.  @>
+
+@ Initialize maps.
+\initials{LDF 2009.12.21.}
+
+\LOG
+\initials{LDF 2009.12.21.}
+Added this section.
+\ENDLOG
+
+@<|main| for optdbsrv@>=
+
+   init_maps();
+
+@q **** (4) Initialize the MySQL library.  @>
+
+@ Initialize the MySQL library.  
+\initials{LDF 2009.10.12.}
+
+\LOG
+\initials{LDF 2009.10.12.}
+Added this section.
+\ENDLOG
+
+@<|main| for optdbsrv@>=
+
+    if (mysql_library_init(0, NULL, NULL)) 
+    {
+        lock_cerr_mutex(); 
+        cerr << "Failed to initialize the MySQL library."
+             << endl
+             << "Exiting `optdbsrv' unsuccessfully with exit status 1."
+             << endl;
+        unlock_cerr_mutex();
+
+        pthread_mutex_destroy(&cerr_mutex);
+        pthread_mutex_destroy(&thread_ctr_mutex);
+        pthread_mutex_destroy(&log_strm_mutex);
+        pthread_mutex_destroy(&err_log_strm_mutex);
+        pthread_mutex_destroy(&global_variable_mutex);
+        pthread_mutex_destroy(&session_data_mutex);
+
+        output_file_strm.close();
+
+        return 1;
+
+    }
+    else if (DEBUG)
+    {
+      lock_cerr_mutex(); 
+      cerr << "mysql_library_init succeeded." << endl;
+      unlock_cerr_mutex();
+    }  
+
+
+@q **** (4) Initialize the libgcrypt and GNUTLS libraries.  @>
+
+@ Initialize the libgcrypt and GNUTLS libraries.
+\initials{LDF Undated.}
+
+\LOG
+\initials{LDF 2010.07.23.}
+Now calling |gcry_check_version|.  From the Info documentation of Libgcrypt 1.4.6
+(by Werner Koch and Moritz Schulte):
+\par
+``The function |gcry_check_version| initializes some subsystems used
+by Libgcrypt and must be invoked before any other function in the
+library, with the exception of the `|GCRYCTL_SET_THREAD_CBS|' command
+(called via the `|gcry_control|' function).''
+\par
+@:NOTE@> !! PLEASE NOTE:  In addition, 
+|gcry_control (GCRYCTL_SET_THREAD_CBS, &gcry_threads_pthread)| must be invoked before
+|gcry_check_version|.
+\ENDLOG 
+
+@<|main| for optdbsrv@>=
+
+  gcry_control (GCRYCTL_SET_THREAD_CBS, &gcry_threads_pthread);
+
+  char gcrypt_version_str[64];
+
+  strcpy(gcrypt_version_str, gcry_check_version(0));  /* Do not put this call into the 
+                                                         following conditional!
+                                                         |gcrypt_check_version| is needed.  
+                                                         See log entry above.
+                                                         \initials{LDF 2010.07.23.}  */
+
+  if (DEBUG) 
+  {
+      lock_cerr_mutex(); 
+      cerr << "Libgcrypt version:  " << gcrypt_version_str << endl;
+      unlock_cerr_mutex(); 
+  }
+ 
+  gcry_control (GCRYCTL_ENABLE_QUICK_RANDOM, 0);
+
+  /* this must be called once in the program  */
+
+
+  gcry_control (GCRYCTL_SUSPEND_SECMEM_WARN);
+  gcry_control (GCRYCTL_INIT_SECMEM, 32768, 0);
+  gcry_control (GCRYCTL_RESUME_SECMEM_WARN);
+
+  gnutls_global_init();
+
+
+@q **** (4) Call |cull_database| in its own (detached) thread.  @>
+
+@ Call |cull_database| in its own (detached) thread.
+\initials{LDF 2012.01.10.}
+
+\LOG
+\initials{LDF 2012.01.10.}
+Added this section.
+\ENDLOG
+
+@<|main| for optdbsrv@>=
+
+    pthread_t cull_database_thread_id;
+
+    /* !! TODO:  LDF 2012.01.05.  Work on error handling.  */
+
+    pthread_attr_t attr;
+
+    status = pthread_attr_init(&attr);
+
+    if (status != 0)
+    {
+       lock_cerr_mutex(); 
+       cerr << "ERROR!  In `main':  `pthread_attr_init' failed." << endl;
+       unlock_cerr_mutex(); 
+    }
+
+    status = pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+
+    if (status != 0)
+    {
+       lock_cerr_mutex(); 
+       cerr << "ERROR!  In `main':  `pthread_attr_setdetachstate' failed." << endl;
+       unlock_cerr_mutex(); 
+    }
+
+    status = pthread_create(&cull_database_thread_id,
+                            &attr, /* Attribute  */
+                            cull_database, 
+                            0);
+
+    if (status != 0)
+    {
+        lock_cerr_mutex(); 
+        cerr <<  "ERROR!  In `main':  `pthread_create' failed for `cull_database'."
+             << endl;
+        unlock_cerr_mutex(); 
+    }
+
+    else if (DEBUG) 
+    {
+        lock_cerr_mutex(); 
+        cerr << "In `main':  `pthread_create' succeeded for `cull_database'."
+             << endl;
+        unlock_cerr_mutex(); 
+
+    } /* |else if (DEBUG)|  */
+
+@q **** (4) Call |listen_auth| in its own thread.  @>
+@ Call |listen_auth| in its own thread.  
+\initials{LDF 2010.02.10.}
+
+\LOG
+\initials{LDF 2010.02.10.}
+Added this section.
+\ENDLOG
+
+@<|main| for optdbsrv@>=
+
+   pthread_t listen_auth_thread_id;
+
+   pthread_mutex_lock(&thread_ctr_mutex);
+   int listen_auth_thread_ctr = thread_ctr++;
+   pthread_mutex_unlock(&thread_ctr_mutex);
+
+   status = pthread_create(&listen_auth_thread_id,
+                         0, /* Attribute  */
+                         listen_auth, 
+                         &listen_auth_thread_ctr);
+
+
+@q **** (4) Call |listen_non_auth| in its own thread.  @>
+@ Call |listen_non_auth| in its own thread.  
+\initials{LDF 2010.02.10.}
+
+\LOG
+\initials{LDF 2010.02.10.}
+Added this section.
+\ENDLOG
+
+@q **** (4) @>
+@
+@<|main| for optdbsrv@>=
+
+   pthread_t listen_non_auth_thread_id;
+
+
+   pthread_mutex_lock(&thread_ctr_mutex);
+   int listen_non_auth_thread_ctr = thread_ctr++;
+   pthread_mutex_unlock(&thread_ctr_mutex);
+
+   status = pthread_create(&listen_non_auth_thread_id,
+                         0, /* Attribute  */
+                         listen_non_auth, 
+                         &listen_non_auth_thread_ctr);
+
+
+@q **** (4) Join with ``listen'' threads.  @>
+
+@ Join with ``listen'' threads.
+\initials{LDF 2010.02.10.}
+
+\LOG
+\initials{LDF 2010.02.10.}
+Added this section.
+\ENDLOG
+
+@<|main| for optdbsrv@>=
+
+   pthread_join(listen_auth_thread_id, 0);
+   pthread_join(listen_non_auth_thread_id, 0);
+
+@q **** (4) @>
+@
+@<|main| for optdbsrv@>=
+
+   output_file_strm.close();
+
+   mysql_library_end();
+
+   pthread_mutex_destroy(&cerr_mutex);
+   pthread_mutex_destroy(&thread_ctr_mutex);
+   pthread_mutex_destroy(&log_strm_mutex);
+   pthread_mutex_destroy(&err_log_strm_mutex);
+   pthread_mutex_destroy(&global_variable_mutex);
+   pthread_mutex_destroy(&session_data_mutex);
+
+   gnutls_global_deinit ();
+
+   if (DEBUG) 
+   {
+       cerr << "[Initial Thread] Exiting `main' successfully with exit value 0."
+             << endl;
+
+   }  /* |if DEBUG|  */
+ 
+#else  /* |!HAVE_LIBMYSQLCLIENT|  */
+   
+   cerr << "ERROR!  In `main':  `libmysqlclient' not available."
+        << endl
+        << "`optdbsrv' requires `libmysqlclient'."
+        << endl
+        << "Exiting `optdbsrv' unsuccessfully with exit status 1."
+        << endl;
+ 
+    return 1;
+
+#endif /* |!HAVE_LIBMYSQLCLIENT|  */
+ 
+   return 0;
+
+@q **** (4) @>
+
+}  /* End of |main| definition  */
+
+@q ** (2) Garbage.  @>
+@
+@<Garbage@>=
+#if 0
+#endif
+
+@q ** (2) Putting Optinum-Grid Server together.@>
+
+@ Putting Optinum-Grid Server together.
+
+\LOG
+\initials{LDF 2010.02.03.}
+Now declaring |extern int zzdebug|.
+\ENDLOG
+
+@c
+@<Include files@>@;@/
+using namespace std;
+extern int yydebug;
+extern int zzdebug;
+@<Version control identifier@>@;@/
+@<|main| for optdbsrv@>@;@/
+
+
+#if 0 /* 1 */ 
+@<Garbage@>@;@/
+#endif 
+
+@
+@(optdbsrv.h@>=
+/* Empty  */
+
+@q (progn (cweb-mode) (outline-minor-mode))   @>
+
+@q * (1) Local variables for Emacs @>
+
+@q * Local variables for Emacs.@>
+@q Local Variables: @>
+@q mode:CWEB @>
+@q eval:(display-time) @>
+@q abbrev-mode:t @>
+@q eval:(read-abbrev-file) @>
+@q indent-tabs-mode:nil @>
+@q eval:(outline-minor-mode) @>
+@q fill-column:80 @>
+@q End: @>

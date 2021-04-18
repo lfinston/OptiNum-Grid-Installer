@@ -1,0 +1,3452 @@
+@q [...]/optinum/Installer/dbsrvcli/src/instllfn.web  @>
+
+@q Created by Laurence D. Finston (LDF) Tue Sep 29 10:53:27 CEST 2009  @>
+
+@q * (1) Top @>
+
+@q * (1) Copyright and License.@>
+
+@q This file is part of the OptiNum Grid Installer @>
+@q Copyright (C) 2010, 2011, 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen @>
+
+@q The OptiNum Grid Installer is free software; you can redistribute it and/or modify @>
+@q it under the terms of the GNU General Public License as published by @>
+@q the Free Software Foundation; either version 3 of the License, or @>
+@q (at your option) any later version.  @>
+
+@q The OptiNum Grid Installer is distributed in the hope that it will be useful, @>
+@q but WITHOUT ANY WARRANTY; without even the implied warranty of @>
+@q MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the @>
+@q GNU General Public License for more details.  @>
+
+@q You should have received a copy of the GNU General Public License          @>
+@q along with the OptiNum Grid Installer; if not, write to the Free Software                    @>
+@q Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA @>
+
+@q ("@@" stands for a single at-sign in the following paragraph.) @>
+
+@q Please send bug reports to Laurence.Finston@@gwdg.de@>
+
+@q Laurence D. Finston                                                   @>
+@q Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen  @>
+@q Am Fassberg 11         					         @>
+@q 37077 Goettingen              					 @>
+@q Germany                           					 @>                                
+
+@q Laurence.Finston@@gwdg.de (@@ stands for a single "at" sign.)@>
+
+@q * (0) Installation Functions (instllfn.web).  @>
+
+@*  Installation Functions (instllfn\PERIOD web).
+
+@ Version control identifier.
+@<Version control identifier@>=
+static char version_control_id[] 
+   = "$Id: instllfn.web 8356 2012-05-25 08:01:31Z finston $";
+  
+@q ** (2) Include files  @>
+
+@ Include files.
+
+@<Include files@>=
+
+#include <stdlib.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <errno.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <grp.h>
+
+#include <sys/wait.h>
+#include <signal.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <string.h>
+
+#include <time.h>
+#include <math.h>
+#include <pwd.h>
+
+#include <gnutls/gnutls.h>
+#include <gnutls/x509.h>
+
+
+#if 0 
+#include <pthread.h>
+#endif 
+
+#include <algorithm>
+#include <deque>
+#include <fstream>
+#include <functional>
+#include <iomanip>
+#include <ios>
+#include <iostream>
+#include <map>
+#include <sstream>   
+#include <string>
+#include <set>
+#include <vector>
+
+
+#if HAVE_CONFIG_H
+# include <config.h>
+#endif
+
+#if IS_ROCKS_GOEGRID
+#undef HAVE_LIBMYSQLCLIENT
+#endif 
+
+#if HAVE_LIBMYSQLCLIENT
+#include <mysql.h>
+#endif 
+
+#include "entries.h++"
+#include "dstngnmt.h++"
+#include "glblvrbl.h++"
+#include "glblfncs.h++"
+#include "rspnstp.h++"
+#include "parser.h++"
+#include "scanner.h++"
+#include "glsinftp.h++"
+#include "scprpmtp.h++"
+#include "utilfncs.h++"
+#include "dhprxcrt.h++"
+
+#ifndef _XOPEN_SOURCE
+#define _XOPEN_SOURCE
+#endif 
+
+@q ** (2) Install packages.  @>
+@ Install packages.
+\initials{LDF 2010.02.12.}
+
+\LOG
+\initials{LDF 2010.02.12.}
+Added this function.
+\ENDLOG
+
+@q *** (3) Declaration  @>
+@
+@<|install_packages| declaration@>=
+int
+install_packages(Scan_Parse_Parameter_Type& param);
+
+@q *** (3) Definition @>
+@
+@<|install_packages| definition@>=
+int
+install_packages(Scan_Parse_Parameter_Type& param)
+{
+@q **** (4) @>
+
+   bool DEBUG = false;  /* |true|  */
+   set_debug_level(DEBUG);
+
+   int status = 0;
+
+   if (DEBUG)
+   {
+       lock_cerr_mutex();
+       cerr << "*** Entering `install_packages'."
+            << endl;
+       unlock_cerr_mutex(); 
+
+   }  /* |if (DEBUG)|  */
+
+#if 0 
+   if (DEBUG)
+   {
+       lock_cerr_mutex();
+       cerr << "In `install_packages':"
+            << endl;
+
+       param.show("param:");
+
+       unlock_cerr_mutex(); 
+
+   }  /* |if (DEBUG)|  */
+#endif 
+
+@q **** (4) @>
+@
+@<|install_packages| definition@>=
+
+   if (DEBUG)
+   {
+
+       cerr << "`param.entries.size()' == " << param.entries.size()
+            << endl;
+
+       for (vector<Entry_Type>::const_iterator iter 
+               = param.entries.begin();
+            iter != param.entries.end();
+            ++iter)
+       {
+
+           cerr << "At beginning of |for| loop."  << endl;
+
+           cerr << "iter->encrypted_flag == " << iter->encrypted_flag << endl;
+         
+           if (iter->encrypted_flag)
+           {
+
+             cerr << "Encrypted." << endl;
+
+             cerr << "(iter->install_order) " << iter->install_order << " # " 
+                  << "(iter->download_url_encrypted) " 
+                  << iter->download_url_encrypted  << " # " 
+                  << "(iter->download_command_encrypted) " 
+                  << iter->download_command_encrypted  << " # " 
+                  << "(iter->installation_script_encrypted) " 
+                  << iter->installation_script_encrypted << " # " 
+                  << "(iter->package_name) " << iter->package_name << " # " 
+                  << "(iter->package_version) " << iter->package_version << " # "
+                  << "(iter->owner) " << iter->owner << " # " 
+                  << "(iter->authorization) " << iter->authorization << " # " 
+                  << endl;
+           }
+           else
+           {
+             cerr << "Not encrypted." << endl;
+
+             cerr << "(iter->install_order) " << iter->install_order << " # " 
+                  << "(iter->download_url) " << iter->download_url  << " # " 
+                  << "(iter->download_command) " << iter->download_command  << " # " 
+                  << "(iter->installation_script) " << iter->installation_script << " # " 
+                  << "(iter->package_name) " << iter->package_name << " # " 
+                  << "(iter->package_version) " << iter->package_version
+                  << endl;
+
+           }
+
+           cerr << "End of |for| loop."  << endl;
+
+       }  /* |for|  */
+
+       cerr << "After |for| loop."  << endl;
+
+       unlock_cerr_mutex();
+
+   }  /* |if (DEBUG)|  */
+
+@q **** (4) Sort |param.entries|.  @>
+@ Sort |param.entries|.
+\initials{LDF 2010.03.08.}
+
+@<|install_packages| definition@>=
+
+   sort(param.entries.begin(), param.entries.end(), greater<Entry_Type>());
+
+   if (DEBUG)
+   {
+
+       lock_cerr_mutex(); 
+       cerr << "After sorting:"
+            << endl;
+
+       for (vector<Entry_Type>::const_iterator iter 
+               = param.entries.begin();
+            iter != param.entries.end();
+            ++iter)
+       {
+
+           cerr << "At beginning of |for| loop."  << endl;
+
+           cerr << "iter->encrypted_flag == " << iter->encrypted_flag << endl;
+         
+           if (iter->encrypted_flag)
+           {
+             cerr << "Encrypted." << endl;
+
+             cerr << "(iter->install_order) " << iter->install_order << " # " 
+                  << "(iter->download_url_encrypted) " 
+                  << iter->download_url_encrypted  << " # " 
+                  << "(iter->download_command_encrypted) " 
+                  << iter->download_command_encrypted  << " # " 
+                  << "(iter->installation_script_encrypted) " 
+                  << iter->installation_script_encrypted << " # " 
+                  << "(iter->package_name) " << iter->package_name << " # " 
+                  << "(iter->package_version) " << iter->package_version << " # "
+                  << "(iter->owner) " << iter->owner << " # " 
+                  << "(iter->authorization) " << iter->authorization << " # " 
+                  << endl;
+           }
+           else
+           {
+             cerr << "Not encrypted." << endl;
+
+             cerr << "(iter->install_order) " << iter->install_order << " # " 
+                  << "(iter->download_url) " << iter->download_url  << " # " 
+                  << "(iter->download_command) " << iter->download_command  << " # " 
+                  << "(iter->installation_script) " << iter->installation_script << " # " 
+                  << "(iter->package_name) " << iter->package_name << " # " 
+                  << "(iter->package_version) " << iter->package_version
+                  << endl;
+
+           }
+
+           cerr << "End of |for| loop."  << endl;
+
+       }  /* |for|  */
+
+       cerr << "After |for| loop (debugging only)."  << endl;
+
+       unlock_cerr_mutex();
+
+   }  /* |if (DEBUG)|  */
+
+
+@q **** (4) @>
+@
+\initials{LDF 2010.09.15.}
+Added |string install_dir_str|.  It's used for deleting the installation 
+directory if there's an error.
+
+@<|install_packages| definition@>=
+
+   stringstream temp_strm;
+   stringstream atemp_strm;
+
+   string temp_str;
+   string temp_str_1;
+   string install_dir_str;
+
+   string curr_line;
+
+   for (vector<Entry_Type>::iterator iter = param.entries.begin();
+        iter != param.entries.end();
+        ++iter)
+   {
+        if (DEBUG)
+        {
+            lock_cerr_mutex(); 
+            cerr << "iter == " << iter->show() << endl;
+            unlock_cerr_mutex(); 
+
+        }  /* |if (DEBUG)|  */ 
+
+
+@q ***** (5) @>
+@
+\LOG
+\initials{LDF 2011.05.25.}
+Added this section.
+
+\initials{LDF 2011.06.15.}
+Commented this section in.  Now requiring a proxy credential to be passed to \.{optdbcli} if
+trying to install a package based on an encrypted entry.
+
+\initials{LDF 2012.03.28.}
+Added code for checking |cert_filenames.size()|.  This makes it possible to
+install packages using a certificate/key pair instead of a proxy credential.
+\ENDLOG
+
+@<|install_packages| definition@>=
+
+      if (iter->encrypted_flag && (cert_filenames.size() == 0 && !proxy_cred_verified))
+      {
+           lock_cerr_mutex();
+           cerr << "WARNING!  In `install_packages':"
+                << endl
+                << "`iter->encrypted_flag' == `true', but "
+                << "`cert_filenames.size()' == 0 "
+                << "and `proxy_cred_verified' == `false'."
+                << endl 
+                << "Continuing."
+                << endl;
+           unlock_cerr_mutex(); 
+
+           continue;
+
+      }
+      else if (DEBUG)
+      {
+           lock_cerr_mutex();
+           cerr << "In `install_packages':"
+                << endl
+                << "`iter->encrypted_flag' == " << iter->encrypted_flag << ", "
+                << " and `proxy_cred_verified' == " << proxy_cred_verified
+                << " and `cert_filenames.size()' == " << cert_filenames.size()
+                << endl;
+           unlock_cerr_mutex(); 
+
+      }  /* |else if (DEBUG)|  */ 
+
+@q ***** (5) @>
+@
+@<|install_packages| definition@>=
+
+       if (   iter->encrypted_flag 
+           && iter->download_url_encrypted.empty()  
+           && iter->download_command_encrypted.empty())
+
+       {
+
+           lock_cerr_mutex();
+           cerr << "WARNING!  In `install_packages':"
+                << endl
+                << "`iter->encrypted_flag' == `true', but `iter->download_url_encrypted' "
+                << "and `iter->download_command_encrypted' are both empty."
+                << endl 
+                << "Continuing."
+                << endl;
+           unlock_cerr_mutex(); 
+
+           continue;
+
+       }  /* |if|  */
+
+@q ***** (5) Encrypted entries.  @>
+
+@ Encrypted entries.  |iter->download_url_encrypted| 
+or |iter->download_command_encrypted| will be the name of a 
+temporary file.
+\initials{LDF 2011.03.30.}
+
+\LOG
+\initials{LDF 2011.06.15.}
+Added code for setting |user_subdirectory|.  Currently, it's not passed back to \.{optdbcli} from
+\.{scrinstl}.
+\ENDLOG
+
+@<|install_packages| definition@>=
+
+       else if (iter->encrypted_flag)
+       {
+
+           char buffer[4096];
+           string user_subdirectory;
+
+           user_subdirectory = install_directory;
+
+           user_subdirectory += "/";
+           user_subdirectory += iter->package_name;
+
+           if (!iter->package_version.empty())
+           {
+              user_subdirectory += "-";
+              user_subdirectory += iter->package_version;           
+           }
+
+@q ****** (6) Check whether to reinstall, if |user_subdirectory| exists  @>
+@q ****** (6) and is non-empty.                                          @>
+
+@ Check whether to reinstall, if |user_subdirectory| exists and is non-empty.  
+\initials{LDF 2011.07.07.}
+
+\LOG
+\initials{LDF 2011.07.07.}
+Added this section.
+\ENDLOG
+
+@<|install_packages| definition@>=
+
+           status = dir_is_empty(user_subdirectory);
+
+           if (DEBUG) 
+              cerr << "`dir_is_empty' returned " << status << "." << endl;
+
+           if (   status == 1  /* Directory is empty  */
+               || (iter->install_order == 0 && reinstall_flag)
+               || (iter->install_order > 0 && prerequisites_reinstall_value > 0))
+           {
+               cout << "Reinstalling " << iter->package_name;
+
+               if (!iter->package_version.empty())
+                  cout << " " << iter->package_version;
+                
+               cout << "." << endl;
+
+               if (DEBUG)
+               {
+                   lock_cerr_mutex(); 
+                   cerr << "In `install_packages' (encrypted case):  "
+                        << "`reinstall_flag' == true.  Reinstalling "
+                        << iter->package_name;
+
+                   if (!iter->package_version.empty())
+                      cerr << " " << iter->package_version;
+                        
+                   cerr << "." << endl;
+                   unlock_cerr_mutex();
+
+               }  /* |if (DEBUG)|  */ 
+
+           }  /* |if|  */
+
+           else 
+           {
+           
+               cout << "Not reinstalling " << iter->package_name;
+
+               if (!iter->package_version.empty())
+                  cout << " " << iter->package_version;
+       
+               if (iter->install_order == 0)
+               {
+                  cout << ".  To reinstall, use the `--reinstall' option."
+                       << endl;
+
+                  lock_cerr_mutex(); 
+                  cerr << "In `install_packages':  "
+                       << "`iter->install_order' == 0 && "
+                       << "`reinstall_flag' == false."
+                       << endl;
+                  unlock_cerr_mutex();
+
+               }
+
+               else 
+               {
+                  cout << ".  To reinstall, use the `--prerequisites-reinstall' option."
+                       << endl;
+
+                  lock_cerr_mutex(); 
+                  cerr << "In `install_packages':  "
+                       << "`iter->install_order' == "
+                       << iter->install_order << " (> 0) && "
+                       << "`prerequisites_reinstall_value' == "
+                       << prerequisites_reinstall_value << "."
+                       << endl;
+                  unlock_cerr_mutex(); 
+
+               }
+
+               lock_cerr_mutex(); 
+               cerr << "Not reinstalling "
+                    << iter->package_name;
+
+               if (!iter->package_version.empty())
+                  cerr << " " << iter->package_version;
+
+               cerr << "." << endl;
+               unlock_cerr_mutex();
+
+
+               continue;
+
+            }  /* |else|  */           
+
+@q ****** (6) @>
+
+           if (dn_username_map.size() == 0)
+           {
+               lock_cerr_mutex();
+               cerr << "WARNING!  In `install_packages':"
+                    << endl
+                    << "`dn_username_map.size()' == 0."
+                    << endl
+                    << "Can't find username for `owner'."
+                    << endl 
+                    << "Continuing."
+                    << endl;
+               unlock_cerr_mutex(); 
+
+               continue;
+
+           }  /* |if|  */
+
+@q ****** (6) Check Distinguished Name.  @>
+
+@ Check Distinguished Name.  
+\initials{LDF 2011.04.29.}
+
+
+@<|install_packages| definition@>=
+
+           if (DEBUG)
+           {
+               cerr << "distinguished_name_str == " << distinguished_name_str << endl;
+
+           }  /* |if (DEBUG)|  */
+
+           if (distinguished_name_str.empty())
+           {
+                lock_cerr_mutex();
+                cerr << "WARNING!  In `install_packages':  "
+                     << "`distinguished_name_str' is empty."
+                     << endl
+                     << "Can't install package."
+                     << endl 
+                     << "Continuing."
+                     << endl;
+
+                unlock_cerr_mutex();
+
+                continue;
+
+           }   /* |if (distinguished_name_str.empty())|  */
+
+
+@q ****** (6) Check authorization.  @>
+
+@ Check authorization.  
+\initials{LDF 2011.06.15.}
+
+\LOG
+\initials{LDF 2011.06.15.}
+Commented-out.  Currently not using authorization file and depending on proxy credential
+for authentication and authorization.
+
+\initials{LDF 2011.06.16.}
+Removed old, commented-out code with call to |check_authorization|.  Now using 
+the \.{authorization} differently.   Now, |iter->authorization| must 
+just be non-empty.  It is no longer checked by \.{optdbcli}, since it will have been 
+encrypted using the public key of the owner and can't be decrypted here.
+\ENDLOG 
+
+@<|install_packages| definition@>=
+
+           if (iter->authorization.empty())
+           {
+
+               lock_cerr_mutex();
+               cerr << "WARNING!  In `install_packages':"
+                    << endl
+                    << "`iter->encrypted_flag' == `true', but `iter->authorization' is empty."
+                    << endl 
+                     << "Can't install package."
+                     << endl 
+                    << "Continuing."
+                    << endl;
+               unlock_cerr_mutex(); 
+
+               continue;
+
+           }  /* |if|  */
+
+
+@q ****** (6) @>
+@
+@<|install_packages| definition@>=
+
+           if (iter->owner.empty())
+           {
+
+               lock_cerr_mutex();
+               cerr << "WARNING!  In `install_packages':"
+                    << endl
+                    << "`iter->encrypted_flag' == `true', but `iter->owner' is empty."
+                    << endl 
+                     << "Can't install package."
+                     << endl 
+                    << "Continuing."
+                    << endl;
+               unlock_cerr_mutex(); 
+
+               continue;
+
+           }  /* |if|  */
+
+           temp_strm.str("");
+  
+           if (DEBUG)
+           {
+
+               lock_cerr_mutex(); 
+               cerr << "In `install_packages':  "
+                    << endl 
+                    << "`iter->download_url_encrypted' == " << iter->download_url_encrypted
+                    << endl
+                    << "`iter->download_command_encrypted' == " << iter->download_command_encrypted
+                    << endl
+                    << "`iter->installation_script_encrypted' == " 
+                    << iter->installation_script_encrypted
+                    << endl;
+               unlock_cerr_mutex(); 
+
+           }  /* |if (DEBUG)|  */ 
+
+
+@ The \.{chmod} commands here make these temporary files readable for everybody,
+but they can only be decrypted by the owner of the appropriate secret key.
+\initials{LDF 2011.04.08.}
+
+@<|install_packages| definition@>=
+
+           if (!iter->download_command_encrypted.empty())
+           {
+               temp_strm << "chmod a+r " << iter->download_command_encrypted;
+               temp_file_vector.push_back(iter->download_command_encrypted);
+           }
+
+
+           else if (!iter->download_url_encrypted.empty())
+           {
+               temp_strm << "chmod a+r " << iter->download_url_encrypted;
+               temp_file_vector.push_back(iter->download_url_encrypted);
+           }
+               
+
+@q ****** (6) @>
+
+@ Installation scripts are handled differently from download URLs or download commands.  
+Non-encrypted installation scripts  are downloaded to the directory from which 
+optdbcli has been called and have names either specified by the user or constructed 
+from the package name and package version (if the latter is present).  
+\par
+In the case of an encrypted installation script, it is first treated like a normal one,
+but then moved to the \.{/tmp/} directory and renamed.  Its new name is found by
+means of |mkstemp|.
+\initials{LDF 2011.03.31.}
+\initials{LDF 2011.04.08.}
+
+@<|install_packages| definition@>=
+
+           if (!iter->installation_script_encrypted.empty())
+           {
+
+@q ******* (7) @>
+
+               if (   !iter->download_command_encrypted.empty() 
+                   || !iter->download_url_encrypted.empty())
+
+                   temp_strm << " && ";
+
+@q ******* (7) @>
+@
+@<|install_packages| definition@>=
+
+               char temp_filename[14];
+               memset(temp_filename, 0, 14);
+               strcpy(temp_filename, "/tmp/CCXXXXXX");
+               int fd = mkstemp(temp_filename);
+
+               if (fd == -1)
+               {
+                   lock_cerr_mutex();
+                    cerr << "ERROR!  In `install_packages':  "
+                         << "`mkstemp' failed, returning -1:"
+                         << endl;
+
+                    perror("Error:");
+
+                    cerr << "Exiting function unsuccessfully with return value 1."
+                         << endl;
+
+                    unlock_cerr_mutex();
+
+                    return 1;
+
+               }   /* |if (fd == -1)| (|mkstemp| failed)  */
+
+               close(fd);
+
+@ The \.{chmod} command here makes this temporary file readable for everybody,
+but it can only be decrypted by the owner of the appropriate secret key.
+\initials{LDF 2011.04.08.}
+
+@<|install_packages| definition@>=
+
+
+
+               temp_strm << "mv \"" << iter->installation_script_encrypted << "\" "
+                         << temp_filename << " && "  
+                         << "chmod a+r " << temp_filename;
+
+               iter->installation_script_encrypted = temp_filename;
+
+               temp_file_vector.push_back(temp_filename);
+
+
+           }  /* |if (!iter->installation_script_encrypted.empty())|  */
+
+@q ****** (6) @>
+@
+@<|install_packages| definition@>=
+
+           if (DEBUG) 
+           {
+ 
+              cerr << "temp_strm.str() == " << endl << temp_strm.str() << endl;
+ 
+           }
+
+           status = system(temp_strm.str().c_str());
+
+           if (DEBUG) 
+              cerr << "status == " << status << endl;
+
+           if (status != 0)
+           {
+               lock_cerr_mutex();
+                cerr << "ERROR!  In `install_packages':  "
+                     << "`system' failed, returning " << status << "."
+                     << endl;
+
+                cerr << "Exiting function unsuccessfully with return value 1."
+                     << endl;
+
+                unlock_cerr_mutex();
+
+                return 1;
+
+           }   /* |if (status != 0 )| (|system| failed)  */
+
+@q ****** (6) @>
+@
+@<|install_packages| definition@>=
+
+           if (DEBUG) 
+              cerr << "iter->owner == " << iter->owner 
+                   << endl
+                   << "iter->package_name == " << iter->package_name 
+                   << endl;
+           
+
+@q ****** (6) @>
+@
+@<|install_packages| definition@>=
+
+           temp_str = "";
+   
+           temp_str = dn_username_map[iter->owner];
+
+           string owner_username;
+
+           if (temp_str.empty())
+           {
+               cerr << "WARNING!  In `install_packages':"
+                    << endl
+                    << "Can't find username for `owner':"
+                    << endl 
+                    << "`owner' == "
+                    << endl 
+                    << iter->owner
+                    << endl 
+                    << "Continuing."
+                    << endl;
+               unlock_cerr_mutex(); 
+
+               continue;
+
+           }  /* |if|  */
+
+           else 
+              owner_username = temp_str;
+
+@q ****** (6) @>
+@
+@<|install_packages| definition@>=
+
+           vector<string> s;
+
+@q ****** (6) @>
+@
+\LOG
+\initials{LDF 2012.01.31.}
+Added this section.
+@:BUG FIX@> BUG FIX:  Now using |getpwuid_r| to get the user name of the current user,
+i.e., the ``customer''.  Formerly, |getenv("USER")| was used, which caused the Globus job to fail
+on \.{faui36a.informatik.uni-erlangen.de}, because this environment variable was not defined.
+\ENDLOG
+
+@<|install_packages| definition@>=
+
+           struct passwd pwbuf;
+           struct passwd *pwbufp;
+
+           char bufpw[sysconf(_SC_GETPW_R_SIZE_MAX)]; 
+           memset(bufpw, 0, sysconf(_SC_GETPW_R_SIZE_MAX)); 
+
+           status = getpwuid_r(getuid(), &pwbuf, bufpw, 
+                               sysconf(_SC_GETPW_R_SIZE_MAX), 
+                               &pwbufp);  /* user name of current user (``customer'') */
+
+           if (status != 0)
+           {
+               cerr << "WARNING!  In `install_packages':"
+                    << endl 
+                    << "`getpwuid_r' failed, returning " << status << endl;
+
+               perror("getpwuid_r");
+
+               cerr << "Can't find user name.  "
+                    << "Not installing package."
+                    << endl
+                    << "Continuing."
+                    << endl;
+
+               continue;
+
+           }
+           else if (DEBUG)
+           {
+               lock_cerr_mutex(); 
+               cerr << "status == " << status << endl 
+                    << "pwbuf.pw_name == " << pwbuf.pw_name << endl
+                    << "pwbuf.pw_uid == " << pwbuf.pw_uid << endl
+                    << "pwbuf.pw_dir == " << pwbuf.pw_dir << endl;
+               unlock_cerr_mutex(); 
+
+           }  /* |else if (DEBUG)|  */ 
+
+
+
+@q ****** (6) @>
+@
+@<|install_packages| definition@>=
+           
+           s.push_back(pwbuf.pw_name);
+
+           s.push_back(iter->package_name);
+
+           if (!iter->package_version.empty())
+           {
+               s.push_back(iter->package_version);
+           }
+           else
+              s.push_back("none");
+
+           s.push_back(iter->owner);
+
+           if (DEBUG) 
+           {
+              cerr << "iter->owner_key_id == " << iter->owner_key_id << endl;
+
+              iter->show("*iter:");
+
+           }
+
+           temp_strm.str("");
+           temp_strm << iter->owner_key_id;
+
+           s.push_back(temp_strm.str());
+
+           temp_strm.str("");
+
+           s.push_back(install_directory);
+
+
+           if (!iter->download_command_encrypted.empty())
+           {
+               s.push_back(iter->download_command_encrypted);
+           }
+           else
+           {
+              s.push_back("0");
+           }
+
+           if (!iter->download_url_encrypted.empty())
+           {
+               s.push_back(iter->download_url_encrypted);
+           }
+           else
+           {
+              s.push_back("0");
+           }
+
+
+           if (!iter->installation_script_encrypted.empty())
+           {
+               s.push_back(iter->installation_script_encrypted);
+           }
+           else
+           {
+              s.push_back("0");
+           }
+
+           s.push_back(distinguished_name_str);
+
+           s.push_back(iter->authorization);
+
+           if (DEBUG)
+           {
+               cerr << "s.size() == " << s.size() << endl;
+
+               for (vector<string>::iterator temp_iter = s.begin();
+                    temp_iter != s.end();
+                    ++temp_iter)
+               {
+                  cerr << "*temp_iter == " << *temp_iter << endl;
+               }   
+
+           }  /* |if (DEBUG)|  */ 
+
+
+@q ****** (6) Call |hidden_install|.  @>
+
+@ Call |hidden_install|.  
+\initials{LDF 2011.07.20.}
+
+|hidden_install| opens a connection via a UNIX domain socket to the d{\ae}mon process
+in which the program \.{scrinstl} is running.  The file entry is in \filename{/tmp/}
+and named \.{scrinstl.}$\langle$\.{\it owner\/}$\rangle$, where ``owner'' is 
+the username corresponding to the ``owner'' of the software package, i.e., 
+the ``software provider''. 
+\initials{LDF 2011.07.20.}
+
+@:TODO@> !! TODO: LDF 2011.07.20.  Possibly pass information about 
+this  process to |hidden_install|, e.g., the process id and possibly more.
+
+\LOG
+\initials{LDF 2011.11.16.}
+Now passing |Scan_Parse_Parameter_Type::param| to |hidden_install|.
+\ENDLOG
+
+
+@<|install_packages| definition@>=
+
+
+           if (DEBUG)
+           {
+              lock_cerr_mutex(); 
+              cerr << "About to call `hidden_install'." << endl;
+              unlock_cerr_mutex(); 
+
+           } /* |if (DEBUG)|  */ 
+
+           status = hidden_install(param, s);  /* \.{scrsintl} is called in |hidden_install|.  
+                                               \initials{LDF 2011.07.20.}                   */
+
+           if (status != 0)
+           {
+               lock_cerr_mutex();
+               cerr << "WARNING!  In `install_packages':"
+                    << endl
+                    << "`hidden_install' failed, returning " << status << "."
+                    << endl
+                    << "Continuing."
+                    << endl;
+               unlock_cerr_mutex(); 
+
+               continue;
+
+           }  /* |if (status != 0)|  */
+
+           else if (DEBUG)
+           {
+
+               cerr << "`hidden_install' succeeded, returning 0." << endl;
+
+           }  /* |else if (DEBUG)|  */ 
+
+@q ****** (6) Create symbolic links (unless suppressing).  @>
+
+@ Create symbolic links (unless suppressing).  
+\initials{LDF 2011.05.31.}
+
+\LOG
+\initials{LDF 2011.05.31.}
+Added this section with code for creating links.
+
+\initials{LDF 2011.06.01.}
+Now calling |create_links|.
+
+\initials{LDF 2011.08.10.}
+\initials{LDF 2012.02.08.}
+Added the conditional that tests the value of |create_links_value|.
+
+\initials{LDF 2012.03.26.}
+Now only creating links if |create_links_value > 0|, i.e., no longer creating them
+if |create_links_value == 0|.
+\ENDLOG
+
+@<|install_packages| definition@>=
+
+          if (create_links_value > 0)  
+          {
+
+
+                if (DEBUG)
+                {
+                   lock_cerr_mutex(); 
+                   cerr << "`optdbcli' creating symbolic links." << endl
+                        << "link_directory == " << link_directory << endl
+                        << "Encrypted entry.  About to call `create_links'."
+                        << endl;
+                   unlock_cerr_mutex(); 
+
+                }  /* |if (DEBUG)|  */ 
+
+
+              status = create_links(user_subdirectory);
+
+              if (status != 0)
+              {
+
+                   lock_cerr_mutex();
+                   cerr << "WARNING!  In `install_packages':"
+                        << endl
+                        << "`create_links' failed, returning " << status << "."
+                        << endl
+                        << "Continuing."
+                        << endl;
+                   unlock_cerr_mutex(); 
+
+
+              }  /* |if (status != 0)|  */
+
+              else if (DEBUG)
+              {
+                   lock_cerr_mutex();
+                   cerr << "In `install_packages':"
+                        << endl
+                        << "`create_links' succeeded."
+                        << endl;
+                   unlock_cerr_mutex(); 
+
+              }  /* |else if (DEBUG)|  */ 
+
+          }  /* |if (create_links_value > 0)|  */
+
+          else
+          {
+              lock_cerr_mutex(); 
+              cerr << "In `install_packages':  Not creating symbolic links." << endl;
+              unlock_cerr_mutex(); 
+
+          }
+
+@q ****** (6) @>
+
+          continue;
+
+       }  /* |if (iter->encrypted_flag)|  */
+
+@q ***** (5) Non-encrypted entries.  @>
+
+@ Non-encrypted entries.  
+\initials{LDF 2011.06.29.}
+
+@<|install_packages| definition@>=
+
+@q ****** (6) @>
+
+       if (!iter->encrypted_flag && iter->download_url.empty() && iter->download_command.empty())
+       {
+           lock_cerr_mutex(); 
+           cerr << "WARNING!  In `install_packages':  No download URL or download command." 
+                << endl
+                << "Continuing."
+                << endl;
+           unlock_cerr_mutex(); 
+
+           continue;
+       }   
+
+@q ****** (6) @>
+@
+@<|install_packages| definition@>=
+
+       temp_str = "";
+       temp_str_1 = "";
+       install_dir_str = "";
+
+       for (int i = 0; i < iter->package_name.size(); ++i)
+       {
+           if (isblank(iter->package_name[i]))
+              temp_str += '_';
+           else
+              temp_str += iter->package_name[i];
+
+       }
+
+       if (iter->package_version != "") 
+       {
+           temp_str += '_';
+
+           for (int i = 0; i < iter->package_version.size(); ++i)
+           {
+               if (isblank(iter->package_version[i]))
+                  temp_str += '_';
+               else
+                  temp_str += iter->package_version[i];
+
+           }  /* |for|  */
+
+       }  /* |if (iter->package_version != "") |  */
+
+@q ***** (5) Check whether package has already been installed.                 @>
+@q ***** (5) If so,  don't install it again unless  |reinstall_flag == true|.  @>
+
+@ Check whether package has already been installed.
+If so,  don't install it again unless  |reinstall_flag == true|.
+
+@:TODO@> !! TODO: \initials{LDF 2011.02.04.}  Check whether the directory is empty and 
+reinstall if it is.
+
+\LOG
+\initials{LDF 2010.09.08.}
+Added this section.
+
+\initials{LDF 2011.06.29.}
+Now using |install_directory|.
+
+\initials{LDF 2011.09.12.}
+@:BUG FIX@> BUG FIX:  Fixed the conditionals that test the result of |dir_is_empty|.
+They were incorrect.
+\ENDLOG
+
+@<|install_packages| definition@>=
+
+@q ****** (6) @>
+
+   temp_strm.str("");
+
+   temp_strm << install_directory << "/" << temp_str;
+
+   install_dir_str = temp_strm.str();
+
+   if (DEBUG) 
+   {
+      cerr << "install_dir_str == " << install_dir_str << endl;
+   }
+
+   status = dir_is_empty(install_dir_str.c_str());
+
+   if (DEBUG)
+   {
+       cerr << "status == " << status << endl;
+
+   }  /* |if (DEBUG)|  */ 
+
+
+@
+\LOG
+\initials{LDF 2011.09.15.}
+@:BUG FIX@> BUG FIX:  Now testing for |status == -2| (installation directory doesn't exist).
+\ENDLOG 
+
+@<|install_packages| definition@>=
+
+   if (status == -2)  /* Minor bug fix: Added.  \initials{LDF 2011.09.15.}  */
+   {
+           cerr << "Directory `" << install_dir_str << "' doesn't exist." 
+                << endl;
+
+   }  
+
+@
+@<|install_packages| definition@>=
+
+   else if (status < 0)
+   {
+
+       cerr << "WARNING!  In `install_packages':  `dir_is_empty' failed, "
+            << "returning " << status << endl
+            << "Path `install_dir_str' == " << install_dir_str
+            << endl
+            << "Will try to continue installation."
+            << endl;
+   }
+   else if (status == 0)
+   {
+@q ******* (7) @>
+
+           if (DEBUG)
+           {
+               lock_cerr_mutex();
+               cerr << "In `install_packages':"
+                    << endl
+                    << "prerequisites_reinstall_value == " 
+                    << prerequisites_reinstall_value << endl
+                    << "iter->install_order == " 
+                    << iter->install_order << endl;
+               unlock_cerr_mutex();               
+
+           }  /* |if (DEBUG)|  */ 
+
+       if (!reinstall_flag && iter->install_order == 0)
+       {
+@q ******** (8) Message to standard output  @>
+
+           cout << "Not reinstalling " << iter->package_name;
+
+           if (!iter->package_version.empty())
+              cout << " " << iter->package_version;
+           cout << ".  To reinstall, use the `--reinstall' option."
+                << endl;
+
+@q ******** (8) Message to standard error output  @>
+
+           lock_cerr_mutex(); 
+           cerr << "In `install_packages':  "
+                << "`reinstall_flag' == false  && iter->install_order == 0."
+                << endl 
+                << "Not reinstalling "
+                << iter->package_name;
+
+           if (!iter->package_version.empty())
+              cerr << " " << iter->package_version;
+
+           cerr << "." << endl;
+           unlock_cerr_mutex();
+
+@q ******** (8) @>
+
+           continue;
+
+       }  /* |if|  */
+
+@q ******* (7) @>
+@
+\LOG
+\initials{LDF 2012.02.03.}
+Added this section.
+\ENDLOG
+
+@<|install_packages| definition@>=
+
+       else if (iter->install_order > 0 && prerequisites_reinstall_value < 0)
+       {
+@q ******** (8) Message to standard output  @>
+
+           cout << "Not reinstalling " << iter->package_name;
+
+           if (!iter->package_version.empty())
+              cout << " " << iter->package_version;
+           cout << ".  To reinstall, use the `--prerequisites-reinstall' option."
+                << endl;
+
+@q ******** (8) Message to standard error output  @>
+
+           lock_cerr_mutex(); 
+           cerr << "In `install_packages':  "
+                << "`iter->install_order' > 0 && `prerequisites_reinstall_value' < 0."
+                << endl 
+                << "Not reinstalling "
+                << iter->package_name;
+
+           if (!iter->package_version.empty())
+              cerr << " " << iter->package_version;
+
+           cerr << "." << endl;
+           unlock_cerr_mutex();
+
+@q ******** (8) @>
+
+           continue;
+
+       }  /* |else if (iter->install_order > 0 && prerequisites_reinstall_value < 0)|  */
+
+@q ******* (7) @>
+@ |reinstall == true || (iter->install_order > 0 && prerequisites_reinstall_value > 0)|.
+\LOG
+\initials{LDF 2012.02.03.}
+Added this section.
+\ENDLOG
+
+@<|install_packages| definition@>=
+
+       else  
+       {
+
+@q ******** (8) Message to standard output  @>
+
+
+           cout << "Reinstalling " << iter->package_name;
+
+           if (!iter->package_version.empty())
+              cout << " " << iter->package_version;
+                
+           cout << "." << endl;
+
+@q ******** (8) Message to standard error output  @>
+
+           lock_cerr_mutex(); 
+           cerr << "In `install_packages':  "
+                << "`reinstall_flag' == true and/or prerequisites_reinstall_value > 0.  "
+                << endl 
+                << "Reinstalling "
+                << iter->package_name;
+
+           if (!iter->package_version.empty())
+              cerr << " " << iter->package_version;
+                
+           cerr << "." << endl;
+           unlock_cerr_mutex();
+
+@q ******** (8) @>
+
+       }  /* |else| (|reinstall == true|)  */ 
+
+@q ******* (7) @>
+
+   }  /* |if (status == 0)|  */
+
+@q ****** (6) @>
+
+   else if (DEBUG)
+   {
+
+       lock_cerr_mutex(); 
+       cerr << "In `install_packages':  "
+            << iter->package_name;
+
+       if (!iter->package_version.empty())
+          cerr << " " << iter->package_version;
+
+       cerr << " not installed.  Installing." << endl;
+       unlock_cerr_mutex();
+
+   }  /* |else if (DEBUG)|  */ 
+
+@q ****** (6) @>
+
+@q ***** (5) Execute |iter->download_command|, if present.  @>
+@q ***** (5) Otherwise, use \.{wget} to download the package from |iter->download_url|.  @>
+
+@ Execute |iter->download_command|, if present.  
+Otherwise, use \.{wget} to download the package from |iter->download_url|. 
+\initials{LDF 2010.03.29.}
+
+@:TODO@> !! TODO:  Try to figure out what I wanted |temp_str_1| for.
+\initials{LDF 2010.03.29.}
+
+@<|install_packages| definition@>=
+
+       temp_strm.str("");
+
+       temp_strm << "mkdir -p $HOME/bin $HOME/lib && "
+                 << "mkdir -p $HOME/installer_work/ && "
+                 << "rm -rf $HOME/installer_work/" << temp_str << "/*"
+                 << " && mkdir -p $HOME/installer_work/" << temp_str 
+                 << " && rm -rf " << install_directory << "/" << temp_str
+                 << " && mkdir -p " << install_directory << "/" << temp_str;
+
+
+       if (!iter->installation_script.empty())
+          temp_strm << " && mv " << iter->installation_script
+                    << " $HOME/installer_work/" << temp_str << "/";
+
+       temp_strm << " && cd $HOME/installer_work/" << temp_str << "/ && ";
+
+       cerr << "iter->download_command == " << iter->download_command << endl;
+       cerr << "iter->download_url == " << iter->download_url << endl;
+
+       if (!iter->download_command.empty())
+       {
+
+          temp_strm << iter->download_command;
+
+       }  
+
+@ |temp_str_1| is the name of the package without the path.  One can accomplish the same thing
+with the shell command \.{basename}.
+\initials{LDF 2012.01.31.}
+
+@<|install_packages| definition@>=
+
+       else 
+       {
+
+           temp_str_1 = iter->download_url;  
+                                             
+           string::size_type s = temp_str_1.find_last_of('/');
+
+           if (s != string::npos && s < temp_str_1.size() - 1)  /* Erase the path.  */
+              temp_str_1.erase(0, s + 1);
+
+           temp_strm << "wget --no-check-certificate " << iter->download_url;
+
+
+       }  /* |else|  */
+
+@q ***** (5) @>
+@ 
+@:TODO@> !! TODO:  Write error messages to log files.  This isn't urgent, because
+the ``installstarter'' program doesn't currently read the log files.  However, 
+it would be better to write to them, anyway. 
+\initials{LDF 2010.07.21.} 
+
+@<|install_packages| definition@>=
+
+        if (DEBUG)
+        {
+            lock_cerr_mutex();
+            cerr << "In `install_packages':  `temp_strm.str() == '"
+                 << endl
+                 << temp_strm.str()
+                 << endl;
+             unlock_cerr_mutex();         
+
+        }  /* |if (DEBUG)|  */ 
+
+        status = system(temp_strm.str().c_str());
+
+        if (status != 0)
+        {
+            lock_cerr_mutex();
+            cerr << "ERROR!  In `install_packages':  "
+                 << "`system' failed to download the package, returning "
+                 << status 
+                 << endl
+                 << "Command:  " << temp_strm.str()
+                 << endl;
+            unlock_cerr_mutex(); 
+
+            unlink(install_dir_str.c_str());
+
+            errors_occurred += 1;
+
+
+@q ****** (6) @>
+@
+\LOG
+\initials{LDF 2010.07.21.}
+Added this section.
+\ENDLOG
+
+@<|install_packages| definition@>=
+
+            if (download_fail_continue)
+            {
+                lock_cerr_mutex(); 
+                cerr << "Continuing."
+                     << endl;
+                unlock_cerr_mutex();         
+            }
+            else /* |download_fail_continue == false|  */
+            {
+                lock_cerr_mutex(); 
+                cerr << "Exiting function unsuccessfully with return value 1."
+                     << endl;
+                unlock_cerr_mutex();         
+
+                return 1;
+
+            }   /* |else| (|download_fail_continue == false|)  */
+            
+@q ****** (6) @>
+@
+@<|install_packages| definition@>=
+
+        } /* |if (status != 0)|  */                           
+
+        else if (DEBUG)
+        {
+            lock_cerr_mutex();
+            cerr << "In `install_packages':  `system' succeeded."
+                 << endl
+                 << "Command:  " << temp_strm.str()
+                 << endl;
+
+            unlock_cerr_mutex();         
+
+        }  /* |else if (DEBUG)|  */ 
+ 
+
+@q ***** (5) @>
+
+@
+\LOG
+\initials{LDF 2012.02.08.}
+Added this section with code for finding home directory using |getpwuid_r|.
+Previously, \.{\$HOME} was used in the string executed by |system|.  
+However, this environment variable may not be defined in the shell created.
+\ENDLOG
+
+@<|install_packages| definition@>=
+
+       struct passwd pwbuf;
+       struct passwd *pwbufp;
+
+       size_t buff_size = sysconf(_SC_GETPW_R_SIZE_MAX);
+
+       char buff[buff_size];
+       memset(buff, 0, buff_size);
+
+       errno = 0;
+
+       status = getpwuid_r(getuid(), &pwbuf, buff, buff_size, &pwbufp);
+
+       if (status != 0)
+       {
+            lock_cerr_mutex(); 
+            cerr << "ERROR! In `install_packages':  "
+                 << "`getpwuid_r' failed, returning " << status << "."
+                 << endl
+                 << "getwuid_r error:  " << strerror(errno)
+                 << endl
+                 << "Cannot determine home directory.  "
+                 << "Not starting installation."
+                 << endl
+                 << "Exiting function  unsuccessfully with return value 1."
+                 << endl;
+             unlock_cerr_mutex(); 
+
+             return 1;
+
+       }  /* |if (status != 0)|  */
+
+       else if (DEBUG)
+       {
+            lock_cerr_mutex();
+            cerr << "In `install_packages':  `getpwuid_r' succeeded." << endl
+                 << "`pwbuf.pw_name' == " << pwbuf.pw_name
+                 << endl 
+                 << "`pwbuf.pw_dir' == " << pwbuf.pw_dir
+                 << endl;
+            unlock_cerr_mutex();
+
+       }  /* |else if (DEBUG)|  */ 
+
+       string home_dir;
+
+       if (strlen(pwbuf.pw_dir) > 0)
+          home_dir = pwbuf.pw_dir;
+       else
+       {
+            lock_cerr_mutex();
+            cerr << "ERROR! In `install_packages':  Cannot determine home directory.  "
+                 << "Not starting installation."
+                 << endl
+                 << "Exiting function unsuccessfully with return value 1."
+                 << endl;
+            unlock_cerr_mutex();
+
+            return 1;
+
+       }  
+
+
+@q ***** (5) @>
+@
+\LOG
+\initials{LDF 2010.08.04.}
+Added code for creating links in \filename{\$HOME/include/}.
+
+\initials{LDF 2011.08.10.}
+Added a conditional that tests the value of |suppress_links|.  Not creating symbolic 
+links if it's |true|.  However, the installation script may create them.
+
+\initials{LDF 2012.02.01.}
+Added code for creating links in \.{\$HOME/share/}.
+
+\initials{LDF 2012.02.08.}
+Replaced |suppress_links| with |create_links_value|.
+
+\initials{LDF 2012.02.08.}
+Now using the value |string home_dir| instead of \.{\$HOME}.  The former is found using
+|getpwuid_r| above.
+\ENDLOG
+
+@<|install_packages| definition@>=
+
+
+       temp_strm.str("");
+
+       string link_dir_str = link_directory;
+
+       if (!link_dir_str.empty())
+           link_dir_str += "/";
+
+       temp_strm << "mkdir -p " 
+                 << home_dir << "/" << link_dir_str << "bin/ " 
+                 << home_dir << "/" << link_dir_str << "lib/ " 
+                 << home_dir << "/" << link_dir_str << "include/ " 
+                 << home_dir << "/" << link_dir_str << "share/ ";
+
+       if (!link_dir_str.empty())
+       {
+           temp_strm << home_dir << "/" << link_dir_str << " ";
+       }
+
+       temp_strm << "&& cd " << home_dir << "/installer_work/" 
+                 << temp_str << "/ ";
+
+       if (DEBUG)
+       {
+            cerr << "param.environment_shellscript_filename_vector.size() == " 
+                 << param.environment_shellscript_filename_vector.size() 
+                 << endl;
+
+       }  /* |if (DEBUG)|  */ 
+
+       if (param.environment_shellscript_filename_vector.size() > 0)
+       {
+            for (vector<string>::const_iterator iter 
+                    = param.environment_shellscript_filename_vector.begin();
+                 iter != param.environment_shellscript_filename_vector.end();
+                 ++iter)
+            {
+                temp_strm << "&& source " << *iter << " ";
+
+            }  /* |for|  */
+
+       }  /* |if (param.environment_shellscript_filename_vector.size() > 0)| */
+
+       if (!iter->installation_script.empty())
+          temp_strm << "&& bash " << iter->installation_script << " ";
+
+       if (create_links_value > 0)  
+       {
+
+           if (DEBUG)
+           {
+              lock_cerr_mutex(); 
+              cerr << "`optdbcli' creating symbolic links." << endl
+                   << "Non-encrypted entry.  "
+                   << "link_directory == " << link_directory << endl;
+              unlock_cerr_mutex(); 
+
+           }  /* |if (DEBUG)|  */ 
+
+@ @:TODO@> !! TODO: \initials{LDF 2012.02.08.}
+It would be nice to issue a message, if links are created, saying where they've
+been created.  However, it's not that easy to do this using shell commands, as
+here.  For one thing, it's difficult to determine whether a link was created by
+one of the commands here, or whether it already existed.
+\par
+The best thing would probably be to write a function or a separate shell script
+that takes arguments.
+\initials{LDF 2012.02.08.}
+
+@<|install_packages| definition@>=
+
+           temp_strm << "&& cd " << install_directory << "/" << temp_str << "/"
+                     << " && if test -d bin; then cd bin; for i in * ;"
+                     << "do ln --symbolic --force `pwd`/$i " << home_dir << "/"
+                     << link_dir_str << "bin/; done; "
+
+                     << "cd ..;fi"
+                     << " && if test -d lib; then cd lib; for i in * ;"
+                     << "do ln --symbolic --force `pwd`/$i " << home_dir << "/"
+                     << link_dir_str << "lib/; done; "
+
+                     << "cd ..;fi"
+                     << " && if test -d include; then cd include; for i in * ;"
+                     << "do ln --symbolic --force `pwd`/$i " << home_dir << "/"
+                     << link_dir_str << "include/; done; "
+
+                     << "cd ..;fi"
+                     << " && if test -d share; then cd share; for i in * ;"
+                     << "do ln --symbolic --force `pwd`/$i " << home_dir << "/"
+                     << link_dir_str << "share/; done; "
+                  
+                     << "cd ..;fi";
+
+       }  /* |if (create_links_value > 0)|  */
+
+       else
+       {
+          lock_cerr_mutex(); 
+          cerr << "`optdbcli' not creating symbolic links." << endl;
+          unlock_cerr_mutex(); 
+       }
+
+       if (DEBUG) 
+       {
+           lock_cerr_mutex(); 
+           cerr << "`temp_strm.str() =="
+                << endl
+                << temp_strm.str()
+                << endl;
+           unlock_cerr_mutex(); 
+ 
+       }  /* |if (DEBUG)|  */
+
+       
+
+@q ****** (6) @>
+@
+@:TODO@> !! TODO:  Write error messages to log files.  This isn't urgent, because
+the ``installstarter'' program doesn't currently read the log files.  However, 
+it would be better to write to them, anyway. 
+\initials{LDF 2010.07.21.} 
+
+@<|install_packages| definition@>=
+
+       status = system(temp_strm.str().c_str());
+
+       if (status != 0)
+       {
+           lock_cerr_mutex();
+           cerr << "ERROR!  In `install_packages':  "
+                << "`system' failed to execute installation script, returning "
+                << status 
+                << endl
+                << "Command:  " << temp_strm.str()
+                << endl;
+           unlock_cerr_mutex(); 
+
+           unlink(install_dir_str.c_str());
+
+           errors_occurred += 1;
+
+
+@q ****** (6) @>
+@
+\LOG
+\initials{LDF 2010.07.21.}
+Added this section.
+\ENDLOG
+
+@<|install_packages| definition@>=
+
+
+           if (install_fail_continue)
+           {
+               lock_cerr_mutex(); 
+               cerr << "Continuing."
+                    << endl;
+               unlock_cerr_mutex();         
+           }
+           else /* |install_fail_continue == false|  */
+           {
+               lock_cerr_mutex(); 
+               cerr << "Exiting function unsuccessfully with return value 2."
+                    << endl;
+               unlock_cerr_mutex();         
+
+               unlink(install_dir_str.c_str());
+
+               return 2;
+
+           }   /* |else| (|install_fail_continue == false|)  */
+         
+
+@q ****** (6) @>
+@
+@<|install_packages| definition@>=
+
+       } /* |if (status != 0)|  */                           
+
+
+@q ****** (6) @>
+@
+@<|install_packages| definition@>=
+
+
+       else 
+       {
+
+           cout << "In `install_packages':  Installed " << iter->package_name;
+
+           if (iter->package_version != "")
+              cout << " " << iter->package_version;
+
+           cout << " successfully in `" << install_dir_str << "'." << endl;
+
+           if (DEBUG)
+           {
+               lock_cerr_mutex();
+               cerr << "In `install_packages':  `system' succeeded."
+                    << endl
+                    << "Command:  " << temp_strm.str()
+                    << endl;
+               unlock_cerr_mutex();         
+
+           } /* |else if (DEBUG)|  */ 
+
+
+       }  /* |else|  */
+
+       temp_strm.str("");
+
+@q ***** (5) @>
+
+   }  /* |for|  End of main loop.  */
+
+@q **** (4) @>
+@
+@<|install_packages| definition@>=
+
+   if (DEBUG)
+   {
+       lock_cerr_mutex();
+       cerr << "*** Exiting `install_packages' successfully with return value 0."
+            << endl;
+       unlock_cerr_mutex(); 
+
+   }  /* |if (DEBUG)|  */
+
+   return 0;
+
+
+}  /* End of |install_packages| definition  */
+
+@q ** (2) Create links.@>
+@ Create links.
+\initials{LDF 2011.06.01.}
+
+This function is currently only called for packages that are installed based
+on encrypted database entries (``secure installation'').
+If the installed package contains directories named \filename{bin}, \filename{include} 
+\filename{lib}, and/or \filename{share}, links are created in \filename{\$HOME/bin}, 
+\filename{\$HOME/include}, 
+\filename{\$HOME/lib}, and/or \filename{\$HOME/share}, respectively.  
+@:NOTE@> !! PLEASE NOTE:  These directories 
+in the installed package can be at any level!  For example, links to files in 
+a directory \filename{hello-2.7/gnulib/lib} will also be made in \filename{\$HOME/lib};
+not \filename{\$HOME/gnulib/lib}.
+\par
+It would be possible to create the directory \filename{\$HOME/gnulib/lib}, but 
+within \.{optdbcli}, it is not known what directories will be created when the 
+package is installed.  That is, the directory into which \.{scrinstl} copies files 
+is known.  This is the |source_dir| argument to |create_links|.  However, 
+\.{optdbcli} has now further information about the directory structure below 
+this directory, which will differ from package to package.
+\par
+This function therefore accounts for the most common cases in a simple way.
+If special handling is required, the installation script must account for it.
+However, the latter runs under the user id of the owner of 
+the package (``company''), so it will probably be necessary to have it pass 
+information back to \.{scrinstl} and possibly have \.{scrinstl} pass it back to \.{optdbcli}, 
+in order to have one of these programs create the links under the user id 
+of the user (``customer'').
+\initials{LDF 2011.06.01.}
+
+\LOG
+\initials{LDF 2011.06.01.}
+Added this function.
+
+\initials{LDF 2012.02.08.}
+Now using |getpwuid_r| to find home directory instead of |getenv("HOME")|.
+\ENDLOG
+
+@q *** (3) Declaration  @>
+
+@<|create_links| declaration@>=
+int
+create_links(string source_dir);
+
+@q *** (3) Definition  @>
+@
+@<|create_links| definition@>=
+int
+create_links(string source_dir)
+{
+@q **** (4) @>
+
+    bool DEBUG = false;  /* |true|  */
+    set_debug_level(DEBUG);
+
+    int status;
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "Entering `create_links'." << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */ 
+
+@q **** (4) @>
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "In `create_links':  source_dir == " << source_dir << endl;
+        unlock_cerr_mutex(); 
+    }
+
+
+    vector<string> dir_vector;
+
+    dir_vector.push_back("bin");
+    dir_vector.push_back("lib");
+    dir_vector.push_back("include");
+    dir_vector.push_back("share");
+
+    stringstream temp_strm;
+    stringstream atemp_strm;
+
+    FILE* fp;
+
+    char buffer[2048];
+
+    string curr_line;
+    string curr_dir;
+
+    atemp_strm.str("");
+ 
+    string msg_str;
+
+@q **** (4) @>
+@
+\LOG
+\initials{LDF 2012.02.08.}
+Added this section.
+\ENDLOG
+
+@<|create_links| definition@>=
+
+    struct passwd pwbuf;
+    struct passwd *pwbufp;
+
+    size_t buff_size = sysconf(_SC_GETPW_R_SIZE_MAX);
+
+    char buff[buff_size];
+    memset(buff, 0, buff_size);
+
+    errno = 0;
+
+    status = getpwuid_r(getuid(), &pwbuf, buff, buff_size, &pwbufp);
+
+    if (status != 0)
+    {
+         lock_cerr_mutex(); 
+         cerr << "ERROR! In `create_links':  "
+              << "`getpwuid_r' failed, returning " << status << "."
+              << endl
+              << "getwuid_r error:  " << strerror(errno)
+              << endl
+              << "Cannot determine home directory.  "
+              << "Not starting installation."
+              << endl
+              << "Exiting function  unsuccessfully with return value 1."
+              << endl;
+          unlock_cerr_mutex(); 
+
+          return 1;
+
+    }  /* |if (status != 0)|  */
+
+    else if (DEBUG)
+    {
+         lock_cerr_mutex(); 
+         cerr << "In `create_links':  `getpwuid_r' succeeded." << endl
+              << "`pwbuf.pw_name' == " << pwbuf.pw_name
+              << endl 
+              << "`pwbuf.pw_dir' == " << pwbuf.pw_dir
+              << endl;
+         unlock_cerr_mutex(); 
+
+    }  /* |else if (DEBUG)|  */ 
+
+    string home_dir;
+
+    if (strlen(pwbuf.pw_dir) > 0)
+       home_dir = pwbuf.pw_dir;
+    else
+    {
+         lock_cerr_mutex(); 
+         cerr << "ERROR! In `create_links':  Cannot determine home directory.  "
+              << "Not starting installation."
+              << endl
+              << "Exiting function unsuccessfully with return value 1."
+              << endl;
+         unlock_cerr_mutex(); 
+
+         return 1;
+
+    }
+
+@q **** (4) @>
+@
+@<|create_links| definition@>=
+
+    for (vector<string>::const_iterator iter = dir_vector.begin();
+         iter != dir_vector.end();
+         ++iter)
+    {
+@q ***** (5) @>
+
+         temp_strm.str("");
+   
+         temp_strm << "find " << source_dir << " -name " << *iter << " -type d";
+
+         if (DEBUG) 
+         {
+             lock_cerr_mutex(); 
+             cerr << "temp_strm.str() == " << temp_strm.str() << endl;
+             unlock_cerr_mutex(); 
+         }
+
+         fp = popen(temp_strm.str().c_str(), "r");
+
+         if (fp == 0)
+         {
+
+              lock_cerr_mutex();
+              cerr << "ERROR!  In `create_links':  "
+                   << "`popen' failed." << endl;
+
+              perror("popen error");
+
+              cerr << "Not creating links." << endl 
+                   << "Exiting function unsuccessfully with return value 1." 
+                   << endl;
+              unlock_cerr_mutex();
+
+              return 1;
+
+         }  /* |if (fp == 0)|  */
+
+@q ***** (5) @>
+@
+@<|create_links| definition@>=
+         
+         memset(buffer, 0, 2048);
+
+         status = fread(buffer, 1, 2048, fp);
+
+         if (status < 0)
+         {
+             lock_cerr_mutex();
+             cerr << "ERROR!  In `create_links':  "
+                  << "`fread' failed, returning " << status << "."
+                  << endl;
+
+             perror("fread error");
+ 
+             cerr << "Not creating links." << endl
+                  << "Exiting function unsuccessfully with return value 1." 
+                  << endl;
+             unlock_cerr_mutex();
+
+             return 1;
+
+         }
+
+         else if (status > 4095)
+         {
+             lock_cerr_mutex();
+             cerr << "ERROR!  In `create_links':  "
+                  << "`fread' read " << status << " (> 4095) characters."
+                  << endl 
+                  << "This is not permitted.  Not creating links."
+                  << endl
+                  << "Exiting function unsuccessfully with return value 1."
+                  << endl;
+             unlock_cerr_mutex();
+
+             return 1;
+
+         }
+         else if (status == 0)
+         {
+              if (DEBUG) 
+              {
+                  lock_cerr_mutex(); 
+                  cerr << "No \"" << *iter << "\" directories found."
+                       << endl 
+                       << "Continuing."
+                       << endl;      
+                  unlock_cerr_mutex();         
+              }
+
+              continue;  
+
+         }
+
+         else if (DEBUG)
+         {
+
+             lock_cerr_mutex(); 
+             cerr << "In `create_links':  Read " << status << " characters."
+                  << endl
+                  << "buffer == " << buffer << endl;
+             unlock_cerr_mutex(); 
+
+         }  /* |if (DEBUG)|  */ 
+
+         pclose(fp);
+         fp = 0;              
+
+@q ***** (5) @>
+@
+@<|create_links| definition@>= 
+
+         temp_strm.str("");
+
+         temp_strm << buffer;
+
+         while (temp_strm)
+         {
+@q ****** (6) @>
+
+             getline(temp_strm, curr_line);
+
+             if (DEBUG) 
+             {
+                 lock_cerr_mutex(); 
+                 cerr << "curr_line == " << curr_line << endl;
+                 unlock_cerr_mutex(); 
+             }
+
+             if (!curr_line.empty())
+             {
+@q ******* (7) @>
+
+                 curr_dir = home_dir;
+
+                 if (!link_directory.empty())
+                    curr_dir += "/" + link_directory;
+
+                 curr_dir += "/" + *iter;
+
+                 if (DEBUG) 
+                 {
+                    lock_cerr_mutex(); 
+                    cerr << "curr_dir == " << curr_dir << endl;
+                    unlock_cerr_mutex(); 
+                 }
+
+                 msg_str +=  "Created symbolic links in " + curr_dir + "\n";
+                
+                 atemp_strm << "mkdir -p " << curr_dir << " && "
+                            << "for i in " << curr_line << "/*; do "
+                            << "ln --symbolic --force $i " << curr_dir << "/;"
+                            << "done; ";
+
+@q ******* (7) @>
+
+             }  /* |if (!curr_line.empty())|  */
+
+
+@q ****** (6) @>
+
+         }  /* |while (temp_strm)|  */
+
+@q ***** (5) @>
+
+         temp_strm.str("");
+         temp_strm.clear();
+
+@q ***** (5) @>
+
+    }  /* |for|  */
+
+@q **** (4) @>
+@
+@<|create_links| definition@>=
+
+    if (DEBUG) 
+    {
+       lock_cerr_mutex(); 
+       cerr << "atemp_strm.str() == " << atemp_strm.str() << endl;
+       unlock_cerr_mutex(); 
+    }
+
+    status = system(atemp_strm.str().c_str());
+
+    if (DEBUG) 
+    {
+       lock_cerr_mutex(); 
+       cerr << "status == " << status << endl;
+       unlock_cerr_mutex(); 
+    }
+
+    if (status == -1 || !WIFEXITED(status) || WEXITSTATUS(status) != 0)
+    {
+        lock_cerr_mutex();
+        cerr << "WARNING!  In `create_links':  "
+             << "`system' failed, returning " << status << "."
+             << endl;
+        if (WIFEXITED(status))
+           cerr << "WEXITSTATUS(status) == " << WEXITSTATUS(status) 
+                << endl;
+        else
+           cerr << "Process failed to exit."
+                << endl;
+
+        cerr << "Not creating links.  Exiting function unsuccessfully with return value 1."
+             << endl;
+        unlock_cerr_mutex();
+
+        return 1;
+
+    }   /* |(status != 0)|  */
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "`system' succeeded." << endl;
+        unlock_cerr_mutex(); 
+     
+    }  /* |if (DEBUG)|  */ 
+   
+    lock_cerr_mutex(); 
+    cerr << msg_str;
+    unlock_cerr_mutex(); 
+
+
+@q **** (4) @>
+@
+@<|create_links| definition@>=
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "Exiting `create_links' successfully with return value 0." 
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */ 
+
+
+    return 0;
+
+}  /* End of |create_links| definition  */
+
+@q ** (2) Hidden Install.  @>
+
+@ Hidden Install.
+\initials{LDF 2011.07.13.}
+
+\LOG
+\initials{LDF 2011.07.13.}
+Added this function.
+
+\initials{LDF 2012.01.27.}
+Renamed this function.  Old name:  |secure_install|;  New name:  |hidden_install|.
+\ENDLOG
+
+@q *** (3) Declaration @>
+
+@<|hidden_install| declaration@>=
+
+int
+hidden_install(Scan_Parse_Parameter_Type &param, vector<string> &arg_vector);
+
+@q *** (3) Definition @>
+@
+@<|hidden_install| definition@>=
+int
+hidden_install(Scan_Parse_Parameter_Type &param, vector<string> &arg_vector)
+{
+@q **** (4) @>
+
+    bool DEBUG = false;  /* |true|  */
+    set_debug_level(DEBUG); 
+
+    int status;
+
+    stringstream system_strm;
+    FILE *fp = 0;
+
+    if (DEBUG)
+    {
+       lock_cerr_mutex(); 
+       cerr << "Entering `hidden_install'." << endl;
+       unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */ 
+
+
+@q **** (4) @>
+@
+\LOG
+\initials{LDF 2012.03.28.}
+Added code for finding or generating a proxy credential.  This is needed if the user
+provided a certificate/key pair instead and no proxy credential.
+\ENDLOG 
+@<|hidden_install| definition@>=
+
+
+   if (proxy_cred_filename.empty())
+   {
+@q ***** (5) @>
+
+        if (DEBUG)
+        {
+            lock_cerr_mutex(); 
+            cerr << "In `hidden_install':  No proxy credential file."
+                 << endl
+                 << "Will try to find or generate one."
+                 << endl;
+            unlock_cerr_mutex(); 
+
+        }  /* |if (DEBUG)|  */ 
+
+@q ***** (5) @>
+@
+@<|hidden_install| definition@>=
+
+        system_strm.str("");
+
+        system_strm << "ls -lt --time-style=+%s /tmp/proxy* "
+                    << "./x509up_u`id -u` /tmp/x509up_u`id -u` | tr -s \" \" | "
+                    << "grep `id -u -n` | cut -f7 -d \" \"";
+
+         if (DEBUG)
+         {
+              lock_cerr_mutex(); 
+              cerr << "system_strm.str() == " << system_strm.str() << endl;
+              unlock_cerr_mutex(); 
+
+         }  /* |if (DEBUG)|  */ 
+
+         errno = 0;
+         fp = popen(system_strm.str().c_str(), "r");
+
+         if (fp == 0)
+         {
+            lock_cerr_mutex(); 
+            cerr << "ERROR!  In `hidden_install':  `popen' failed, returning NULL:"
+                 << endl
+                 << "popen error:  " << strerror(errno)
+                 << endl 
+                 << "Failed to find proxy credential."
+                 << endl 
+                 << "Exiting function unsuccessfully with return value 1."
+                 << endl;
+            unlock_cerr_mutex(); 
+
+            return 1;
+
+         }  /* |if (fp == 0)|  */
+
+         else if (DEBUG)
+         {
+
+            lock_cerr_mutex(); 
+            cerr << "In `hidden_install':  `popen' succeeded."
+                 << endl;
+            unlock_cerr_mutex(); 
+
+         }  /* |else if (DEBUG)|  */ 
+
+@q ***** (5) @>
+@
+@<|hidden_install| definition@>=
+
+         char temp_buffer[1024];
+
+         for (;;)
+         {
+@q ****** (6) @>
+             memset(temp_buffer, 0, 1024);
+
+             if (feof(fp) || fgets(temp_buffer, 1023, fp) == 0)
+             {
+
+                 if (DEBUG)
+                 {
+                     lock_cerr_mutex(); 
+                     cerr << "End-of-file reached and/or `fgets' read 0 characters.  Breaking."
+                          << endl;
+                     unlock_cerr_mutex(); 
+
+                 }  /* |if (DEBUG)|  */ 
+
+                 break;
+
+             }  /* |if|  */
+                         
+             else if (DEBUG)
+             {
+                 lock_cerr_mutex(); 
+                 cerr << "`fgets' read " << strlen(temp_buffer) << " characters:  "
+                      << endl
+                      << temp_buffer
+                      << endl;
+                 unlock_cerr_mutex(); 
+
+             }  /* |else if (DEBUG)|  */ 
+
+             if (temp_buffer[strlen(temp_buffer) - 1] == '\n')
+                 temp_buffer[strlen(temp_buffer) - 1] = '\0';
+ 
+             status = handle_proxy_cred(temp_buffer);
+
+             if (DEBUG)
+             {
+                  cerr << "handle_proxy_cred returned " << status << endl;
+
+             }  /* |if (DEBUG)|  */ 
+
+             if (status == 0)
+             {
+                 proxy_cred_filename = temp_buffer;
+
+                 if (DEBUG)
+                 {
+                      lock_cerr_mutex(); 
+                      cerr << "Verified proxy credential."
+                           << endl 
+                           << "`proxy_cred_filename' == " << proxy_cred_filename 
+                           << endl;
+                      unlock_cerr_mutex(); 
+
+                 }  /* |if (DEBUG)|  */ 
+
+                 break;
+ 
+             }  /* |if (status == 0)|  */
+
+             else if (DEBUG)
+             {
+                 lock_cerr_mutex(); 
+                 cerr << "Failed to verify proxy credential.  Will try next one, if "
+                      << "present, or try to generate one."
+                      << endl;
+                 unlock_cerr_mutex(); 
+
+             }  /* |else if (DEBUG)|  */ 
+
+
+@q ****** (6) @>
+
+         }  /* |for|  */
+
+@q ***** (5) Try to generate a proxy credential.  @>
+
+@ Try to generate a proxy credential.  
+\initials{LDF 2012.03.28.}
+
+@<|hidden_install| definition@>=
+    
+        pclose(fp);         
+        fp = 0;
+        system_strm.str("");
+
+        if (proxy_cred_filename.empty())  /* Not found, try generating  */
+        {
+@q ****** (6) @>
+             if (DEBUG)
+             {
+                 lock_cerr_mutex(); 
+                 cerr << "Valid proxy credential not found.  Will try generating."
+                      << endl;
+                 unlock_cerr_mutex(); 
+
+             }  /* |if (DEBUG)|  */ 
+
+@q ****** (6) @>
+
+             string gen_proxy_sh_path;
+
+#if IS_PCFINSTON_GWDG 
+
+             gen_proxy_sh_path 
+                = "/home/lfinsto/opt_rep/optinum/Installer/dbsrvcli/src/gen_proxy.sh";
+
+#elif IS_OPTINUM_SRV | IS_ROCKS_GOEGRID
+
+             gen_proxy_sh_path = "/opt/optinum/dbsrvcli/bin/gen_proxy.sh"; 
+
+#elif IS_FAUI36A
+
+             gen_proxy_sh_path = "/home/optinum/eron0015/installer_package/bin/gen_proxy.sh"; 
+
+#elif IS_OPTINUM_DE
+
+             gen_proxy_sh_path = "/usr/local/bin/gen_proxy.sh"; 
+
+#else
+             gen_proxy_sh_path = "/usr/local/bin/gen_proxy.sh"; 
+
+#endif 
+
+@q ****** (6) @>
+@
+@<|hidden_install| definition@>=
+
+           system_strm << gen_proxy_sh_path << " 2>&1 | "
+                       << "grep \"Output File\" | tr -s \" \" | cut -f3 -d \" \"";
+
+           if (DEBUG)
+           {
+                lock_cerr_mutex(); 
+                cerr << "system_strm.str() == " << system_strm.str() << endl;
+                unlock_cerr_mutex(); 
+
+           }  /* |if (DEBUG)|  */ 
+
+
+           errno = 0;
+           fp = popen(system_strm.str().c_str(), "r");
+
+           if (fp == 0)
+           {
+              lock_cerr_mutex(); 
+              cerr << "ERROR!  In `hidden_install':  `popen' failed, returning NULL:"
+                   << endl
+                   << "popen error:  " << strerror(errno)
+                   << endl 
+                   << "Failed to generate proxy credential."
+                   << endl 
+                   << "Exiting function unsuccessfully with return value 1."
+                   << endl;
+              unlock_cerr_mutex(); 
+
+              return 1;
+
+           }  /* |if (fp == 0)|  */
+
+           else if (DEBUG)
+           {
+
+              lock_cerr_mutex(); 
+              cerr << "In `hidden_install':  `popen' succeeded."
+                   << endl;
+              unlock_cerr_mutex(); 
+
+           }  /* |else if (DEBUG)|  */ 
+
+           
+           memset(temp_buffer, 0, 1024);
+
+           errno = 0;
+           status = fscanf(fp, "%s", temp_buffer);
+
+           if (status == EOF || status == 0)
+           {
+               lock_cerr_mutex(); 
+               cerr << "ERROR!  In `hidden_install':  `fscanf' failed, returning EOF or 0:"
+                    << endl
+                    << "fscanf error:  " << strerror(errno)
+                    << endl 
+                    << "Failed to generate proxy credential."
+                    << endl 
+                    << "Exiting function unsuccessfully with return value 1."
+                    << endl;
+               unlock_cerr_mutex(); 
+
+               pclose(fp);
+
+               return 1;
+
+           }  /* |if (status == 0)|  */
+
+           else
+           {
+               proxy_cred_filename = temp_buffer;
+
+               if (DEBUG)
+               {
+                   lock_cerr_mutex(); 
+                   cerr << "In `hidden_install':  `fscanf' succeeded,  returning " 
+                        << status << "."
+                        << endl
+                        << "`proxy_cred_filename' == `" << proxy_cred_filename << "'."
+                        << endl;
+                   unlock_cerr_mutex(); 
+
+               }  /* |if (DEBUG)|  */ 
+
+           }  /* |else|  */
+           
+@q ****** (6) @>
+
+           pclose(fp);
+           fp = 0;
+           system_strm.str("");
+
+@q ****** (6) @>
+
+        }  /* |if (proxy_cred_filename.empty())|  (Not found, try generating) */
+
+@q ***** (5) Failed to find or generate a proxy credential.  @>
+
+@ Failed to find or generate a proxy credential.  
+\initials{LDF 2012.03.28.}
+
+@<|hidden_install| definition@>=
+
+        if (proxy_cred_filename.empty())
+        {
+            lock_cerr_mutex(); 
+            cerr << "ERROR!  In `hidden_install':  No proxy credential file."
+                 << endl
+                 << "Failed to find or generate one."
+                 << endl 
+                 << "Exiting function unsuccessfully with return value 1."
+                 << endl;
+            unlock_cerr_mutex(); 
+
+            return 1;
+
+        }  /* |if (proxy_cred_filename.empty())|  */
+
+@q ***** (5) @>
+
+   }  /* |if (proxy_cred_filename.empty())|  (No proxy credential passed to \.{optdbcli})  */
+
+@q **** (4) @>
+
+   else if (DEBUG)
+   {
+        lock_cerr_mutex(); 
+        cerr << "In `hidden_install':  Proxy credential file `"
+             << proxy_cred_filename << "' exists."
+             << endl;
+        unlock_cerr_mutex(); 
+
+   }  /* |else if (DEBUG)|  */ 
+
+@q **** (4) @>
+@
+@<|hidden_install| definition@>=
+
+   ifstream proxy_file_strm;
+
+   proxy_file_strm.open(proxy_cred_filename.c_str());
+
+   if (!proxy_file_strm || !proxy_file_strm.is_open())
+   {
+        lock_cerr_mutex(); 
+        cerr << "ERROR!  In `hidden_install':  Proxy credential file `"
+             << proxy_cred_filename << "' can't be opened."
+             << endl
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+        unlock_cerr_mutex(); 
+
+        return 1;
+
+   }
+   else if (DEBUG)
+   {
+        lock_cerr_mutex(); 
+        cerr << "In `hidden_install':  Opened proxy credential file `"
+             << proxy_cred_filename << "'."
+             << endl;
+        unlock_cerr_mutex(); 
+
+   }  /* |else if (DEBUG)|  */ 
+
+
+@q **** (4) @>
+@
+@<|hidden_install| definition@>=
+
+   struct group *optinum_grp = getgrnam("optinum");
+
+    if (optinum_grp == 0)
+    {
+        lock_cerr_mutex(); 
+        cerr << "ERROR!  In `hidden_install':  `getgrnam' failed, returning NULL."
+             << endl;
+
+        perror("getgrnam error");
+
+        cerr << "Exiting function unsuccessfully with exit status 1."
+             << endl;
+        unlock_cerr_mutex(); 
+
+        return 1;
+    }
+    else if (DEBUG)
+    {
+        lock_cerr_mutex();
+        cerr << "`getgrnam' succeeded." << endl
+             << "`optinum_grp->gr_name' == " << optinum_grp->gr_name
+             << endl 
+             << "`optinum_grp->gr_gid' == " << optinum_grp->gr_gid
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |else if (DEBUG)|  */ 
+
+@q **** (4) @>
+@
+@<|hidden_install| definition@>=
+
+    if (arg_vector[3].empty())
+    {
+        lock_cerr_mutex();
+        cerr << "ERROR!  In `hidden_install':  No Distinguished Name "
+             << "for owner."
+             << endl
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+        unlock_cerr_mutex();
+
+        return 1;
+         
+    }
+
+    if (dn_username_map[arg_vector[3]].empty())
+    {
+        lock_cerr_mutex();
+        cerr << "ERROR!  In `hidden_install':  Can't find username for "
+             << "Distinguished Name \"" << arg_vector[3] << "\""
+             << endl 
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+        unlock_cerr_mutex();
+
+        return 1;
+
+    }
+
+@q **** (4) Get information about |download_dir|.  @>
+
+@ Get information about |download_dir|.  
+\initials{LDF 2011.07.13.}
+
+@<|hidden_install| definition@>=
+
+    struct stat curr_stat;
+  
+    string download_dir = arg_vector[5];
+
+    errno = 0;
+    status = stat(download_dir.c_str(), &curr_stat);
+
+    if (status == -1)
+    {
+        lock_cerr_mutex();
+        cerr << "ERROR!  In `hidden_install':  `stat' failed for`download_dir' == " 
+             << download_dir << ", returning -1:" 
+             << endl;
+
+        perror("stat error");
+
+        cerr << "Exiting function unsuccessfully with exit status 1."
+             << endl;
+        unlock_cerr_mutex();
+
+        return 1;
+    }
+    else if (DEBUG)
+    {
+        lock_cerr_mutex();
+        cerr << "`stat' succeeded." << endl
+             << "`curr_stat.st_gid' == " << curr_stat.st_gid
+             << endl 
+             << "`curr_stat->st_mode' == " << oct << curr_stat.st_mode
+             << endl << dec;
+        unlock_cerr_mutex();
+
+
+    }  /* |else if (DEBUG)|  */ 
+    
+    mode_t save_mode = curr_stat.st_mode;    
+   
+    gid_t save_gid = curr_stat.st_gid;    
+
+@q **** (4) Change group of download directory.  @>
+
+@ Change group of download directory.  
+\initials{LDF 2011.07.13.}
+
+@<|hidden_install| definition@>=
+
+#if ! IS_ROCKS_GOEGRID
+
+/* TODO:  Look into this.  LDF 2011.08.03.  Found out why this failed on rocks.  
+   See below, as well  
+
+   LDF 2011.10.17.  NFS-mounted file systems can be 
+   configured so that setuid doesn't work on them.  This may have 
+   something to do with this.
+*/
+
+
+    if (optinum_grp->gr_gid != save_gid)
+    {
+
+        errno = 0;
+        status = chown(download_dir.c_str(), -1, optinum_grp->gr_gid);
+
+        if (status == -1)
+        {
+            lock_cerr_mutex();
+            cerr << "ERROR!  In `hidden_install':  `chown' failed to change group "
+                 << "to `optinum', returning -1." << endl;
+
+            perror("chown error");
+
+            cerr << "Exiting function unsuccessfully with exit status 1."
+                 << endl;
+            unlock_cerr_mutex();
+
+            return 1;
+        }
+        else if (DEBUG)
+        {
+            lock_cerr_mutex();
+            cerr << "`chown' succeeded." << endl
+                 << endl;
+            unlock_cerr_mutex();
+
+
+        }  /* |else if (DEBUG)|  */
+
+    }  /* |if (optinum_grp->gr_gid != save_gid)|  */
+ 
+    else if (DEBUG)
+    {
+        lock_cerr_mutex();
+        cerr << "`optinum_grp->gr_gid' (" << optinum_grp->gr_gid << ") "
+             << "== `save_gid' (" << save_gid << ")" << endl
+             << "Not changing group of `download_dir' (" << download_dir << ")"
+             << endl;
+        unlock_cerr_mutex();
+
+    }  /* |else if (DEBUG)|  */ 
+
+#endif 
+
+@q **** (4) Change mode of download directory to writable for group  @>
+@q **** (4) (if not already).                                        @> 
+
+@ Change mode of download directory to writable for group (if not already).
+\initials{LDF 2011.07.13.}
+
+@<|hidden_install| definition@>=
+
+    if (!(save_mode & S_IWGRP))
+    {
+        errno = 0;
+
+        status = chmod(download_dir.c_str(), save_mode | S_IWGRP);
+
+        if (status == -1)
+        {
+            lock_cerr_mutex();
+            cerr << "ERROR!  In `hidden_install':  `chmod' failed to change mode "
+                 << "of `download_dir' (" << download_dir 
+                 << ") to \"writable for group\", returning -1." << endl;
+
+            perror("chmod error");
+
+            cerr << "Exiting function unsuccessfully with exit status 1."
+                 << endl;
+            unlock_cerr_mutex();
+
+            return 1;
+        }
+        else if (DEBUG)
+        {
+            lock_cerr_mutex();
+            cerr << "`chmod' succeeded." << endl
+                 << endl;
+            unlock_cerr_mutex();
+
+        }  /* |else if (DEBUG)|  */
+
+    }  /* |if (!(save_mode & S_IWGRP))|  */
+ 
+    else if (DEBUG)
+    {
+        lock_cerr_mutex();
+        cerr << "`save_mode' (" << oct << save_mode << ") "
+             << "is already writable for group." << endl << dec
+             << "Not changing mode of `download_dir' (" << download_dir << ")"
+             << endl;
+        unlock_cerr_mutex();
+
+    }  /* |else if (DEBUG)|  */ 
+
+
+@q **** (4) @>
+@
+@<|hidden_install| definition@>=
+
+    char buffer[param.MAX_BUFFER];  
+    memset(buffer, 0, param.MAX_BUFFER);
+
+    int i = 0;
+
+    for (vector<string>::iterator iter = arg_vector.begin();
+         iter != arg_vector.end();
+         ++iter)
+    {
+         if (strlen(buffer) + iter->size() > 1023)
+         {
+             lock_cerr_mutex();
+             cerr << "ERROR!  In `hidden_install':  Argument list "
+                  << "too long."
+                  << "Exiting function unsuccessfully with exit status 1."
+                  << endl;
+             unlock_cerr_mutex();
+
+             return 1;
+
+         }          
+
+         strcat(buffer, iter->c_str());
+         strcat(buffer, "\n");
+
+    }
+
+    for (vector<string>::const_iterator iter 
+         = param.environment_shellscript_filename_vector.begin();
+         iter != param.environment_shellscript_filename_vector.end();
+         ++iter)
+    {
+         if (iter->size() > 0)
+         {
+            strcat(buffer, iter->c_str());
+            strcat(buffer, "\n");
+         }
+    }
+
+    if (DEBUG) 
+    {
+       lock_cerr_mutex();
+       cerr << "buffer == " << buffer << endl;
+       unlock_cerr_mutex();
+    }
+
+
+@q **** (4) @>
+@
+
+@:TODO@> !! TODO:  LDF 2011.07.14.  Put this onto |arg_vector| directly.
+
+@<|hidden_install| definition@>=
+
+    string sock_path = "/tmp/scrinstl.";
+
+    sock_path += dn_username_map[arg_vector[3]]; 
+                                                 
+    if (DEBUG) 
+    {
+        lock_cerr_mutex();
+        cerr << "sock_path == " << sock_path << endl;
+        unlock_cerr_mutex();
+    }
+
+    int s;
+    int t;
+    int len;
+
+    struct sockaddr_un remote;
+
+    s = socket(AF_UNIX, SOCK_STREAM, 0);
+
+    if (s == -1) 
+    {
+
+        lock_cerr_mutex();
+        cerr << "ERROR!  In `hidden_install':  `socket' failed, returning -1." << endl;
+
+        perror("socket");
+
+        cerr << "Exiting function unsuccessfully with exit status 1."
+             << endl;
+        unlock_cerr_mutex();
+
+        return 1;
+    }
+
+    if (DEBUG) 
+    {
+       lock_cerr_mutex();
+       cerr << "Trying to connect...\n";
+       unlock_cerr_mutex();
+    }
+
+    remote.sun_family = AF_UNIX;
+
+    strcpy(remote.sun_path, sock_path.c_str());
+
+    len = strlen(remote.sun_path) + sizeof(remote.sun_family);
+
+    status = connect(s, (struct sockaddr *)&remote, len);
+
+    if (status == -1) 
+    {
+
+        lock_cerr_mutex();
+        cerr << "ERROR!  In `hidden_install':  `connect' failed, returning -1." << endl;
+
+        perror("connect");
+
+        cerr << "Exiting function unsuccessfully with exit status 1."
+             << endl;
+        unlock_cerr_mutex();
+
+        return 1;
+    }
+ 
+    if (DEBUG) 
+    {
+       lock_cerr_mutex();
+       cerr << "Connected.\n";
+       unlock_cerr_mutex();
+    }
+
+
+@q **** (4) @>
+@
+
+!! @:TODO@> !! TODO: LDF 2011.07.14.  Get information back from `scrinstl'.
+
+@<|hidden_install| definition@>=
+
+    status = send(s, buffer, strlen(buffer), 0);
+    
+    if (status == -1) 
+    {
+
+        lock_cerr_mutex();
+        cerr << "ERROR!  In `hidden_install':  `send' failed, returning -1." << endl;
+
+        perror("send");
+
+        cerr << "Exiting function unsuccessfully with exit status 1."
+             << endl;
+        unlock_cerr_mutex();
+
+        close(s);
+
+        return 1;
+    }
+
+    status = recv(s, buffer, param.MAX_BUFFER - 1, 0);
+
+    if (status > 0) 
+    {
+       buffer[status] = '\0';
+
+       if (DEBUG) 
+       {
+          lock_cerr_mutex();
+          cerr << "Received text back:  buffer == " << buffer << endl;
+          unlock_cerr_mutex();
+       }
+
+    } 
+    else 
+    {
+        if (status < 0) 
+        {
+
+           lock_cerr_mutex();
+           cerr << "ERROR!  In `hidden_install':  `recv' failed, returning " 
+                << status << "." << endl;
+    
+
+           perror("recv");
+           unlock_cerr_mutex();
+        }
+        else 
+        {
+           lock_cerr_mutex();
+           cerr << "Server closed connection" << endl;
+           unlock_cerr_mutex();
+        }
+
+        lock_cerr_mutex();
+        cerr << "Exiting function unsuccessfully with exit status 1."
+             << endl;
+        unlock_cerr_mutex();
+
+        close(s);
+
+        return 1;
+    }
+
+@q **** (4) Send contents of proxy credential file to \.{scrinstl}.  @>
+
+@ Send contents of proxy credential file to \.{scrinstl}.  
+\initials{LDF 2011.07.14.}
+
+\LOG
+\initials{LDF 2011.07.14.}
+Added this section.
+\ENDLOG
+
+@<|hidden_install| definition@>=
+
+    for (;;)
+    {
+       memset(buffer, 0, param.MAX_BUFFER);
+       
+@ This ensures that \.{scrsintl} doesn't wait forever for more characters to be
+sent, if the number of characters in the proxy credential file happens to be an
+even multiple of |param.MAX_BUFFER - 1|.
+\initials{LDF 2011.07.14.}
+
+@<|hidden_install| definition@>=
+
+       if (!proxy_file_strm || proxy_file_strm.eof())
+       {
+           proxy_file_strm.close();
+
+           if (DEBUG) 
+           {
+              lock_cerr_mutex();
+              cerr << "Sending NULL byte to `scrinstl'." << endl;
+              unlock_cerr_mutex();
+           }
+
+           status = send(s, buffer, 1, 0);  
+
+           break;
+
+       }
+
+@
+\LOG
+\initials{LDF 2012.02.02.}
+@:BUG FIX@> BUG FIX:  Added code for breaking here.  If |send| 
+returns |param.MAX_BUFFER - 2|, then the NULL byte above will cause |recv| 
+to read |param.MAX_BUFFER - 1| characters, so \.{scrinstl} could block.
+\ENDLOG 
+@<|hidden_install| definition@>=
+
+       proxy_file_strm.read(buffer, param.MAX_BUFFER - 1);
+
+       errno = 0;
+   
+       status = send(s, buffer, strlen(buffer), 0);
+
+       if (status < param.MAX_BUFFER - 1)
+       {
+            proxy_file_strm.close();
+            break;
+       }
+
+    }  /* |for|  */
+
+@
+@<|hidden_install| definition@>=
+
+    if (DEBUG) 
+    {
+       lock_cerr_mutex();
+       cerr << "Sent proxy credential file to `scrinstl'." << endl;
+       unlock_cerr_mutex();
+
+    }
+
+    do
+    {
+        memset(buffer, 0, param.MAX_BUFFER);
+        errno = 0;
+        status = recv(s, buffer, param.MAX_BUFFER - 1, 0);
+
+        if (status > 0) 
+        {
+           cout << buffer << endl;
+
+        } 
+        else 
+        {
+            if (status < 0) 
+            {
+
+               lock_cerr_mutex();
+               cerr << "ERROR!  In `hidden_install':  `recv' failed, returning " 
+                    << status << "." << endl;
+
+               perror("recv");
+               unlock_cerr_mutex();
+            }
+            else 
+            {
+               lock_cerr_mutex();
+               cerr << "Server closed connection" << endl;
+               unlock_cerr_mutex();
+            }
+
+            lock_cerr_mutex();
+            cerr << "Exiting function unsuccessfully with exit status 1."
+                 << endl;
+            unlock_cerr_mutex();
+
+            close(s);
+
+            return 1;
+
+        }  /* |else|  */
+
+    }
+    while (status == param.MAX_BUFFER - 1);
+
+    errno = 0;
+    memset(buffer, 0, param.MAX_BUFFER);
+    strcpy(buffer, "Received output from installation script successfully.");
+   
+    status = send(s, buffer, strlen(buffer), 0);
+
+
+    memset(buffer, 0, param.MAX_BUFFER);
+    errno = 0;
+    status = recv(s, buffer, param.MAX_BUFFER, 0);
+
+    if (DEBUG) 
+    {
+       lock_cerr_mutex();
+       cerr << "Received response from `scrinstl':  buffer == \n" 
+            << buffer << endl;
+       unlock_cerr_mutex();
+    }
+
+
+@q **** (4) @>
+@
+@<|hidden_install| definition@>=
+
+    close(s);
+
+@q **** (4) @>
+@
+@<|hidden_install| definition@>=
+
+
+    if (DEBUG)
+    {
+       lock_cerr_mutex();
+       cerr << "Check download_dir group and permissions now!" << endl;
+       unlock_cerr_mutex();
+
+    }  /* |if (DEBUG)|  */ 
+
+@q **** (4) Change mode of download directory back, if necessary.  @> 
+
+@ Change mode of download directory back, if necessary.
+\initials{LDF 2011.07.13.}
+
+@<|hidden_install| definition@>=
+
+    if (!(save_mode & S_IWGRP))
+    {
+        errno = 0;
+
+        status = chmod(download_dir.c_str(), save_mode);
+
+        if (status == -1)
+        {
+            lock_cerr_mutex();
+            cerr << "ERROR!  In `hidden_install':  `chmod' failed to change mode "
+                 << "of `download_dir' (" << download_dir 
+                 << ") back, returning -1." << endl;
+
+
+            perror("chmod error");
+
+            cerr << "Exiting function unsuccessfully with exit status 1."
+                 << endl;
+
+            unlock_cerr_mutex();
+
+            return 1;
+        }
+        else if (DEBUG)
+        {
+            lock_cerr_mutex();
+            cerr << "`chmod' succeeded." << endl
+                 << endl;
+            unlock_cerr_mutex();
+
+        }  /* |else if (DEBUG)|  */
+
+    }  /* |if (!(save_mode & S_IWGRP))|  */
+ 
+    else if (DEBUG)
+    {
+        lock_cerr_mutex();
+        cerr << "`save_mode' (" << oct << save_mode << ") "
+             << "is already writable for group." << endl << dec
+             << "Not changing mode of `download_dir' (" << download_dir << ") back."
+             << endl;
+        unlock_cerr_mutex();
+
+    }  /* |else if (DEBUG)|  */ 
+
+
+@q **** (4) Change group of download directory back to original group.  @>
+
+@ Change group of download directory back to original group.  
+\initials{LDF 2011.07.13.}
+
+@<|hidden_install| definition@>=
+
+#if ! IS_ROCKS_GOEGRID
+
+    if (optinum_grp->gr_gid != save_gid)
+    {
+
+       errno = 0;
+       status = chown(download_dir.c_str(), -1, save_gid);
+
+       if (status == -1)
+       {
+          lock_cerr_mutex(); 
+          cerr << "ERROR!  In `hidden_install':  `chown' failed to change group "
+                << "back, returning -1." << endl;
+
+
+          perror("chown error");
+          cerr << "Exiting function unsuccessfully with exit status 1."
+               << endl;
+
+          unlock_cerr_mutex();
+
+          return 1;
+       }
+       else if (DEBUG)
+       {
+           lock_cerr_mutex();
+           cerr << "`chown' succeeded." << endl
+                << endl;
+           unlock_cerr_mutex();
+
+       }  /* |else if (DEBUG)|  */
+
+    }  /* |if (optinum_grp->gr_gid != save_gid)|  */
+
+    else if (DEBUG)
+    {
+        lock_cerr_mutex();
+        cerr << "`optinum_grp->gr_gid' (" << optinum_grp->gr_gid << ") "
+             << "== `save_gid' (" << save_gid << ")" << endl
+             << "Not changing group of `download_dir' (" << download_dir << ") back."
+             << endl;
+        unlock_cerr_mutex();
+
+    }  /* |else if (DEBUG)|  */ 
+
+#endif 
+
+@q **** (4) Exit successfully with exit status 0.  @>
+
+@ Exit successfully with exit status 0.
+\initials{LDF 2011.07.13.}
+
+@<|hidden_install| definition@>=
+
+    if (DEBUG)
+    {
+       lock_cerr_mutex();
+       cerr << "Exiting `hidden_install' successfully with return value 0." 
+            << endl;
+       unlock_cerr_mutex();
+
+    }  /* |if (DEBUG)|  */ 
+
+    return 0;
+
+}  /* End of |hidden_install| definition  */
+
+@q ** (2) @>
+@
+@<Garbage@>=
+#if 0 
+#endif 
+
+@q ** (2) Putting Installation Functions together.@>
+
+@ Putting Installation Functions together.
+@c
+using namespace std;
+@<Include files@>@;@/
+@<Version control identifier@>@;@/
+@<|create_links| declaration@>@;@/
+@<|install_packages| declaration@>@;@/
+@<|hidden_install| declaration@>@;@/
+@<|install_packages| definition@>@;@/
+@<|create_links| definition@>@;@/
+@<|hidden_install| definition@>@;@/
+
+#if 0 /* 1 */ 
+@<Garbage@>@;@/
+#endif 
+
+@
+@(instllfn.h@>=
+@<|create_links| declaration@>@;@/
+@<|install_packages| declaration@>@;@/
+
+@q *** (3) Definition @>
+@
+
+
+@q (progn (cweb-mode) (outline-minor-mode))                         @>
+
+@q * (1) Local variables for Emacs @>
+
+@q * Local variables for Emacs.@>
+@q Local Variables: @>
+@q mode:CWEB @>
+@q eval:(display-time) @>
+@q abbrev-mode:t @>
+@q eval:(read-abbrev-file) @>
+@q indent-tabs-mode:nil @>
+@q eval:(outline-minor-mode) @>
+@q fill-column:80 @>
+@q End: @>

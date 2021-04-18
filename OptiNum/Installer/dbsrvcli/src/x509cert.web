@@ -1,0 +1,666 @@
+@q x509cert.web  @>
+@q [...]/optinum/Installer/dbsrvcli/src/x509cert.web  @>
+
+@q Created by Laurence D. Finston (LDF) Tue Dec 22 09:49:19 CET 2009 @>
+
+@q * (1) Top @>
+
+@q * (1) Copyright and License.@>
+
+@q This file is part of the OptiNum Grid Installer @>
+@q Copyright (C) 2010, 2011, 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen @>
+
+@q The OptiNum Grid Installer is free software; you can redistribute it and/or modify @>
+@q it under the terms of the GNU General Public License as published by @>
+@q the Free Software Foundation; either version 3 of the License, or @>
+@q (at your option) any later version.  @>
+
+@q The OptiNum Grid Installer is distributed in the hope that it will be useful, @>
+@q but WITHOUT ANY WARRANTY; without even the implied warranty of @>
+@q MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the @>
+@q GNU General Public License for more details.  @>
+
+@q You should have received a copy of the GNU General Public License          @>
+@q along with the OptiNum Grid Installer; if not, write to the Free Software                    @>
+@q Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA @>
+
+@q ("@@" stands for a single at-sign in the following paragraph.) @>
+
+@q Please send bug reports to Laurence.Finston@@gwdg.de@>
+
+@q Laurence D. Finston                                                   @>
+@q Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen  @>
+@q Am Fassberg 11         					         @>
+@q 37077 Goettingen              					 @>
+@q Germany                           					 @>                                
+
+@q Laurence.Finston@@gwdg.de (@@ stands for a single "at" sign.)@>
+
+@q * (0) Types for X.509 Certificates (x509cert.web).  @>
+
+@*  Types for X\PERIOD 509 Certificates (x509cert\PERIOD web).
+
+@ Version control identifier.
+@<Version control identifier@>=
+static char version_control_id[] 
+   = "$Id: x509cert.web 8356 2012-05-25 08:01:31Z finston $";
+  
+@q ** (2) Include files  @>
+
+@ Include files.
+
+@<Include files@>=
+
+
+#include <unistd.h>
+#include <errno.h>
+#include <string.h>
+
+#include <stdio.h>
+#include <stdlib.h>
+
+#include <errno.h>
+#include <math.h>
+#include <string.h>
+#include <time.h>
+#include <unistd.h>
+
+#include <gcrypt.h> /* for |gcry_control| */
+#include <gnutls/gnutls.h>
+
+#include <iomanip>
+#include <ios>
+#include <iostream>
+#include <map>
+#include <fstream>
+#include <sstream>   
+#include <string>
+#include <set>
+#include <vector>
+#include <deque>
+
+#include <pthread.h>
+
+#if HAVE_CONFIG_H
+#include <config.h>
+#endif
+
+#if IS_ROCKS_GOEGRID
+#undef HAVE_LIBMYSQLCLIENT
+#endif 
+
+#if HAVE_LIBMYSQLCLIENT
+#include <mysql.h>
+#endif 
+
+#include "parser.h++"
+#include "scanner.h++"
+
+#include "x509cert.h++"
+#include "rspnstp.h++"
+#include "dstngnmt.h++"
+#include "entries.h++"
+#include "glsinftp.h++"
+#include "scprpmtp.h++"
+#include "glblvrbl.h++"
+#include "glblfncs.h++"
+
+#ifndef _XOPEN_SOURCE
+#define _XOPEN_SOURCE
+#endif 
+
+@q ** (2) |X509_Cert_Type| declaration.  @>
+
+@ {\bf X509\_Cert\_Type} declaration.
+\initials{LDF 2009.12.22.}
+
+\LOG
+\initials{LDF 2009.12.22.}
+Added this |struct| declaration.
+
+\initials{LDF 2009.12.28.}
+Now conditionally compiling this |struct| declaration.  This is necessary, because
+|struct X509_Cert_Type| must be known when \filename{scprpmtp.h++} is included.  
+This means that \filename{x509cert.h++} must be included before \filename{scprpmtp.h++}
+is and this |struct| declaration is compiled before this code is reached.  If this 
+code is then compiled, this causes an error because of the multiple declaration.  
+The forward declaration of |X509_Cert_Type| in \filename{glblvrbl.h++} does not suffice,
+because a |X509_Cert_Type| object is used in |Scan_Parse_Parameter_Type::get_database_username|.
+I don't like doing this in such a roundabout way, but I prefer it to putting the 
+function declarations in separate files.  I can't think of any better alternatives.
+
+\initials{LDF 2009.12.29.}
+Added |unsigned int user_id|.
+
+\initials{LDF 2012.02.09.}
+Changed |X509_Cert_Type| from a |struct| to a |class|.  Added |friend| declarations.
+All data members and member functions are |private|.
+@:TODO@> !! TODO:  Add functions for accessing data members and see if I can get rid 
+of some of the |friend| declarations.
+\ENDLOG
+
+@<|class X509_Cert_Type| declaration@>=
+#ifndef X509_CERT_TYPE_KNOWN
+#define X509_CERT_TYPE_KNOWN 1
+class X509_Cert_Type
+{
+
+   friend int verify_certificate_chain(gnutls_session_int*, const char*, 
+                                       const gnutls_datum_t*, int, gnutls_x509_crt_int**, 
+                                       int, X509_Cert_Type*, X509_Cert_Type*, 
+                                       Scan_Parse_Parameter_Type*);
+
+   friend int extract_dn_fields(gnutls_x509_crt_int*&, X509_Cert_Type*, bool, 
+                                Scan_Parse_Parameter_Type*);
+
+   friend void* connect_func(void*);
+
+   friend class Scan_Parse_Parameter_Type;
+
+   friend class Distinguished_Name_Type;
+
+   string organization;
+   string organizationalUnitName;
+   string commonName;
+   string countryName;
+
+   string localityName;
+   string stateOrProvinceName;
+ 
+   unsigned long int serialNumber;
+
+   time_t Validity_notBefore;
+   time_t Validity_notAfter;
+
+   X509_Cert_Type* issuer_cert;
+
+   string user_name;
+   unsigned int user_id;
+
+   @<|X509_Cert_Type| function declarations@>@;@/ 
+
+};
+#endif 
+
+@q ** (2) |X509_Cert_Type| functions.  @>
+@ {\bf X509\_Cert\_Type} functions.
+\initials{LDF 2009.12.22.}
+
+\LOG
+\initials{LDF 2009.12.22.}
+Added this section.
+\ENDLOG
+
+@q *** (3) Constructors and Setting Functions.  @>
+
+@ Constructors and Setting Functions.
+\initials{LDF 2009.12.22.}
+
+\LOG
+\initials{LDF 2009.12.22.}
+Added this section.
+\ENDLOG
+
+@q **** (4) Default constructor.  @>
+@ Default constructor.
+\initials{LDF 2009.12.22.}
+
+\LOG
+\initials{LDF 2009.12.22.}
+Added this function.
+\ENDLOG
+
+@q ***** (5) Declaration  @>
+
+@<|X509_Cert_Type| function declarations@>=
+
+X509_Cert_Type(void);
+
+@q ***** (5) Definition  @>
+@
+@<|X509_Cert_Type| function definitions@>=
+
+X509_Cert_Type::X509_Cert_Type(void)
+{
+
+     issuer_cert  =  0;
+
+     serialNumber =  0;
+
+     user_id      =  0;
+
+     user_name    = "";
+
+     Validity_notBefore = 0;
+
+     Validity_notAfter  = 0;
+
+     return;
+
+}  /* End of |X509_Cert_Type| default constructor definition  */
+
+
+@q **** (4) Constructor with arguments.  @>
+@ Constructor with arguments.
+\initials{LDF 2009.12.22.}
+
+\LOG
+\initials{LDF 2009.12.22.}
+Added this function.
+\ENDLOG
+
+@q ***** (5) Declaration  @>
+
+@<|X509_Cert_Type| function declarations@>=
+
+X509_Cert_Type(unsigned long int sserialNumber, 
+               X509_Cert_Type* iissuer_cert = 0,
+               string oorganization = "", 
+               string oorganizationalUnitName = "",
+               string ccommonName = "",
+               string ccountryName = "",
+               string llocalityName = "",
+               string sstateOrProvinceName = "",
+               unsigned int uuser_id = 0,
+               string uuser_name = "",
+               time_t VValidity_notBefore = 0,
+               time_t VValidity_notAfter  = 0);
+
+@q ***** (5) Definition  @>
+@
+@<|X509_Cert_Type| function definitions@>=
+
+X509_Cert_Type::X509_Cert_Type(unsigned long int sserialNumber, 
+                               X509_Cert_Type* iissuer_cert,
+                               string oorganization, 
+                               string oorganizationalUnitName,
+                               string ccommonName,
+                               string ccountryName,
+                               string llocalityName,
+                               string sstateOrProvinceName,
+                               unsigned int uuser_id,
+                               string uuser_name,
+                               time_t VValidity_notBefore,
+                               time_t VValidity_notAfter)
+
+
+   : serialNumber(sserialNumber), 
+     issuer_cert(iissuer_cert),
+     organization(oorganization),
+     organizationalUnitName(oorganizationalUnitName),
+     commonName(ccommonName),
+     countryName(ccountryName),
+     localityName(llocalityName),
+     stateOrProvinceName(sstateOrProvinceName),
+     user_id(uuser_id),
+     user_name(uuser_name),
+     Validity_notBefore(VValidity_notBefore),
+     Validity_notAfter(VValidity_notAfter)
+{
+
+     return;
+
+}  /* End of |X509_Cert_Type| non-default constructor definition  */
+
+@q **** (4) Setting function with arguments.  @>
+@ Setting function with arguments.
+\initials{LDF 2009.12.22.}
+
+\LOG
+\initials{LDF 2009.12.22.}
+Added this function.
+\ENDLOG
+
+@q ***** (5) Declaration  @>
+
+@<|X509_Cert_Type| function declarations@>=
+int
+set(unsigned long int sserialNumber, 
+    X509_Cert_Type*   iissuer_cert            =  0,
+    string            oorganization           = "", 
+    string            oorganizationalUnitName = "",
+    string            ccommonName             = "",
+    string            ccountryName            = "",
+    string            llocalityName           = "",  
+    string            sstateOrProvinceName    = "",
+    unsigned int      uuser_id                =  0,
+    string            uuser_name              = "",
+    time_t            VValidity_notBefore     =  0,
+    time_t            VValidity_notAfter      =  0);
+
+@q ***** (5) Definition  @>
+@
+@<|X509_Cert_Type| function definitions@>=
+int
+X509_Cert_Type::set(unsigned long int sserialNumber, 
+                    X509_Cert_Type*   iissuer_cert,
+                    string            oorganization, 
+                    string            oorganizationalUnitName,
+                    string            ccommonName,
+                    string            ccountryName,
+                    string            llocalityName,
+                    string            sstateOrProvinceName,
+                    unsigned int      uuser_id,
+                    string            uuser_name,
+                    time_t            VValidity_notBefore,
+                    time_t            VValidity_notAfter)
+{
+
+     serialNumber           = sserialNumber; 
+     issuer_cert            = iissuer_cert;
+     organization           = oorganization;
+     organizationalUnitName = oorganizationalUnitName;
+     commonName             = ccommonName;
+     countryName            = ccountryName;
+     localityName           = llocalityName;
+     stateOrProvinceName    = sstateOrProvinceName;
+     user_id                = uuser_id;
+     user_name              = uuser_name;
+     Validity_notBefore     = VValidity_notBefore;
+     Validity_notAfter      = VValidity_notAfter;
+
+
+     return 0;
+
+}  /* End of |X509_Cert_Type::set| definition  */
+
+@q *** (3) Show.  @>
+@ Show.
+\initials{LDF 2009.12.22.}
+
+\LOG
+\initials{LDF 2009.12.22.}
+Added this function.
+
+\initials{LDF 2009.12.29.}
+Added optional argument |bool show_issuer|.
+\ENDLOG
+
+@q *** (3) Declaration  @>
+
+@<|X509_Cert_Type| function declarations@>=
+void
+show(string s = "", Scan_Parse_Parameter_Type* param = 0, bool show_issuer = false);
+
+@q *** (3) Definition  @>
+@
+@<|X509_Cert_Type| function definitions@>=
+void
+X509_Cert_Type::show(string s, Scan_Parse_Parameter_Type* param, bool show_issuer)
+{
+
+@q **** (4) @>
+
+   if (param)
+      cerr << "[Thread " << param->thread_ctr << "]:  ";
+
+   if (s == "")
+      s = "X509_Cert_Type:";
+    
+    cerr << setfill('.')
+         << s 
+         << endl
+         << setw(34) << std::left 
+         << "     serialNumber:" << hex << serialNumber << " (hexadecimal)"
+         << dec 
+         << endl
+         << setw(34) << std::left
+         << "     organization:" << organization
+         << endl
+         << setw(34) << std::left
+         << "     organizationalUnitName:" << organizationalUnitName
+         << endl
+         << setw(34) << std::left
+         << "     commonName:" << commonName
+         << endl
+         << setw(34) << std::left
+         << "     countryName:" << countryName
+         << endl
+         << setw(34) << std::left
+         << "     localityName:" << localityName
+         << endl
+         << setw(34) << std::left
+         << "     stateOrProvinceName:" << stateOrProvinceName
+         << endl 
+         << setw(34) << std::left
+         << "     user_id:" << user_id
+         << endl
+         << setw(34) << std::left
+         << "     user_name:" << user_name
+         << dec
+         << endl;
+
+@q **** (4) @>
+
+     char outstr[200];
+     struct tm tmp;
+     struct tm* tmp_ptr = &tmp;
+
+@q ***** (5) @>
+
+     cerr << setw(34) << std::left
+          << "     Activation time:";
+
+     if (Validity_notBefore > 0) 
+        gmtime_r(&Validity_notBefore, tmp_ptr);     
+     else
+        tmp_ptr = 0;
+
+     if (!(   tmp_ptr == 0 
+           || strftime(outstr, sizeof(outstr), "%Y-%m-%d %H:%M:%S UTC", tmp_ptr) == 0)) 
+
+        cerr << outstr << endl;
+     else 
+         cerr << "Unknown" << endl;
+
+@q ***** (5) @>
+
+     cerr << setw(34) << std::left
+          << "     Expiration time:";
+
+     if (Validity_notAfter > 0) 
+        gmtime_r(&Validity_notAfter, tmp_ptr);     
+     else
+        tmp_ptr = 0;
+
+     if (!(   tmp_ptr == 0 
+           || strftime(outstr, sizeof(outstr), "%Y-%m-%d %H:%M:%S UTC", tmp_ptr) == 0)) 
+
+        cerr << outstr << endl;
+     else 
+         cerr << "Unknown" << endl;
+
+@q ***** (5) @>
+
+@q **** (4) @>
+
+    if (show_issuer)
+    {
+         if (issuer_cert)
+            issuer_cert->show("issuer:", param, false);
+         else
+            cerr << "`issuer' is null." << endl;
+
+    }  /* |if (show_issuer)|  */
+
+   cerr << setfill(' ');
+
+   return;
+
+}  /* End of |X509_Cert_Type::show| definition  */
+
+
+@q *** (3) Database functions.  @>
+@ Database functions.
+\initials{LDF 2009.12.22.}
+
+\LOG
+\initials{LDF 2009.12.22.}
+Added this section.
+\ENDLOG
+
+@q **** (4) Is in database.  @>
+@ Is in database.
+\initials{LDF 2009.12.22.}
+
+\LOG
+\initials{LDF 2009.12.22.}
+Added this function.
+\ENDLOG
+
+@q ***** (5) Declaration @>
+
+@<|X509_Cert_Type| function declarations@>=
+bool
+is_in_database(Scan_Parse_Parameter_Type* param = 0);
+
+
+@q ***** (5) Definition @>
+@
+@<|X509_Cert_Type| function definitions@>=
+bool
+X509_Cert_Type::is_in_database(Scan_Parse_Parameter_Type* param)
+{
+
+   return false;
+
+}  /* |X509_Cert_Type::is_in_database| definition   */
+
+
+@q **** (4) Insert.  @>
+@ Insert.
+\initials{LDF 2009.12.22.}
+
+\LOG
+\initials{LDF 2009.12.22.}
+Added this function.
+\ENDLOG
+
+@q ***** (5) Declaration @>
+
+@<|X509_Cert_Type| function declarations@>=
+int
+insert(Scan_Parse_Parameter_Type* param = 0);
+
+
+@q ***** (5) Definition @>
+@
+@<|X509_Cert_Type| function definitions@>=
+int
+X509_Cert_Type::insert(Scan_Parse_Parameter_Type* param)
+{
+
+   return 0;
+
+}  /* |X509_Cert_Type::insert| definition   */
+
+@q **** (4) Get database username.  @>
+@ Get database username.
+\initials{LDF 2009.12.22.}
+
+\LOG
+\initials{LDF 2009.12.22.}
+Added this function.
+\ENDLOG
+
+@q ***** (5) Declaration @>
+
+@<|X509_Cert_Type| function declarations@>=
+string
+get_database_username(Scan_Parse_Parameter_Type* param = 0);
+
+
+@q ***** (5) Definition @>
+@
+@<|X509_Cert_Type| function definitions@>=
+string
+X509_Cert_Type::get_database_username(Scan_Parse_Parameter_Type* param)
+{
+
+    return user_name;
+
+}  /* |X509_Cert_Type::get_database_username| definition   */
+
+@q ** (2) |Distinguished_Name_Type| functions   @>
+
+@ |Distinguished_Name_Type| functions.
+\initials{LDF 2010.04.23.}
+
+\LOG
+\initials{LDF 2010.04.23.}
+Added this section.
+\ENDLOG
+
+@q *** (3) Assignment from an |X509_Cert_Type|.  @>
+
+@ Assignment from an |X509_Cert_Type|.
+\initials{LDF 2010.04.23.}
+
+\LOG
+\initials{LDF 2010.04.23.}
+Added this function.
+\ENDLOG
+
+@<|Distinguished_Name_Type::operator=(const X509_Cert_Type&)| definition@>=
+
+void
+Distinguished_Name_Type::operator=(const X509_Cert_Type& cert)
+{
+
+     organization           = cert.organization;
+     organizationalUnitName = cert.organizationalUnitName;
+     commonName             = cert.commonName;
+     countryName            = cert.countryName;
+     localityName           = cert.localityName;
+     stateOrProvinceName    = cert.stateOrProvinceName;
+     user_id                = cert.user_id;
+     user_name              = cert.user_name;
+
+    return;
+
+}  /* End of |Distinguished_Name_Type::operator=(const x509_Cert_Type&)|
+      definition  */
+
+
+@q ** (2) Garbage.  @>
+@
+@<Garbage@>=
+
+@q ** (2) Putting Types for X.509 Certificates together.@>
+
+@ Putting Types for X\PERIOD 509 Certificates together.
+
+@c
+using namespace std;
+@<Include files@>@;@/
+@<Version control identifier@>@;@/
+@<|class X509_Cert_Type| declaration@>@;@/ 
+@<|X509_Cert_Type| function definitions@>@;@/ 
+@<|Distinguished_Name_Type::operator=(const X509_Cert_Type&)| definition@>@;@/
+
+#if 0 /* 1 */ 
+@<Garbage@>@;@/
+#endif 
+
+@
+@(x509cert.h@>=
+#ifndef X509CERT_H
+#define X509CERT_H 1
+struct Scan_Parse_Parameter_Type;
+@<|class X509_Cert_Type| declaration@>@;@/ 
+#endif 
+
+@q (progn (cweb-mode) (outline-minor-mode))   @>
+
+@q * (1) Local variables for Emacs @>
+
+@q * Local variables for Emacs.@>
+@q Local Variables: @>
+@q mode:CWEB @>
+@q eval:(display-time) @>
+@q abbrev-mode:t @>
+@q eval:(read-abbrev-file) @>
+@q indent-tabs-mode:nil @>
+@q eval:(outline-minor-mode) @>
+@q fill-column:80 @>
+@q End: @>

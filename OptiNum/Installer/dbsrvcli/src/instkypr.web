@@ -1,0 +1,646 @@
+@q instkypr.web  @>
+@q Created by Laurence D. Finston (LDF) Thu Nov 24 11:42:33 CET 2011 @>
+
+@q * (1) Top @>
+
+@q * (1) Copyright and License.@>
+
+@q This file is part of the OptiNum Grid Installer @>
+@q Copyright (C) 2010, 2011, 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen @>
+
+@q The OptiNum Grid Installer is free software; you can redistribute it and/or modify @>
+@q it under the terms of the GNU General Public License as published by @>
+@q the Free Software Foundation; either version 3 of the License, or @>
+@q (at your option) any later version.  @>
+
+@q The OptiNum Grid Installer is distributed in the hope that it will be useful, @>
+@q but WITHOUT ANY WARRANTY; without even the implied warranty of @>
+@q MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the @>
+@q GNU General Public License for more details.  @>
+
+@q You should have received a copy of the GNU General Public License          @>
+@q along with the OptiNum Grid Installer; if not, write to the Free Software                    @>
+@q Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA @>
+
+@q ("@@" stands for a single at-sign in the following paragraph.) @>
+
+@q Please send bug reports to Laurence.Finston@@gwdg.de@>
+
+@q Laurence D. Finston                                                   @>
+@q Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen  @>
+@q Am Fassberg 11         					         @>
+@q 37077 Goettingen              					 @>
+@q Germany                           					 @>                                
+
+@q Laurence.Finston@@gwdg.de (@@ stands for a single "at" sign.)@>
+
+@q ** (2)  Install key pair.  @>
+@* Install key pair.
+\initials{LDF 2011.11.24.}
+
+\LOG
+\initials{LDF 2011.11.24.}
+Added this file.
+\ENDLOG
+
+@q ** (2) Include files  @>
+
+@ Include files.
+
+@<Include files@>=
+#include <stdlib.h>  /* Standard Library for C  */
+#include <stdio.h>
+#include <errno.h>
+#include <unistd.h>
+
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <fcntl.h>
+
+#include <string.h>
+
+#if 0 
+#include <signal.h>
+#endif 
+
+#include <algorithm> /* Standard Template Library (STL) for C++  */
+#include <fstream> 
+#include <iomanip>
+#include <ios>
+#include <iostream>
+
+#include <string>
+#include <time.h>
+#include <math.h>
+#include <sstream>  
+
+#if 0 
+#include <deque>
+#include <map>
+#include <vector>
+#include <set>
+#endif 
+
+#if 0 
+#include <pthread.h>  /* POSIX threads  */
+
+#include <gcrypt.h> /* for |gcry_control| */
+#include <gnutls/gnutls.h>
+
+#endif 
+
+#if HAVE_CONFIG_H
+#include <config.h>
+#endif 
+
+#if IS_ROCKS_GOEGRID
+#undef HAVE_LIBMYSQLCLIENT
+#endif 
+
+@q ** (2) Global constants and variables.  @>
+@ Global constants and variables.
+\initials{LDF 2011.11.24.}
+
+\LOG
+\initials{LDF 2011.11.24.}
+Added this section.
+
+\initials{LDF 2012.02.23.}
+Made |MAX_BUFFER| |const|.
+\ENDLOG
+
+@<Global constants and variables@>=
+
+const unsigned int MAX_BUFFER = 65536;  /* $2^{16}$  */
+
+@q ** (2) |main| for `instkypr'.  @>
+@ {\bf main} for \.{instkypr}.
+\initials{LDF 2011.11.24.}
+
+\LOG
+\initials{LDF 2011.11.24.}
+Added this function.
+\ENDLOG
+
+@<instkypr |main| definition@>=
+int
+main(int argc, char *argv[])
+{
+@q **** (4) @>
+
+   bool DEBUG = false;  /* |true|  */
+
+   int status;
+ 
+   if (DEBUG) 
+   {
+       cerr << "Entering `instkypr'." << endl;
+
+       cerr << "argv[1] == " << argv[1] << endl;
+
+
+   } /* |if (DEBUG)|  */
+
+
+   if (argc < 2)
+   {
+      cerr << "ERROR!  In `main' (`instkypr'):  Not enough arguments:  "
+           << (argc - 1) << ".  One argument is required."
+           << endl
+           << "Exiting `instkypr' unsuccessfully with exit status 1."
+           << endl;
+
+      exit(1);
+
+   }
+
+   string globus_site = argv[1];  
+
+@q **** (4) @>
+@
+@<instkypr |main| definition@>=
+
+   char buffer[MAX_BUFFER];
+   memset(buffer, 0, MAX_BUFFER);
+
+   char *buffer_ptr;
+
+   buffer_ptr = getenv("USER");
+
+   if (buffer_ptr && strlen(buffer_ptr))
+   {
+       if (DEBUG) 
+       {
+          cerr << "USER == " << getenv("USER") << endl;
+       }
+   }
+
+   else 
+   {
+      cerr << "ERROR!  In `main' (`instkypr'):  Environment variable `USER' not set!" 
+           << endl
+           << "Exiting `instkypr' unsuccessfully with exit status 1."
+           << endl;
+
+      exit(1);
+            
+   }  /* |else|  */
+
+   string curr_user = buffer_ptr;
+
+@q **** (4) @>
+@
+@<instkypr |main| definition@>=
+
+   buffer_ptr = getenv("SUDO_USER");
+
+   if (buffer_ptr && strlen(buffer_ptr))
+   {
+       if (DEBUG) 
+       {
+          cerr << "SUDO_USER == " << getenv("SUDO_USER") << endl;
+       }
+   }
+
+   else 
+   {
+      cerr << "ERROR!  In `main' (`instkypr'):  Environment variable `SUDO_USER' not set!" 
+           << endl
+           << "Exiting `instkypr' unsuccessfully with exit status 1."
+           << endl;
+
+      exit(1);
+            
+   }  /* |else|  */
+
+@q **** (4) @>
+@
+@<instkypr |main| definition@>=
+
+   status = 0;
+   
+   char c;
+
+   memset(buffer, 0, MAX_BUFFER);   
+
+   for(int i = 0;;)
+   {
+       c = getchar();
+       if (c == EOF)
+          break;
+       else
+       {
+          buffer[i++] = c;
+#if 0           
+          cerr << c; 
+#endif 
+           
+       }
+   }
+#if 0 
+   cerr << endl;
+#endif 
+
+   char *c_ptr = strchr(buffer, '\n');
+
+   char dn[512];
+   memset(dn, 0, 512);
+
+   if (c_ptr == 0)
+   {
+      cerr << "ERROR!  In `main' (`instkypr'):  Newline not found in `buffer'.  "
+           << "Can't extract Distinguished Name."
+           << endl 
+           << "Exiting `instkypr' unsuccessfully with exit status 1."
+           << endl;
+
+      exit(1);
+
+   }
+
+   size_t s = strcspn(buffer, "\n");
+
+   if (s >= 512)
+   {
+      cerr << "ERROR!  In `main' (`instkypr'):  Newline found in `buffer' at "
+           << "position " << s << "(> 512).  Can't extract Distinguished Name."
+           << endl 
+           << "Exiting `instkypr' unsuccessfully with exit status 1."
+           << endl;
+
+      exit(1);
+
+   }  /* |if (s >= 512)|  */
+
+   else if (DEBUG)
+       cerr << "s == " << s << endl;
+
+   strncpy(dn, buffer, s);
+
+   if (DEBUG) 
+      cerr << "dn == `" << dn << "'" << endl;
+ 
+   buffer_ptr = buffer + s;
+
+   if (buffer_ptr[0] == '\n')
+      ++buffer_ptr;
+
+   if (DEBUG) 
+      cerr << "buffer_ptr == " << buffer_ptr << endl;
+
+
+@q **** (4) Create temporary files for RSL code and temporary file.  @>
+
+@ Create temporary files for RSL code and temporary file.
+\initials{LDF 2011.11.24.}
+\initials{LDF 2011.12.07.}
+
+@<instkypr |main| definition@>=
+
+   char rsl_filename[] = "/tmp/MMXXXXXX";
+
+   char temp_filename[] = "/tmp/LLXXXXXX";
+
+   int fd[2];
+
+   fd[0] = mkstemp(temp_filename);
+
+   fd[1] = mkstemp(rsl_filename);
+
+   if (fd[0] == -1 || fd[1] == -1)
+   {
+        cerr << "ERROR!  In `main' (`instkypr'):  `mkstemp' failed, "
+             << "returning -1:" << endl;
+
+        perror("mkstemp error");
+
+        cerr << "Exiting `instkypr' unsuccessfully with exit status 1."
+             << endl;
+
+        close(fd[0]);
+        close(fd[1]);
+
+        exit(1);
+            
+   }  /* |if|  */
+
+   else if (DEBUG)
+   {
+        cerr << "In `main' (`instkypr'):  `mkstemp' succeeded."
+             << endl
+             << "Created files `" << temp_filename << "' and "
+             << "`" << rsl_filename << "'."
+             << endl;
+
+
+   }  /* |else if (DEBUG)|  */ 
+
+@q **** (4) Write key pair to temporary file.  @>
+
+@ Write key pair to temporary file.  
+\initials{LDF 2011.11.24.}
+
+@<instkypr |main| definition@>=
+
+
+   status = write(fd[0], buffer_ptr, strlen(buffer_ptr));
+
+   if (DEBUG) 
+      cerr << "status == " << status << endl;
+
+   close(fd[0]);
+
+@q **** (4) Create RSL file for grid job.  @>
+
+@ Create RSL file for grid job. 
+\initials{LDF 2011.11.24.}
+\initials{LDF 2011.12.07.}
+
+Pass the Distinguished Name (|dn|) and the filename of the 
+file containing the keypair to the grid job script or program.  
+Use ``stage-in'' to make the file available to the program 
+executed on the cluster front end.  
+\initials{LDF 2011.11.24.}
+\initials{LDF 2011.12.07.}
+
+@<instkypr |main| definition@>=   
+
+   stringstream system_strm;
+
+   stringstream temp_strm;
+
+   char *temp_filename_no_dir;
+   temp_filename_no_dir = temp_filename;
+   temp_filename_no_dir += 5;
+
+   unsigned short debug_kyrprinst_sh = DEBUG;  /* 0 1 */
+
+   temp_strm << "<job>" 
+             << endl  
+             << "<executable>kyprinst.sh</executable>" 
+             << endl
+             << "<directory>${GLOBUS_USER_HOME}</directory>" 
+             << endl
+             << "<argument>" << dn << "</argument>"  
+             << endl
+             << "<argument>" << temp_filename_no_dir << "</argument>" 
+             << endl
+             << "<argument>" << debug_kyrprinst_sh
+             << "</argument>" 
+             << endl
+#if 0 
+             << "<stdout>kyprinst." << curr_user << ".out</stdout>" 
+             << endl
+             << "<stderr>kyprinst." << curr_user << ".err</stderr>" 
+             << endl
+#endif 
+             << "<fileStageIn>" 
+             << endl 
+             << "<transfer>"
+             << endl 
+             << "<sourceUrl>gsiftp://optinum-srv.gwdg.de:2811"
+             << "/opt/optinum/dbsrvcli/bin/kyprinst.sh</sourceUrl>"
+             << endl 
+             << "<destinationUrl>file:///${GLOBUS_USER_HOME}/kyprinst.sh"
+             << endl
+             << "</destinationUrl>"
+             << endl
+             << "</transfer>"
+             << endl
+             << "<transfer>" 
+             << endl
+             << "<sourceUrl>gsiftp://optinum-srv.gwdg.de:2811" << temp_filename 
+             << "</sourceUrl>" 
+             << endl
+             << "<destinationUrl>file:///${GLOBUS_USER_HOME}/" 
+             << temp_filename_no_dir   
+             << "</destinationUrl>" 
+             << endl
+             << "</transfer>" 
+             << endl
+             << "</fileStageIn>" 
+             << endl
+#if 0 
+             << "<fileStageOut>" 
+             << endl
+             << "<transfer>" 
+             << endl
+             << "<sourceUrl>file:///${GLOBUS_USER_HOME}/kyprinst." << curr_user 
+             << ".out</sourceUrl>" 
+             << endl
+             << " <destinationUrl>gsiftp://optinum-srv.gwdg.de:2811"
+             << "/tmp/kyprinst." << curr_user << ".out</destinationUrl>" 
+             << endl
+             << "</transfer>" 
+             << endl
+             << "<transfer>" 
+             << endl
+             << "<sourceUrl>file:///${GLOBUS_USER_HOME}/kyprinst." << curr_user
+             << ".err</sourceUrl>" 
+             << endl
+             << "<destinationUrl>gsiftp://optinum-srv.gwdg.de:2811/tmp/kyprinst." 
+             << curr_user << ".err"
+             << "</destinationUrl>" 
+             << endl
+             << "</transfer>" 
+             << endl
+             << "</fileStageOut>" 
+             << endl
+#endif 
+             << "<fileCleanUp>" 
+             << endl
+             << "<deletion>" 
+             << endl
+             << "<file>file:///${GLOBUS_USER_HOME}/kyprinst.sh</file>" 
+             << endl
+             << "</deletion>" 
+             << endl
+             << "<deletion>" 
+             << endl
+             << "<file>file:///${GLOBUS_USER_HOME}/kyprinst." << curr_user << ".out</file>" 
+             << endl
+             << "</deletion>" 
+             << endl
+             << "<deletion>" 
+             << endl
+             << "<file>file:///${GLOBUS_USER_HOME}/kyprinst." << curr_user << ".err</file>" 
+             << endl
+             << "</deletion>" 
+             << endl
+             << "</fileCleanUp>" 
+             << endl
+             << "</job>" 
+             << endl;
+
+
+   if (DEBUG)
+   {
+      cerr << "In `main' (`instkypr'):  `temp_strm.str()' == " << endl  
+           << temp_strm.str() << endl;
+
+   }  /* |if (DEBUG)|  */ 
+
+   status = write(fd[1], temp_strm.str().c_str(), temp_strm.str().size());
+
+   if (DEBUG)
+      cerr << "`write' wrote " << status << " characters to `" << rsl_filename << "'."
+           << endl;
+
+   close(fd[1]);
+
+
+@q **** (4) Start Grid-Job.  @>
+
+@ Start Grid-Job.  
+\initials{LDF 2011.11.24.}
+
+Pass the Distinguished Name (|dn|) and the filename of the 
+file containing the keypair to the grid job script or program.  
+Use ``stage-in'' to make the file available to the program 
+executed on the cluster front end.  
+@:??@> ?? Find out how this works.
+\initials{LDF 2011.11.24.}
+
+@<instkypr |main| definition@>=   
+
+#if IS_PCFINSTON_GWDG
+
+   system_strm << "/home/lfinsto/opt_rep/optinum/Installer/dbsrvcli/src/kyprinst.sh " 
+               << "'" << dn << "' '" << temp_filename << "' " 
+               << static_cast<int>(DEBUG);
+
+#elif IS_OPTINUM_SRV  
+
+   /* !! TODO:  LDF 2011.12.08.  Maybe write output to files.  */
+
+   system_strm << "globusrun-ws -submit -streaming -factory " << globus_site 
+               << " -job-description-file " 
+               << rsl_filename;
+
+#else
+
+    cerr << "ERROR!  In `main' (`instkypr'):  Not `pcfinston.gwdg.de' or `optinum-srv.gwdg.de'."
+         << endl 
+         << "Can't invoke `kyprinst.sh'."
+         << endl
+         << "Exiting `instkypr' unsuccessfully with exit status 1."
+         << endl;
+
+    exit(1);
+
+#endif 
+
+
+   if (DEBUG)
+   {
+       cerr << "`system_strm.str()' == " << system_strm.str() << endl;
+
+   }  /* |if (DEBUG)|  */ 
+  
+@q **** (4)  @>
+
+@  
+\initials{LDF 2011.12.07.}
+
+@<instkypr |main| definition@>=   
+
+   status = system(system_strm.str().c_str());
+
+   if (status == -1 || !WIFEXITED(status))
+   {
+       cerr << "WARNING!  In `main' (`instkypr'):  "
+            << "`system' failed, returning " << status << "."
+            << endl;
+       if (WIFEXITED(status))
+          cerr << "WEXITSTATUS(status) == " << WEXITSTATUS(status) 
+               << endl;
+       else
+          cerr << "Process failed to exit."
+               << endl;
+ 
+       cerr << "Exiting `instkypr' unsuccessfully with exit status 1."
+            << endl;
+
+       if (DEBUG == false)
+       {
+           unlink(temp_filename);  
+           unlink(rsl_filename);  
+
+       }
+
+       exit(1);
+
+   }   /* |(status != 0)|  */
+
+   else if (DEBUG)
+   {
+
+       cerr << "`system' succeeded `WEXITSTATUS(status)' ==  " 
+            << WEXITSTATUS(status) << "." << endl;
+    
+   }  /* |if (DEBUG)|  */ 
+
+   int return_val = WEXITSTATUS(status);
+
+@q **** (4) @>
+@
+@<instkypr |main| definition@>=
+
+   if (DEBUG == false)
+   {
+       unlink(temp_filename);  
+       unlink(rsl_filename);  
+   }
+
+
+   if (DEBUG)
+   {
+       cerr << "Exiting `instkypr' successfully with exit status " 
+            << return_val << "."
+            << endl;
+
+   }  /* |if (DEBUG)|  */ 
+ 
+   exit(return_val); 
+
+}  /* End of |main| definition for \.{instkypr}.  */
+
+@q **** (4) @>
+@
+@<Garbage@>=
+
+@q **** (4) @>
+
+@q *** (3) Putting `instkypr.web' together.  @>
+
+@ Putting {\tt instkypr\PERIOD web} together.
+
+@q **** (4) This is what's compiled.  @>
+@ This is what's compiled.
+@c
+@<Include files@>@;@/
+using namespace std;
+@<Global constants and variables@>@;@/
+@<instkypr |main| definition@>@;@/
+
+#if 0 
+@<Garbage@>@;@/
+#endif 
+
+@q * (1) Emacs-Lisp code for use in indirect buffers  @>
+
+@q (progn (cweb-mode) (outline-minor-mode))                          @>
+
+@q * (1) Local variables for Emacs @>
+
+@q * Local variables for Emacs.@>
+@q Local Variables: @>
+@q mode:CWEB @>
+@q eval:(display-time) @>
+@q abbrev-mode:t @>
+@q eval:(read-abbrev-file) @>
+@q indent-tabs-mode:nil @>
+@q eval:(outline-minor-mode) @>
+@q fill-column:80 @>
+@q End: @>
+

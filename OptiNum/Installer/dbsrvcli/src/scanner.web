@@ -1,0 +1,3358 @@
+@q scanner.web                                              @>
+@q Created by Laurence Finston Fr Jul  4 10:24:52 CEST 2008 @>
+
+@q * (1) Top @>
+
+@q * (1) Copyright and License.@>
+
+@q This file is part of the OptiNum Grid Installer @>
+@q Copyright (C) 2010, 2011, 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen @>
+
+@q The OptiNum Grid Installer is free software; you can redistribute it and/or modify @>
+@q it under the terms of the GNU General Public License as published by @>
+@q the Free Software Foundation; either version 3 of the License, or @>
+@q (at your option) any later version.  @>
+
+@q The OptiNum Grid Installer is distributed in the hope that it will be useful, @>
+@q but WITHOUT ANY WARRANTY; without even the implied warranty of @>
+@q MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the @>
+@q GNU General Public License for more details.  @>
+
+@q You should have received a copy of the GNU General Public License          @>
+@q along with the OptiNum Grid Installer; if not, write to the Free Software                    @>
+@q Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA @>
+
+@q ("@@" stands for a single at-sign in the following paragraph.) @>
+
+@q Please send bug reports to Laurence.Finston@@gwdg.de@>
+
+@q Laurence D. Finston                                                   @>
+@q Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen  @>
+@q Am Fassberg 11         					         @>
+@q 37077 Goettingen              					 @>
+@q Germany                           					 @>                                
+
+@q Laurence.Finston@@gwdg.de (@@ stands for a single "at" sign.)@>
+
+@q  * (1) Scanner.  @>
+@* Server Scanner.
+\initials{LDF Undated.}
+
+\LOG
+\initials{LDF 2010.09.01.}
+Made it possible to use all uppercase or all lowercase letters for some keywords.
+However, I couldn't use the\.{(?:)} syntax, because flex 2.5.31 
+is installed on \.{optinum-srv.gwdg.de}.  I have flex 2.5.35 on \.{pcfinston.gwdg.de}.
+\ENDLOG 
+
+@ Version control identifier.
+
+@<Version control identifier@>=
+static char version_control_id[] 
+   = "$Id: scanner.web 8346 2012-05-24 14:16:28Z finston $";
+
+@
+@<Include files@>=
+
+#include <stdlib.h>
+#include <stdio.h>
+
+#include <fstream>
+#include <iomanip>
+#include <ios>
+#include <iostream>
+#include <map>
+#include <string>
+#include <time.h>
+#include <math.h>
+
+#include <sstream>   
+
+#include <set>
+#include <vector>
+#include <deque>
+
+#include <gcrypt.h> /* for |gcry_control| */
+#include <gnutls/gnutls.h>
+
+#include <pthread.h>
+
+#if HAVE_CONFIG_H
+#include <config.h>
+#endif
+
+#if IS_ROCKS_GOEGRID
+#undef HAVE_LIBMYSQLCLIENT
+#endif 
+
+#if HAVE_LIBMYSQLCLIENT
+#include <mysql.h>
+#endif 
+
+#include "entries.h++"
+#include "dstngnmt.h++"
+#include "glblvrbl.h++"
+#include "glblfncs.h++"
+#include "parser.h++"
+#include "rspnstp.h++"
+#include "glsinftp.h++"
+#include "scprpmtp.h++"
+#include "utilfncs.h++"
+
+@q ** (2) Define |YY_INPUT|.  @>
+@ Define {\tt YY\_INPUT}.  
+\initials{LDF 2008.09.08.}
+
+\LOG
+\initials{LDF 2008.09.08.}
+Added this macro definition.  It's needed if the function |open_or_terminate| 
+is used.  |open_or_terminate| is defined in \filename{procfncs.web}.
+
+\initials{LDF 2010.03.05.}
+Commented-out this macro definition.
+\ENDLOG
+
+@<Define |YY_INPUT|@>=
+
+#if 0 
+
+#define YY_INPUT(buf,result,max_size) \
+    { \
+    signed char c = (signed char) fgetc(yyin); \
+    result = (c == EOF) ? YY_NULL : (buf[0] = c, 1); \
+    }
+
+#endif 
+
+@q  ** (2) Start conditions.  @>
+@ Start conditions.
+
+@<Start conditions@>=
+
+@q  ** (2) Options.  @>
+@ Options.
+
+@<Options@>=
+@=%option header-file="scanner.h++"@>
+@=%option bison-bridge@>
+@=%option reentrant@>
+
+@q ** (2) Name definitions.  @>
+@ Name definitions.  
+@<Name definitions@>=
+
+
+@q  * (1) Local variables for |yylex|.  @>
+@ Local variables for {\bf yylex}.
+\initials{LDF Undated.}
+
+|scanner_trace| is |false| per default.  It can be set to |true| using the (synonymous)
+command-line options \.{flex-trace} and \.{scanner\_trace}.
+\initials{LDF 2012.05.15.}
+
+\LOG
+\initials{LDF 2012.05.15.}
+Now setting |SCANNER_DEBUG = scanner_trace|.
+\ENDLOG 
+
+@<Local variables for |yylex|@>=
+
+bool SCANNER_DEBUG = scanner_trace;  
+                            
+@q ** (2) Code to be executed each time |yylex| is entered.  @>
+
+@ Code to be executed each time {\bf yylex} is entered.
+This code must be indented or it causes an error when FLEX 
+is run.  LDF 2008.07.04.
+
+@q *** (3) Set start condition on entry to |yylex|.@> 
+@ Set start condition on entry to {\bf yylex}. 
+\initials{LDF 2008.07.04.}
+
+@<Execute on entry to |yylex|@>=
+
+@= Scan_Parse_Parameter_Type* param = static_cast<Scan_Parse_Parameter_Type*>(yyextra);@>@/
+
+@= set_debug_level(SCANNER_DEBUG);@>@/
+
+@q  ** (2) Rules.  @>
+@ Rules.
+
+@q *** (3) Punctuation.  @>
+
+@ Punctuation.
+
+@q *** (3) Whitespace.  @>
+@ Whitespace.
+
+@<Rules@>=
+@=[[:space:]\x0d]+ {@>
+#if 0 
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  Whitespace." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+#endif 
+
+@=}@>
+
+
+@q *** (3) Delimited whitespace 1 (<>).  @>
+@ Delimited whitespace 1 ($\langle\rangle$).
+\initials{LDF 2010.02.03.}
+
+\LOG
+\initials{LDF 2010.02.03.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=\<[[:space:]]*\> {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  Delimited whitespace 1 (<>)." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   /* Ignore  */
+
+@=}@>
+
+@q *** (3) Delimited whitespace 2 ("").  @>
+@ Delimited whitespace 2 (\.{""}).
+\initials{LDF 2010.02.04.}
+
+\LOG
+\initials{LDF 2010.02.04.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=\"[[:space:]]*\" {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  Delimited whitespace 2 (\"\")." 
+           << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   /* Ignore  */
+
+@=}@>
+
+@q *** (3) Semi-colon.  @>
+@ Semi-colon.  
+\initials{LDF 2011.12.25.}
+
+\LOG
+\initials{LDF 2011.12.25.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=; {@>  
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  Semi-colon" 
+           << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return SEMI_COLON_YY;
+
+@=}@>
+
+@q *** (3) Slash.  @>
+@ Slash.  
+\initials{LDF 2011.12.25.}
+
+\LOG
+\initials{LDF 2011.12.25.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@="/" {@>  
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  Slash (/)." 
+           << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+   return SLASH_YY;
+
+@=}@>
+
+
+
+@q *** (3) Control characters converted to plain text.  @>
+@ Control characters converted to plain text.
+\initials{LDF 2010.09.29.}
+
+\LOG
+\initials{LDF 2010.09.29.}
+@:BUG FIX@> BUG FIX: Added this rule.  This was necessary, because the web
+application \.{optwbsrv} adds ``Control-M'' (ASCII returns, decimal 13)
+characters to the input passed to \.{optdbcli}.  This input is first stored in a
+file, then \.{cat} is used to pass it to \.{optdbcli} between other commands via
+a pipe.  However, for some reason, the ``Control-M'' characters cause \.{cat} to 
+not output the rest of the file, unless the \.{-v} ($=$ \.{`--show-nonprinting'})
+option is used.  This option causes the ``Control-M'' characters to be displayed as 
+\.{\char`\^M}, so it's necessary to catch this pair of characters here.
+\ENDLOG
+
+@<Rules@>=
+@=\^[MT] {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  Control character converted to plain text (\"\")." 
+           << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   /* Ignore  */
+
+@=}@>
+
+
+
+
+@q *** (3) Comments.  @>
+@ Comments.  
+
+\LOG
+\initials{LDF 2008.07.14.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=#.*$ {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  Comment." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+
+@=}@>
+
+@q *** (3) ADD.  @>
+@ ADD.
+\initials{LDF 2010.03.15.}
+
+\LOG
+\initials{LDF 2010.03.15.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=ADD|add {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  ADD." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return ADD_YY;
+
+@=}@>
+
+@q *** (3) DELETE.  @>
+@ DELETE.
+\initials{LDF 2010.09.03.}
+
+\LOG
+\initials{LDF 2010.09.03.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=DELETE|delete {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  DELETE." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return DELETE_YY;
+
+@=}@>
+
+
+@q *** (3) DELETED.  @>
+@ DELETED.
+\initials{LDF 2012.01.12.}
+
+\LOG
+\initials{LDF 2012.01.12.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=DELETED|deleted {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  DELETED." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return DELETED_YY;
+
+@=}@>
+
+@q *** (3) UNDELETE.  @>
+@ UNDELETE.
+\initials{LDF 2012.01.12.}
+
+\LOG
+\initials{LDF 2012.01.12.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=UNDELETE|undelete {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  UNDELETE." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return UNDELETE_YY;
+
+@=}@>
+
+@q *** (3) REPLACE.  @>
+@ REPLACE.
+\initials{LDF 2012.04.12.}
+
+\LOG
+\initials{LDF 2012.04.12.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=REPLACE|replace {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  REPLACE." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return REPLACE_YY;
+
+@=}@>
+
+@q *** (3) EDIT.  @>
+@ EDIT.
+\initials{LDF 2012.05.03.}
+
+\LOG
+\initials{LDF 2012.05.03.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=EDIT|edit {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  EDIT." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return EDIT_YY;
+
+@=}@>
+
+@q *** (3) MARK.  @>
+@ MARK.
+\initials{LDF 2012.01.12.}
+
+\LOG
+\initials{LDF 2012.01.12.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=MARK|mark {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  MARK." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return MARK_YY;
+
+@=}@>
+
+@q *** (3) AS.  @>
+@ AS.
+\initials{LDF 2012.01.12.}
+
+\LOG
+\initials{LDF 2012.01.12.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=AS|as {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  AS." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return AS_YY;
+
+@=}@>
+
+@q *** (3) FINALLY.  @>
+@ FINALLY.
+\initials{LDF 2012.01.12.}
+
+\LOG
+\initials{LDF 2012.01.12.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=FINALLY|finally {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  FINALLY." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return FINALLY_YY;
+
+@=}@>
+
+@q *** (3) ENTRY.  @>
+@ ENTRY.
+\initials{LDF 2010.01.15.}
+
+\LOG
+\initials{LDF 2010.01.15.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=ENTRY|entry {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  ENTRY." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return ENTRY_YY;
+
+@=}@>
+
+
+
+@q *** (3) START_ENTRY.  @>
+@ START\_ENTRY.
+
+@<Rules@>=
+@=START_ENTRY {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  START_ENTRY." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return START_ENTRY_YY;
+
+@=}@>
+
+
+@q *** (3) END_ENTRY.  @>
+@ END\_ENTRY.
+
+@<Rules@>=
+@=END_ENTRY {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  END_ENTRY." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return END_ENTRY_YY;
+
+@=}@>
+
+@q *** (3) END.  @>
+@ END.
+
+@<Rules@>=
+@=END|end {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  END." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return END_YY;
+
+@=}@>
+
+@q *** (3) PACKAGE_NAME.  @>
+@ PACKAGE\_NAME.
+\initials{LDF 2009.10.05.}
+
+\LOG
+\initials{LDF 2009.10.05.}
+Added this rule.
+
+\initials{LDF 2010.09.23.}
+Made it possible to use all uppercase or all lowercase letters.
+\ENDLOG
+
+@<Rules@>=
+@=PACKAGE_NAME|package_name {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  PACKAGE_NAME." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return PACKAGE_NAME_YY;
+
+@=}@>
+
+@q *** (3) PACKAGE_VERSION.  @>
+@ PACKAGE\_VERSION.
+\initials{LDF 2009.10.05.}
+
+\LOG
+\initials{LDF 2009.10.05.}
+Added this rule.
+
+\initials{LDF 2010.09.23.}
+Made it possible to use all uppercase or all lowercase letters.
+\ENDLOG
+
+@<Rules@>=
+@=PACKAGE_VERSION|package_version {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  PACKAGE_VERSION." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return PACKAGE_VERSION_YY;
+
+@=}@>
+
+@q *** (3) DOWNLOAD_INFO.  @>
+@ DOWNLOAD\_INFO.
+\initials{LDF 2010.03.26.}
+
+\LOG
+\initials{LDF 2010.03.26.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=DOWNLOAD_INFO|download_info {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  DOWNLOAD_INFO." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return DOWNLOAD_INFO_YY;
+
+@=}@>
+
+@q *** (3) DOWNLOAD_URL.  @>
+@ DOWNLOAD\_URL.
+\initials{LDF 2009.10.05.}
+
+\LOG
+\initials{LDF 2009.10.05.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=DOWNLOAD_URL|download_url {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  DOWNLOAD_URL." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return DOWNLOAD_URL_YY;
+
+@=}@>
+
+@q *** (3) DOWNLOAD_URL_ENCRYPTED.  @>
+@ DOWNLOAD\_URL\_ENCRYPTED.
+\initials{LDF 2011.04.20.}
+
+\LOG
+\initials{LDF 2011.04.20.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=DOWNLOAD_URL_ENCRYPTED|download_url_encrypted {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  DOWNLOAD_URL_ENCRYPTED." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return DOWNLOAD_URL_ENCRYPTED_YY;
+
+@=}@>
+
+@q *** (3) DOWNLOAD_COMMAND.  @>
+@ DOWNLOAD\_COMMAND.
+\initials{LDF 2010.03.26.}
+
+\LOG
+\initials{LDF 2010.03.26.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=DOWNLOAD_COMMAND|download_command {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  DOWNLOAD_COMMAND." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return DOWNLOAD_COMMAND_YY;
+
+@=}@>
+
+@q *** (3) DOWNLOAD_COMMAND_ENCRYPTED.  @>
+@ DOWNLOAD\_COMMAND\_ENCRYPTED.
+\initials{LDF 2011.04.20.}
+
+\LOG
+\initials{LDF 2011.04.20.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=DOWNLOAD_COMMAND_ENCRYPTED|download_command_encrypted {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  DOWNLOAD_COMMAND_ENCRYPTED." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return DOWNLOAD_COMMAND_ENCRYPTED_YY;
+
+@=}@>
+
+
+@q *** (3) AUTHORIZATION.  @>
+@ AUTHORIZATION.
+\initials{LDF 2011.05.06.}
+
+\LOG
+\initials{LDF 2011.05.06.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=AUTHORIZATION|authorization {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  AUTHORIZATION." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return AUTHORIZATION_YY;
+
+@=}@>
+
+@q *** (3) PREREQUISITE.  @>
+@ PREREQUISITE.
+\initials{LDF 2009.10.07.}
+
+\LOG
+\initials{LDF 2009.10.07.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=PREREQUISITE|prerequisite {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  PREREQUISITE." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return PREREQUISITE_YY;
+
+@=}@>
+
+@q *** (3) PREREQUISITES.  @>
+@ PREREQUISITES.
+\initials{LDF 2010.03.04.}
+
+\LOG
+\initials{LDF 2010.03.04.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=PREREQUISITES|prerequisites {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  PREREQUISITES." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return PREREQUISITES_YY;
+
+@=}@>
+
+@q *** (3) INSTALLATION_SCRIPT (or SCRIPT).  @>
+@ \.{INSTALLATION\_SCRIPT}  (or SCRIPT).
+\initials{LDF 2009.12.14.}
+
+\LOG
+\initials{LDF 2009.12.14.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=INSTALLATION_SCRIPT|SCRIPT|installation_script|script {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  INSTALLATION_SCRIPT." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return INSTALLATION_SCRIPT_YY;
+
+@=}@>
+
+@q *** (3) INSTALLATION_SCRIPT_ENCRYPTED.  @>
+@ \.{INSTALLATION\_SCRIPT\_ENCRYPTED}.
+\initials{LDF 2011.04.20.}
+
+\LOG
+\initials{LDF 2011.04.20.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=INSTALLATION_SCRIPT_ENCRYPTED|installation_script_encrypted {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  INSTALLATION_SCRIPT_ENCRYPTED." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return INSTALLATION_SCRIPT_ENCRYPTED_YY;
+
+@=}@>
+
+
+@q *** (3) FETCH.  @>
+@ \.{FETCH}.
+\initials{LDF 2010.01.15.}
+
+\LOG
+\initials{LDF 2010.01.15.}
+Added this rule.
+
+\initials{LDF 2011.11.14.}
+Changed this rule.  No longer using |"GET"| as synonym for |"FETCH"|.  Added 
+|"fetch"| to regular expression.
+\ENDLOG
+
+@<Rules@>=
+@=FETCH|fetch {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  FETCH." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return FETCH_YY;
+
+@=}@>
+
+@q *** (3) GET.  @>
+@ \.{GET}.
+\initials{LDF 2011.11.14.}
+
+\LOG
+\initials{LDF 2011.11.14.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=GET|get {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  GET." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return GET_YY;
+
+@=}@>
+
+
+@q *** (3) FOR.  @>
+@ \.{FOR}.
+\initials{LDF 2010.01.15.}
+
+\LOG
+\initials{LDF 2010.01.15.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=FOR|for {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  FOR." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return FOR_YY;
+
+@=}@>
+
+@q *** (3) FROM.  @>
+@ \.{FROM}.
+\initials{LDF 2011.12.16.}
+
+\LOG
+\initials{LDF 2011.12.16.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=FROM|from {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  FROM." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return FROM_YY;
+
+@=}@>
+
+@q *** (3) TO.  @>
+@ \.{TO}.
+\initials{LDF 2010.09.30.}
+
+\LOG
+\initials{LDF 2010.09.30.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=TO|to {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  TO." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return TO_YY;
+
+@=}@>
+
+
+@q *** (3) NOT.  @>
+@ \.{NOT}.
+\initials{LDF 2011.10.27.}
+
+\LOG
+\initials{LDF 2011.10.27.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=NOT|not {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  NOT." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return NOT_YY;
+
+@=}@>
+
+@q *** (3) NO.  @>
+@ \.{NO}.
+\initials{LDF 2012.02.03.}
+
+\LOG
+\initials{LDF 2012.02.03.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=NO|no {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  NO." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return NO_YY;
+
+@=}@>
+
+@q *** (3) ERROR.  @>
+@ \.{ERROR}.
+\initials{LDF 2011.11.04.}
+
+\LOG
+\initials{LDF 2011.11.04.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=ERROR|error {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  ERROR." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return ERROR_YY;
+
+@=}@>
+
+
+@q *** (3) ORDER.  @>
+@ \.{ORDER}.
+\initials{LDF 2010.03.05.}
+
+\LOG
+\initials{LDF 2010.03.05.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=ORDER {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  ORDER." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return ORDER_YY;
+
+@=}@>
+
+@q *** (3) Client Finished.  @>
+@ Client Finished.
+\initials{LDF 2010.01.12.}
+
+\LOG
+\initials{LDF 2010.01.12.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@="Client Finished" {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  Client Finished" << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return CLIENT_FINISHED_YY;
+
+@=}@>
+
+@q *** (3) CLIENT.  @>
+@ \.{CLIENT}.
+\initials{LDF 2010.01.12.}
+
+\LOG
+\initials{LDF 2010.01.12.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=CLIENT|client {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  CLIENT" << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return CLIENT_YY;
+
+@=}@>
+
+@q *** (3) SENDING.  @>
+@ \.{SENDING}.
+\initials{LDF 2010.01.12.}
+
+\LOG
+\initials{LDF 2010.01.12.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=SENDING|sending {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  SENDING" << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return SENDING_YY;
+
+@=}@>
+
+@q *** (3) RECEIVE.  @>
+@ RECEIVE.
+\initials{LDF 2010.01.20.}
+
+\LOG
+\initials{LDF 2010.01.20.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=RECEIVE {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  RECEIVE" 
+           << endl
+           << "Returning `RECEIVE_YY'."
+           << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return RECEIVE_YY;
+
+@=}@>
+
+@q *** (3) FILE.  @>
+@ FILE.
+\initials{LDF 2010.01.20.}
+
+\LOG
+\initials{LDF 2010.01.20.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=FILE {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  FILE" 
+           << endl
+           << "Returning `FILE_YY'."
+           << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return FILE_YY;
+
+@=}@>
+
+@q *** (3) SUCCEEDED.  @>
+@ SUCCEEDED.
+\initials{LDF 2010.01.19.}
+
+\LOG
+\initials{LDF 2010.01.19.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=SUCCEEDED {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  SUCCEEDED" 
+           << endl
+           << "Returning `SUCCEEDED_YY'."
+           << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return SUCCEEDED_YY;
+
+@=}@>
+
+@q *** (3) FAILED.  @>
+@ FAILED.
+\initials{LDF 2010.01.19.}
+
+\LOG
+\initials{LDF 2010.01.19.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=FAILED {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  FAILED" 
+           << endl
+           << "Returning `FAILED_YY'."
+           << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return FAILED_YY;
+
+@=}@>
+
+@q *** (3) VALIDATE.  @>
+@ VALIDATE.
+\initials{LDF 2010.02.11.}
+
+\LOG
+\initials{LDF 2010.02.11.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=VALIDATE {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  VALIDATE" 
+           << endl
+           << "Returning `VALIDATE_YY'."
+           << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return VALIDATE_YY;
+
+@=}@>
+
+@q *** (3) EXTRACT.  @>
+@ \.{EXTRACT}.
+\initials{LDF 2010.04.22.}
+
+\LOG
+\initials{LDF 2010.04.22.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=EXTRACT {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  EXTRACT" 
+           << endl
+           << "Returning `EXTRACT_YY'."
+           << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return EXTRACT_YY;
+
+@=}@>
+
+
+@q *** (3) DISTINGUISHED_NAME.  @>
+@ \.{DISTINGUISHED\_NAME}.
+\initials{LDF 2010.02.11.}
+
+\LOG
+\initials{LDF 2010.02.11.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=DISTINGUISHED_NAME {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  DISTINGUISHED_NAME" 
+           << endl
+           << "Returning `DISTINGUISHED_NAME_YY'."
+           << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return DISTINGUISHED_NAME_YY;
+
+@=}@>
+
+
+@q *** (3) ENVIRONMENT.  @>
+@ \.{ENVIRONMENT}.
+\initials{LDF 2010.03.19.}
+
+\LOG
+\initials{LDF 2010.03.19.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=ENVIRONMENT|environment {@>
+
+   if (SCANNER_DEBUG)
+   {
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  ENVIRONMENT" << endl
+           << "Returning `ENVIRONMENT_YY'."
+           << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return ENVIRONMENT_YY;
+
+@=}@>
+
+@q *** (3) SHELLSCRIPT.  @>
+@ \.{SHELLSCRIPT}.
+\initials{LDF 2012.03.19.}
+
+\LOG
+\initials{LDF 2012.03.19.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=SHELLSCRIPT|shellscript {@>
+
+   if (SCANNER_DEBUG)
+   {
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  SHELLSCRIPT" << endl
+           << "Returning `SHELLSCRIPT_YY'."
+           << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return SHELLSCRIPT_YY;
+
+@=}@>
+
+@q *** (3) SHELLSCRIPTS.  @>
+@ \.{SHELLSCRIPTS}.
+\initials{LDF 2012.03.21.}
+
+\LOG
+\initials{LDF 2012.03.21.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=SHELLSCRIPTS|shellscripts {@>
+
+   if (SCANNER_DEBUG)
+   {
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  SHELLSCRIPTS" << endl
+           << "Returning `SHELLSCRIPTS_YY'."
+           << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return SHELLSCRIPTS_YY;
+
+@=}@>
+
+@q *** (3) HOST.  @>
+@ \.{HOST}.
+\initials{LDF 2012.03.16.}
+
+\LOG
+\initials{LDF 2012.03.16.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=HOST|host {@>
+
+   if (SCANNER_DEBUG)
+   {
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  HOST" << endl
+           << "Returning `HOST_YY'."
+           << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return HOST_YY;
+
+@=}@>
+
+@q *** (3) ADMIN.  @>
+@ \.{ADMIN}.
+\initials{LDF 2012.03.22.}
+
+\LOG
+\initials{LDF 2012.03.22.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=ADMIN|admin {@>
+
+   if (SCANNER_DEBUG)
+   {
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  ADMIN" << endl
+           << "Returning `ADMIN_YY'."
+           << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return ADMIN_YY;
+
+@=}@>
+
+@q *** (3) ENABLE.  @>
+@ \.{ENABLE}.
+\initials{LDF 2012.03.26.}
+
+\LOG
+\initials{LDF 2012.03.26.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=ENABLE|enable {@>
+
+   if (SCANNER_DEBUG)
+   {
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  ENABLE" << endl
+           << "Returning `ENABLE_YY'."
+           << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return ENABLE_YY;
+
+@=}@>
+
+@q *** (3) ENABLED.  @>
+@ \.{ENABLED}.
+\initials{LDF 2012.03.26.}
+
+\LOG
+\initials{LDF 2012.03.26.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=ENABLED|enabled {@>
+
+   if (SCANNER_DEBUG)
+   {
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  ENABLED" << endl
+           << "Returning `ENABLED_YY'."
+           << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return ENABLED_YY;
+
+@=}@>
+
+
+@q *** (3) DISABLE.  @>
+@ \.{DISABLE}.
+\initials{LDF 2012.03.26.}
+
+\LOG
+\initials{LDF 2012.03.26.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=DISABLE|disable {@>
+
+   if (SCANNER_DEBUG)
+   {
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  DISABLE" << endl
+           << "Returning `DISABLE_YY'."
+           << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return DISABLE_YY;
+
+@=}@>
+
+@q *** (3) DISABLED.  @>
+@ \.{DISABLED}.
+\initials{LDF 2012.03.26.}
+
+\LOG
+\initials{LDF 2012.03.26.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=DISABLED|disabled {@>
+
+   if (SCANNER_DEBUG)
+   {
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  DISABLED" << endl
+           << "Returning `DISABLED_YY'."
+           << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return DISABLED_YY;
+
+@=}@>
+
+@q *** (3) SHOW.  @>
+@ \.{SHOW}.
+\initials{LDF 2010.05.21.}
+
+\LOG
+\initials{LDF 2010.05.21.}
+Added this rule.
+
+\initials{LDF 2010.09.01.}
+Made it possible to use all uppercase or all lowercase letters.
+\ENDLOG
+
+@<Rules@>=
+@=SHOW|show {@>
+
+   if (SCANNER_DEBUG)
+   {
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  SHOW" << endl
+           << "Returning `SHOW_YY'."
+           << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return SHOW_YY;
+
+@=}@>
+
+@q *** (3) ALL.  @>
+@ \.{ALL}.
+\initials{LDF 2010.05.21.}
+
+\LOG
+\initials{LDF 2010.05.21.}
+Added this rule.
+
+\initials{LDF 2010.09.01.}
+Made it possible to use all uppercase or all lowercase letters.
+\ENDLOG
+
+@<Rules@>=
+@=ALL|all {@>
+
+   if (SCANNER_DEBUG)
+   {
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  ALL" << endl
+           << "Returning `ALL_YY'."
+           << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return ALL_YY;
+
+@=}@>
+
+@q *** (3) ENTRIES.  @>
+@ \.{ENTRIES}.
+\initials{LDF 2010.05.21.}
+
+\LOG
+\initials{LDF 2010.05.21.}
+Added this rule.
+
+\initials{LDF 2010.09.01.}
+Made it possible to use all uppercase or all lowercase letters.
+\ENDLOG
+
+@<Rules@>=
+@=ENTRIES|entries {@>
+
+   if (SCANNER_DEBUG)
+   {
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  ENTRIES" << endl
+           << "Returning `ENTRIES_YY'."
+           << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return ENTRIES_YY;
+
+@=}@>
+
+@q *** (3) USER.  @>
+@ \.{USER}.
+\initials{LDF 2010.05.21.}
+
+\LOG
+\initials{LDF 2010.05.21.}
+Added this rule.
+
+\initials{LDF 2010.09.01.}
+Made it possible to use all uppercase or all lowercase letters.
+\ENDLOG
+
+@<Rules@>=
+@=USER|user {@>
+
+   if (SCANNER_DEBUG)
+   {
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  USER" << endl
+           << "Returning `USER_YY'."
+           << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return USER_YY;
+
+@=}@>
+
+@q *** (3) AND.  @>
+@ \.{AND}.
+\initials{LDF 2010.05.21.}
+
+\LOG
+\initials{LDF 2010.05.21.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=AND {@>
+
+   if (SCANNER_DEBUG)
+   {
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  AND" << endl
+           << "Returning `AND_YY'."
+           << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return AND_YY;
+
+@=}@>
+
+
+@q *** (3) PUBLIC.  @>
+@ \.{PUBLIC}.
+\initials{LDF 2010.05.21.}
+
+\LOG
+\initials{LDF 2010.05.21.}
+Added this rule.
+
+\initials{LDF 2010.09.01.}
+Made it possible to use all uppercase or all lowercase letters.
+\ENDLOG
+
+@<Rules@>=
+@=PUBLIC|public {@>
+
+   if (SCANNER_DEBUG)
+   {
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  PUBLIC" << endl
+           << "Returning `PUBLIC_YY'."
+           << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return PUBLIC_YY;
+
+@=}@>
+
+@q *** (3) PRIVATE.  @>
+@ \.{PRIVATE}.
+\initials{LDF 2010.05.25.}
+
+\LOG
+\initials{LDF 2010.05.25.}
+Added this rule.
+
+\initials{LDF 2010.09.01.}
+Made it possible to use all uppercase or all lowercase letters.
+\ENDLOG
+
+@<Rules@>=
+@=PRIVATE|private {@>
+
+   if (SCANNER_DEBUG)
+   {
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  PRIVATE" << endl
+           << "Returning `PRIVATE_YY'."
+           << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return PRIVATE_YY;
+
+@=}@>
+
+
+@q *** (3) LEVEL.  @>
+@ \.{LEVEL}.
+\initials{LDF 2011.12.25.}
+
+\LOG
+\initials{LDF 2011.12.25.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=LEVEL|level {@>
+
+   if (SCANNER_DEBUG)
+   {
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  LEVEL" << endl
+           << "Returning `LEVEL_YY'."
+           << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return LEVEL_YY;
+
+@=}@>
+
+@q *** (3) LEVELS.  @>
+@ \.{LEVELS}.
+\initials{LDF 2011.12.25.}
+
+\LOG
+\initials{LDF 2011.12.25.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=LEVELS|levels {@>
+
+   if (SCANNER_DEBUG)
+   {
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  LEVELS" << endl
+           << "Returning `LEVELS_YY'."
+           << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return LEVELS_YY;
+
+@=}@>
+
+@q *** (3) WITH_INSTALLATION_SCRIPT.  @>
+@ \.{WITH\_INSTALLATION\_SCRIPT}.
+\initials{LDF 2010.10.15.}
+
+\LOG
+\initials{LDF 2010.10.15.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=WITH_INSTALLATION_SCRIPT|with_installation_script {@>
+
+   if (SCANNER_DEBUG)
+   {
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  WITH_INSTALLATION_SCRIPT" << endl
+           << "Returning `WITH_YY_INSTALLATION_SCRIPT'."
+           << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return WITH_INSTALLATION_SCRIPT_YY;
+
+@=}@>
+
+@q *** (3) WITH_PREREQUISITES.  @>
+@ \.{WITH\_PREREQUISITES}.
+\initials{LDF 2010.10.15.}
+
+\LOG
+\initials{LDF 2010.10.15.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=WITH_PREREQUISITES|with_prerequisites {@>
+
+   if (SCANNER_DEBUG)
+   {
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  WITH_PREREQUISITES" << endl
+           << "Returning `WITH_PREREQUISITES_YY'."
+           << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return WITH_PREREQUISITES_YY;
+
+@=}@>
+
+
+@q *** (3) WITH_DEPENDENTS.  @>
+@ \.{WITH\_DEPENDENTS}.
+\initials{LDF 2012.05.21.}
+
+\LOG
+\initials{LDF 2012.05.21.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=WITH_DEPENDENTS|with_dependents {@>
+
+   if (SCANNER_DEBUG)
+   {
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  WITH_DEPENDENTS" << endl
+           << "Returning `WITH_DEPENDENTS_YY'."
+           << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return WITH_DEPENDENTS_YY;
+
+@=}@>
+
+@q *** (3) HTML.  @>
+@ \.{HTML}.
+\initials{LDF 2010.09.23.}
+
+\LOG
+\initials{LDF 2010.09.23.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=HTML|html {@>
+
+   if (SCANNER_DEBUG)
+   {
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  HTML" << endl
+           << "Returning `HTML_YY'."
+           << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return HTML_YY;
+
+@=}@>
+
+@q *** (3) JAVASCRIPT.  @>
+@ \.{JAVASCRIPT}.
+\initials{LDF 2011.12.19.}
+
+\LOG
+\initials{LDF 2011.12.19.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=JAVASCRIPT|javascript|JavaScript {@>
+
+   if (SCANNER_DEBUG)
+   {
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  JAVASCRIPT" << endl
+           << "Returning `JAVASCRIPT_YY'."
+           << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return JAVASCRIPT_YY;
+
+@=}@>
+
+
+@q *** (3) SET.  @>
+@ \.{SET}.
+\initials{LDF 2010.05.25.}
+
+\LOG
+\initials{LDF 2010.05.25.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=SET|set {@>
+
+   if (SCANNER_DEBUG)
+   {
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  SET" << endl
+           << "Returning `SET_YY'."
+           << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return SET_YY;
+
+@=}@>
+
+@q *** (3) UNSET.  @>
+@ \.{UNSET}.
+\initials{LDF 2012.05.07.}
+
+\LOG
+\initials{LDF 2012.05.07.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=UNSET|unset {@>
+
+   if (SCANNER_DEBUG)
+   {
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  UNSET" << endl
+           << "Returning `UNSET_YY'."
+           << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return UNSET_YY;
+
+@=}@>
+
+
+
+@q *** (3) INFO.  @>
+@ INFO.
+\initials{LDF 2010.05.26.}
+
+\LOG
+\initials{LDF 2010.05.26.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=INFO {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  INFO." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return INFO_YY;
+
+@=}@>
+
+@q *** (3) EFFECTIVE_USER.  @>
+@ \.{EFFECTIVE\_USER}.
+\initials{LDF 2010.06.30.}
+
+\LOG
+\initials{LDF 2010.06.30.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=EFFECTIVE_USER {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  EFFECTIVE_USER." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return EFFECTIVE_USER_YY;
+
+@=}@>
+
+@q *** (3) CERTIFICATE.  @>
+@ CERTIFICATE.
+\initials{LDF 2010.10.27.}
+
+\LOG
+\initials{LDF 2010.10.27.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=CERTIFICATE|certificate {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  CERTIFICATE." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return CERTIFICATE_YY;
+
+@=}@>
+
+@q *** (3) CERTIFICATES.  @>
+@ CERTIFICATES.
+\initials{LDF 2010.10.27.}
+
+\LOG
+\initials{LDF 2010.10.27.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=CERTIFICATES|certificates {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  CERTIFICATES." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return CERTIFICATES_YY;
+
+@=}@>
+
+
+@q *** (3) PROXY_CREDENTIAL.  @>
+@ PROXY\_CREDENTIAL.
+\initials{LDF 2011.09.26.}
+
+\LOG
+\initials{LDF 2011.09.26.}
+Added this rule.
+
+\initials{LDF 2012.05.15.}
+Changed ``CERTIFICATE'' to ``CREDENTIAL''.
+\ENDLOG
+
+@<Rules@>=
+@=PROXY_CREDENTIAL|proxy_credential {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  PROXY_CREDENTIAL." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return PROXY_CREDENTIAL_YY;
+
+@=}@>
+
+@q *** (3) PRIVILEGES.  @>
+@ PRIVILEGES.
+\initials{LDF 2012.05.07.}
+
+\LOG
+\initials{LDF 2012.05.07.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=PRIVILEGES|privileges {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  PRIVILEGES." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return PRIVILEGES_YY;
+
+@=}@>
+
+@q *** (3) INVALID.  @>
+@ INVALID.
+\initials{LDF 2011.10.27.}
+
+\LOG
+\initials{LDF 2011.10.27.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=INVALID|invalid {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  INVALID." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return INVALID_YY;
+
+@=}@>
+
+
+@q *** (3) ENCRYPTED.  @>
+@ ENCRYPTED.
+\initials{LDF 2011.01.26.}
+
+\LOG
+\initials{LDF 2011.01.26.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=ENCRYPTED|encrypted {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  ENCRYPTED." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return ENCRYPTED_YY;
+
+@=}@>
+
+@q *** (3) OWNER.  @>
+@ OWNER.
+\initials{LDF 2011.01.27.}
+
+\LOG
+\initials{LDF 2011.01.27.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=OWNER|owner {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  OWNER." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return OWNER_YY;
+
+@=}@>
+
+@q *** (3) TRANSFER.  @>
+@ TRANSFER.
+\initials{LDF 2011.09.26.}
+
+\LOG
+\initials{LDF 2011.09.26.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=TRANSFER|transfer {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  TRANSFER." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return TRANSFER_YY;
+
+@=}@>
+
+@q *** (3) SEND.  @>
+@ SEND.
+\initials{LDF 2012.03.16.}
+
+\LOG
+\initials{LDF 2012.03.16.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=SEND|send {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  SEND." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return SEND_YY;
+
+@=}@>
+
+@q *** (3) INSTALL.  @>
+@ INSTALL.
+\initials{LDF 2011.09.30.}
+
+\LOG
+\initials{LDF 2011.09.30.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=INSTALL|install {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  INSTALL." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return INSTALL_YY;
+
+@=}@>
+
+@q *** (3) REINSTALL.  @>
+@ REINSTALL.
+\initials{LDF 2011.09.26.}
+
+\LOG
+\initials{LDF 2011.09.26.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=REINSTALL|reinstall {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  REINSTALL." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return REINSTALL_YY;
+
+@=}@>
+
+@q *** (3) GLOBUS_SITE.  @>
+@ \.{GLOBUS\_SITE}.
+\initials{LDF 2011.09.26.}
+
+\LOG
+\initials{LDF 2011.09.26.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=GLOBUS_SITE|globus_site {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  GLOBUS_SITE." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return GLOBUS_SITE_YY;
+
+@=}@>
+
+@q *** (3) GLOBUS_SITES.  @>
+@ \.{GLOBUS\_SITES}.
+\initials{LDF 2011.11.17.}
+
+\LOG
+\initials{LDF 2011.11.17.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=GLOBUS_SITES|globus_sites {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  GLOBUS_SITES." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return GLOBUS_SITES_YY;
+
+@=}@>
+
+@q *** (3) INTERACTIVE_NODE.  @>
+@ \.{INTERACTIVE\_NODE}.
+\initials{LDF 2012.04.12.}
+
+\LOG
+\initials{LDF 2012.04.12.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=INTERACTIVE_NODE|interactive_node {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  INTERACTIVE_NODE." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return INTERACTIVE_NODE_YY;
+
+@=}@>
+
+
+@q *** (3) APPEND_LD_LIBRARY_PATH.  @>
+@ \.{APPEND\_LD\_LIBRARY\_PATH}.
+\initials{LDF 2012.04.12.}
+
+\LOG
+\initials{LDF 2012.04.12.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=APPEND_LD_LIBRARY_PATH|append_ld_library_path {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  APPEND_LD_LIBRARY_PATH." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return APPEND_LD_LIBRARY_PATH_YY;
+
+@=}@>
+
+@q *** (3) APPEND_PATH.  @>
+@ \.{APPEND\_PATH}.
+\initials{LDF 2012.04.12.}
+
+\LOG
+\initials{LDF 2012.04.12.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=APPEND_PATH|append_path {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  APPEND_PATH." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return APPEND_PATH_YY;
+
+@=}@>
+
+@q *** (3) OPTDBCLI_PATH.  @>
+@ \.{OPTDBCLI\_PATH}.
+\initials{LDF 2012.04.12.}
+
+\LOG
+\initials{LDF 2012.04.12.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=OPTDBCLI_PATH|optdbcli_path {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  OPTDBCLI_PATH." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return OPTDBCLI_PATH_YY;
+
+@=}@>
+
+@q *** (3) IP_ADDRESS.  @>
+@ \.{IP\_ADDRESS}.
+\initials{LDF 2012.04.12.}
+
+\LOG
+\initials{LDF 2012.04.12.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=IP_ADDRESS|ip_address {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  IP_ADDRESS." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return IP_ADDRESS_YY;
+
+@=}@>
+
+@q *** (3) INTERACTIVE_NODE_IP_ADDRESS.  @>
+@ \.{INTERACTIVE\_NODE\_IP\_ADDRESS}.
+\initials{LDF 2012.04.12.}
+
+\LOG
+\initials{LDF 2012.04.12.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=INTERACTIVE_NODE_IP_ADDRESS|interactive_node_ip_address {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  INTERACTIVE_NODE_IP_ADDRESS." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return INTERACTIVE_NODE_IP_ADDRESS_YY;
+
+@=}@>
+
+@q *** (3) STDOUT_FILENAME.  @>
+@ \.{STDOUT\_FILENAME}.
+\initials{LDF 2011.09.26.}
+
+\LOG
+\initials{LDF 2011.09.26.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=STDOUT_FILENAME|stdout_filename {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  STDOUT_FILENAME." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return STDOUT_FILENAME_YY;
+
+@=}@>
+
+@q *** (3) STDERR_FILENAME.  @>
+@ \.{STDERR\_FILENAME}.
+\initials{LDF 2011.09.26.}
+
+\LOG
+\initials{LDF 2011.09.26.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=STDERR_FILENAME|stderr_filename {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  STDERR_FILENAME." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return STDERR_FILENAME_YY;
+
+@=}@>
+
+@q *** (3) TIMEOUT.  @>
+@ TIMEOUT.
+\initials{LDF 2011.10.23.}
+
+\LOG
+\initials{LDF 2011.10.23.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=TIMEOUT|timeout {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  TIMEOUT." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return TIMEOUT_YY;
+
+@=}@>
+
+@q *** (3) NO_LINKS.  @>
+@ NO\_LINKS.
+\initials{LDF 2012.02.07.}
+
+\LOG
+\initials{LDF 2012.02.07.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=NO_LINKS|no_links {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  NO_LINKS." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return NO_LINKS_YY;
+
+@=}@>
+
+@q *** (3) WITH_LINKS.  @>
+@ WITH\_LINKS.
+\initials{LDF 2012.02.07.}
+
+\LOG
+\initials{LDF 2012.02.07.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=WITH_LINKS|with_links {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  WITH_LINKS." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return WITH_LINKS_YY;
+
+@=}@>
+
+@q *** (3) LINK_DIRECTORY.  @>
+@ LINK\_DIRECTORY.
+\initials{LDF 2012.02.07.}
+
+\LOG
+\initials{LDF 2012.02.07.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=LINK_DIRECTORY|link_directory {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  LINK_DIRECTORY." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return LINK_DIRECTORY_YY;
+
+@=}@>
+
+
+
+@q *** (3) SECRET_KEY.  @>
+@ SECRET\_KEY.
+\initials{LDF 2011.11.03.}
+
+\LOG
+\initials{LDF 2011.11.03.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=SECRET_KEY {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `yylex':  SECRET_KEY" << endl;
+      
+   }
+
+   return SECRET_KEY_YY;
+
+@=}@>
+
+@q *** (3) PUBLIC_KEY.  @>
+@ PUBLIC\_KEY.
+\initials{LDF 2011.11.03.}
+
+\LOG
+\initials{LDF 2011.11.03.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=PUBLIC_KEY {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `yylex':  PUBLIC_KEY" << endl;
+      
+   }
+
+   return PUBLIC_KEY_YY;
+
+@=}@>
+
+@q *** (3) KEY_PAIR.  @>
+@ KEY\_PAIR.
+\initials{LDF 2011.11.03.}
+
+\LOG
+\initials{LDF 2011.11.03.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=KEY_PAIR {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `yylex':  KEY_PAIR" << endl;
+      
+   }
+
+   return KEY_PAIR_YY;
+
+@=}@>
+
+
+@q *** (3) DISTRIBUTE.  @>
+@ KEY\_PAIR.
+\initials{LDF 2011.11.17.}
+
+\LOG
+\initials{LDF 2011.11.17.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=DISTRIBUTE {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `yylex':  DISTRIBUTE" << endl;
+      
+   }
+
+   return DISTRIBUTE_YY;
+
+@=}@>
+
+@q *** (3) DATABASE.  @>
+@ \.{DATABASE}.
+\initials{LDF 2011.12.16.}
+
+\LOG
+\initials{LDF 2011.12.16.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=DATABASE|database {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  DATABASE." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return DATABASE_YY;
+
+@=}@>
+
+@q *** (3) SESSION_ID.  @>
+@ \.{SESSION\_ID}.
+\initials{LDF 2011.12.22.}
+
+\LOG
+\initials{LDF 2011.12.22.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=SESSION_ID|session_id {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  SESSION_ID." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return SESSION_ID_YY;
+
+@=}@>
+
+
+@q *** (3) Integer.  @>
+@ Integer.  
+\initials{LDF 2010.01.12.}
+
+\LOG
+\initials{LDF 2010.01.12.}
+Added this rule.
+
+\initials{LDF 2012.03.21.}
+Made it possible for there to be an optional plus or minus sign.
+\ENDLOG
+
+@<Rules@>=
+@=[-+]?[0-9][0-9]* {@>
+
+   if (SCANNER_DEBUG)
+   {
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "      
+           << "In `yylex':  integer: " << yytext 
+           << endl
+           << "Returning `INTEGER_YY'."
+           << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   sscanf(yytext, "%d", &yylval->int_value);
+   
+   return INTEGER_YY;
+
+@=}@>
+
+@q *** (3) Undelimited value string.  @>
+@ Undelimited value string.  
+\initials{LDF 2009.10.05.}
+
+\LOG
+\initials{LDF 2009.10.05.}
+Added this rule.
+
+\initials{LDF 2010.05.11.}
+Added tilde.
+\ENDLOG
+
+@<Rules@>=
+@=[[:alnum:]./=;:~@@()+\?=][[:alnum:]./:;\-_=~+@@()\?=]* {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  Undelimited string: " << yytext << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   strcpy(yylval->string_value, yytext);
+   return STRING_YY;
+
+
+@=}@>
+
+@q *** (3) Delimited value string 1:  <...>.  @>
+@ Delimited value string 1:  $\langle\ldots\rangle$.  
+\initials{LDF 2010.02.03.}
+
+\LOG
+\initials{LDF 2010.02.03.}
+Added this rule.
+
+\initials{LDF 2010.05.11.}
+Added tilde.
+\ENDLOG
+
+@<Rules@>=
+@=\<[[:alnum:]./;:+~@@()\?=][[:blank:][:alnum:]./;:+\-_=~@@()\?=]*\> {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  Delimited string, type 1 (<...>): " 
+           << yytext << endl;
+      unlock_cerr_mutex(); 
+   }
+ 
+   string temp_str = yytext;
+
+   string::size_type s = temp_str.size();
+
+   temp_str.erase(0, 1);
+   temp_str.erase(s - 2, s - 1);
+
+   strcpy(yylval->string_value, temp_str.c_str());
+  
+   return STRING_YY;
+
+@=}@>
+
+
+@q *** (3) Delimited value string 2:  "...".  @>
+@ Delimited value string 2:  \.{\char`\"}$\ldots$\.{\char`\"}.  
+\initials{LDF 2010.02.03.}
+
+\LOG
+\initials{LDF 2010.02.03.}
+Added this rule.
+
+\initials{LDF 2010.05.11.}
+Added tilde.
+
+\initials{LDF 2011.03.30.}
+\initials{LDF 2011.06.29.}
+@:??@> ??:  I had a problem using double quotation marks to delimit the package name 
+and (optional) version of prerequisites:  Two of them were included in the string 
+which was ultimately used to query the database.  I think this may have been because 
+of the sets of three backslashes within double quotation marks in the rule below.
+\par
+I solved the problem by using |<>| to delimit the strings instead.  This is done
+in |Scan_Parse_Parameter_Type::request_prerequisites|, defined in 
+\filename{scprpmtp.web}.
+\ENDLOG
+
+@<Rules@>=
+@=\"[[:alnum:].;:+/~@@"\\\""()\?=][[:blank:][:alnum:]+./;:\-_=~@@"\\\""()\?=]*\" {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  Delimited string, type 2 (\"...\"): " << yytext 
+           << endl;
+      unlock_cerr_mutex(); 
+   }
+ 
+   string temp_str = yytext;
+
+   string::size_type s = temp_str.size();
+
+   temp_str.erase(0, 1);
+   temp_str.erase(s - 2, s - 1);
+
+   strcpy(yylval->string_value, temp_str.c_str());
+  
+
+   return STRING_YY;
+
+@=}@>
+
+@q *** (3) End-of-file (EOF).  @>
+@ End-of-file (EOF).
+
+
+@<Rules@>=
+@=<<EOF>> {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `yylex':  EOF.  Returning `END_YY'." << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return END_YY;
+
+@=}@>
+
+@q *** (3) Other characters.  @>
+@ Other characters.
+\initials{LDF 2010.05.26.}
+
+\LOG
+\initials{LDF 2010.05.26.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=. {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `yylex':  Other character:  `" << yytext << "'.  Continuing." 
+           << endl;
+      
+   }
+
+   /* Do nothing.  */
+
+@=}@>
+
+
+@q ** (2) Additional functions.  @>
+
+@ Additional functions.
+
+@<|yywrap| definition@>=
+
+int
+yywrap(yyscan_t parameter)
+{
+    return 1;
+}
+
+@
+@<|yyerror| definition@>=
+
+int
+yyerror(void* v, char const* s)
+{
+    return 0;
+}
+
+@ Putting scanner together.
+@c
+@=%{@>
+@<Include files@>@;@/
+@<Define |YY_INPUT|@>@;@/
+using namespace std;
+@=%}@>
+@<Start conditions@>@;@/
+@<Options@>@;@/
+@<Name definitions@>@;@/
+@=%%@>
+@=%{@>
+@<Local variables for |yylex|@>@;@/
+@=%}@>
+@<Execute on entry to |yylex|@>@;@/
+@q Rules @>
+@<Rules@>@;@/
+@=%%@>
+@q User code@>
+@<Version control identifier@>@;@/
+@<|yywrap| definition@>@;@/
+@<|yyerror| definition@>@;@/
+
+ 
+@q * (1) Emacs-Lisp code for use in indirect buffers  @>
+
+@q (progn (cweb-mode) (outline-minor-mode))           @>
+
+@q * (1) Local variables for Emacs @>
+
+@q * Local variables for Emacs.@>
+@q Local Variables: @>
+@q mode:CWEB @>
+@q eval:(display-time) @>
+@q abbrev-mode:t @>
+@q eval:(read-abbrev-file) @>
+@q indent-tabs-mode:nil @>
+@q eval:(outline-minor-mode) @>
+@q fill-column:80 @>
+@q End: @>
+

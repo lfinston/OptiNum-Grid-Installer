@@ -1,0 +1,1366 @@
+@q optdbcli.web  @>
+@q [...]/optinum/src/optdbcli.web  @>
+
+@q Created by Laurence D. Finston (LDF) Tue Sep 29 10:53:27 CEST 2009  @>
+
+@q * (1) Top @>
+
+@q * (1) Copyright and License.@>
+
+@q This file is part of the OptiNum Grid Installer @>
+@q Copyright (C) 2010, 2011, 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen @>
+
+@q The OptiNum Grid Installer is free software; you can redistribute it and/or modify @>
+@q it under the terms of the GNU General Public License as published by @>
+@q the Free Software Foundation; either version 3 of the License, or @>
+@q (at your option) any later version.  @>
+
+@q The OptiNum Grid Installer is distributed in the hope that it will be useful, @>
+@q but WITHOUT ANY WARRANTY; without even the implied warranty of @>
+@q MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the @>
+@q GNU General Public License for more details.  @>
+
+@q You should have received a copy of the GNU General Public License          @>
+@q along with the OptiNum Grid Installer; if not, write to the Free Software                    @>
+@q Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA @>
+
+@q ("@@" stands for a single at-sign in the following paragraph.) @>
+
+@q Please send bug reports to Laurence.Finston@@gwdg.de@>
+
+@q Laurence D. Finston                                                   @>
+@q Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen  @>
+@q Am Fassberg 11         					         @>
+@q 37077 Goettingen              					 @>
+@q Germany                           					 @>                                
+
+@q Laurence.Finston@@gwdg.de (@@ stands for a single "at" sign.)@>
+
+
+@q * (0) Optinum-Grid Database Client (optdbcli.web).  @>
+
+@*  Optinum-Grid Database Client (optdbcli\PERIOD web).
+
+@ Version control identifier.
+@<Version control identifier@>=
+static char version_control_id[] 
+   = "$Id: optdbcli.web 8356 2012-05-25 08:01:31Z finston $";
+  
+@q ** (2) Include files  @>
+
+@ Include files.
+
+@<Include files@>=
+
+#include <stdlib.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <errno.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netdb.h>
+#include <arpa/inet.h>
+#include <sys/wait.h>
+#include <signal.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <string.h>
+#include <getopt.h> 
+#include <time.h>
+#include <math.h>
+
+#include <gcrypt.h> /* for |gcry_control| */
+#include <gnutls/gnutls.h>
+
+#include <gnutls/x509.h>
+
+#include <pthread.h>
+
+#include <fstream>
+#include <iomanip>
+#include <ios>
+#include <iostream>
+#include <map>
+#include <sstream>   
+#include <string>
+#include <set>
+#include <vector>
+#include <deque>
+
+#if HAVE_CONFIG_H
+# include <config.h>
+#endif
+
+#if IS_ROCKS_GOEGRID
+#undef HAVE_LIBMYSQLCLIENT
+#endif 
+
+#if HAVE_LIBMYSQLCLIENT
+#include <mysql.h>
+#endif 
+
+#include "ex_rfc2818.h++"
+#include "x509cert.h++"
+#include "rspnstp.h++"
+#include "dstngnmt.h++"
+#include "entries.h++"
+#include "glblvrbl.h++"
+#include "glblfncs.h++"
+#include "cmdlnopt.h++"
+#include "gntlsfnc.h++"
+#include "helper.h++"
+
+#include "parser.h++"
+#include "scanner.h++"
+
+#include "prsrclnt.h++"
+#include "scnrclnt.h++"
+
+#include "glsinftp.h++"
+#include "scprpmtp.h++"
+
+#include "cnnctcli.h++"
+#include "utilfncs.h++"
+
+#ifndef _XOPEN_SOURCE
+#define _XOPEN_SOURCE
+#endif 
+
+GCRY_THREAD_OPTION_PTHREAD_IMPL;
+
+@q ** (2) |finish| definition (exit handler).@>
+@ {\bf finish} definition (exit handler).
+\initials{LDF 2011.04.15.}
+
+\LOG
+\initials{LDF 2011.04.15.}
+Added this function.
+
+\initials{LDF 2011.06.29.}
+Removed call to |delete_fifos|.  FIFOs are currently not being used.
+
+\initials{LDF 2011.11.21.}
+Now destroying all mutexes whether |IS_CLIENT_ONLY| 
+is defined or not, except those having to do with the mySQL database.  
+
+\initials{LDF 2011.11.21.}
+Now destroying |global_variable_mutex|.
+\ENDLOG
+
+@q *** (3) @>
+
+@<|finish| definition@>=
+void
+finish(void)
+{
+
+   bool DEBUG = false;  /* |true|  */
+   set_debug_level(DEBUG);
+
+
+   if (DEBUG) 
+      cerr << "Entering `finish'." << endl;
+
+
+   pthread_mutex_destroy(&cerr_mutex);
+   pthread_mutex_destroy(&thread_ctr_mutex);
+   pthread_mutex_destroy(&log_strm_mutex);
+   pthread_mutex_destroy(&err_log_strm_mutex);
+   pthread_mutex_destroy(&global_variable_mutex);
+
+   output_file_strm.close();
+
+   gnutls_global_deinit();
+
+   log_strm.close();
+
+   err_log_strm.close();
+
+   if (DEBUG) 
+      cerr << "save_temp_files == " << save_temp_files << endl;
+
+   if (!save_temp_files)
+      delete_temp_files();
+
+   if (DEBUG) 
+      cerr << "Exiting `finish'." << endl;
+
+   return;
+
+}  /* End of |finish| definition  */
+
+@q ** (2) |main| definition.@>
+@ {\bf main} definition.
+\initials{LDF 2009.09.29.}
+
+The client program {\bf optdbcli} (i.e., this program) doesn't use threads, so it
+doesn't need to lock and unlock |cerr_mutex| when writing to |stdout| or |stderr|.
+However, it calls functions that are shared with {\bf optdbsrv} which use this mutex 
+and others, so they need to be initialized and destroyed here.
+\initials{LDF 2010.01.08.}
+(See log entry below. \initials{LDF 2010.02.09.})
+
+\LOG
+\initials{LDF 2010.02.09.}
+Now conditionally compiling the calls to |pthread_mutex_init| 
+using the preprocessor macro |IS_CLIENT_ONLY|.  Added calls to |lock_cerr_mutex| 
+and |unlock_cerr_mutex| around the output to standard error.  These are inline functions 
+that expand to nothing when |IS_CLIENT_ONLY| is defined.  This is in case {\bf optdbcli} 
+is changed so that it uses threads.
+\ENDLOG 
+
+\LOG
+\initials{LDF 2009.09.29.}
+Added this function.
+
+\initials{LDF 2011.06.15.}
+Now setting |DEFAULT_CERT_FILENAME| and |DEFAULT_KEY_FILENAME| to 
+\filename{\$HOME/.globus/usercert.pem} and \filename{\$HOME/.globus/userkey.pem}, 
+respectively.
+\ENDLOG
+
+@q *** (3) @>
+
+@<|main| for optdbcli@>=
+int 
+main(int argc, char** argv)
+{
+@q **** (4) @>
+
+  bool DEBUG = false;  /* |true|  */
+  set_debug_level(DEBUG);
+
+  is_client = true;
+  is_server = false;
+
+  DEFAULT_CERT_FILENAME = getenv("HOME");
+
+  if (!DEFAULT_CERT_FILENAME.empty())
+     DEFAULT_CERT_FILENAME += "/.globus/";
+
+  DEFAULT_CERT_FILENAME += "usercert.pem";
+
+  DEFAULT_KEY_FILENAME = getenv("HOME");
+
+  if (!DEFAULT_KEY_FILENAME.empty())
+     DEFAULT_KEY_FILENAME += "/.globus/";
+
+  DEFAULT_KEY_FILENAME += "userkey.pem";
+
+  int status = 0;
+
+  int s;
+
+  stringstream temp_strm;
+
+@q **** (4) Set default for |gpg_homedir|.  @>
+
+@ Set default for |gpg_homedir|.  
+\initials{LDF 2011.12.06.}
+
+@:TODO@> !! TODO:  Add command-line option for resetting.
+\initials{LDF 2011.12.06.}
+
+\LOG
+\initials{LDF 2011.12.06.}
+Added this section.
+\ENDLOG
+
+@<|main| for optdbcli@>=
+
+#if 1 /* 0 */
+bool save_DEBUG = DEBUG;
+DEBUG = false; /* |true|  */
+#endif 
+
+   char *temp_str = getenv("HOME");
+
+   if (temp_str == 0)
+   {
+       lock_cerr_mutex(); 
+       cerr << "[Initial Thread] ERROR!  In `main':  `getenv(HOME)' returned NULL."
+            << endl 
+            << "Can't set `gpg_homedir'."
+            << endl
+            << "Exiting `optdbcli' unsuccessfully with exit status 1."
+            << endl;
+       unlock_cerr_mutex();
+
+       exit(1);
+
+
+   }  /* |if (temp_str == 0)|  */
+   else
+   {
+       gpg_homedir = temp_str;
+       gpg_homedir += "/.gnupg";
+       if (DEBUG)
+       {
+           lock_cerr_mutex(); 
+           cerr << "[Initial Thread] In `main':  Set `gpg_homedir' to "
+                << gpg_homedir << endl;
+           unlock_cerr_mutex();
+
+       }  /* |if (DEBUG)|  */ 
+
+   } /* |else|  */
+ 
+
+#if 1 /* 0 */
+DEBUG = save_DEBUG; 
+#endif 
+
+@q **** (4) @>
+@
+@<|main| for optdbcli@>=
+
+  status = atexit(finish);
+
+  if (status != 0)
+  {
+      cerr << "ERROR!  In `main':  `atexit' failed, returning " << status << "."
+           << endl 
+           << "Exiting `optdbcli' unsuccessfully with exit value 1."
+           << endl;
+
+      exit(1);
+  }
+  else if (DEBUG)
+  {
+      cerr << "`atexit' succeeded." << endl;
+ 
+  }  /* |else if (DEBUG)|  */ 
+
+@q **** (4) @>
+@
+
+\LOG
+\initials{LDF 2011.11.21.}
+@:BUG FIX@> BUG FIX:  Now initializing all mutexes whether |IS_CLIENT_ONLY| 
+is defined or not, except those having to do with the mySQL database.  
+
+\initials{LDF 2011.11.21.}
+Now initializing |global_variable_mutex|.
+\ENDLOG 
+
+@<|main| for optdbcli@>=
+
+  pthread_mutex_init(&cerr_mutex, 0);
+  pthread_mutex_init(&thread_ctr_mutex, 0);
+  pthread_mutex_init(&log_strm_mutex, 0);
+  pthread_mutex_init(&err_log_strm_mutex, 0);
+  pthread_mutex_init(&global_variable_mutex, 0);
+
+@q **** (4) Initialize maps.  @>
+
+@ Initialize maps.
+\initials{LDF 2009.12.21.}
+
+\LOG
+\initials{LDF 2009.12.21.}
+Added this section.
+\ENDLOG
+
+@<|main| for optdbcli@>=
+
+   init_maps();
+
+@q **** (4) Get user id.  @>
+@ Get user id.  
+\initials{LDF 2009.12.18.}
+
+\LOG
+\initials{LDF 2009.12.18.}
+Added this section.
+\ENDLOG
+
+If this is needed, |getpwuid(geteuid())| should probably be used instead.
+|cuserid| shouldn't be used.
+\initials{LDF 2010.01.21.}\hfil\break 
+\initials{LDF 2010.02.10.}
+
+@<|main| for optdbcli@>=
+
+#if 0 
+   uid_t curr_uid = getuid();
+
+   lock_cerr_mutex(); 
+   cerr << "`curr_uid' == " << curr_uid << endl;
+   unlock_cerr_mutex(); 
+
+#endif 
+
+@q **** (4) @>
+
+@
+\LOG
+\initials{LDF 2010.02.10.}
+Added this section.
+\ENDLOG
+
+@<|main| for optdbcli@>=
+
+
+  gcry_control (GCRYCTL_ENABLE_QUICK_RANDOM, 0);
+
+  /* this must be called once in the program  */
+
+  gcry_control (GCRYCTL_SET_THREAD_CBS, &gcry_threads_pthread);
+
+  gcry_control (GCRYCTL_SUSPEND_SECMEM_WARN);
+  gcry_control (GCRYCTL_INIT_SECMEM, 32768, 0);
+  gcry_control (GCRYCTL_RESUME_SECMEM_WARN);
+  gnutls_global_init();
+
+
+  port_str_auth = DEFAULT_PORT_STR_AUTH;
+  port_num_auth = DEFAULT_PORT_NUM_AUTH;
+
+  port_str_non_auth = DEFAULT_PORT_STR_NON_AUTH;
+  port_num_non_auth = DEFAULT_PORT_NUM_NON_AUTH;
+
+@q **** (4) Process command line options.  @>
+@ Process command line options.  
+\initials{LDF Undated.}
+
+@<|main| for optdbcli@>=
+
+    status = process_command_line_options(argc, argv);
+
+    if (status != 0)
+    {
+        lock_cerr_mutex(); 
+        cerr << "[Initial Thread] Error!  `process_command_line_options' failed, returning "
+             << status << "."
+             << endl 
+             << "Exiting `main' unsuccessfully with exit value 1."
+             << endl;
+        unlock_cerr_mutex(); 
+
+        exit(1);
+          
+    }  /* |if (status != 0)|  */
+
+
+@q **** (4) Check whether certificate/key pair and/or proxy credential is present. @>
+
+@ Check whether certificate/key pair and/or proxy credential is present.
+This determines whether an ``authenticated'' or a ``non-authenticated'' connection 
+will be used.  @:NOTE@> !! PLEASE NOTE:  At this point in the program, only the existence 
+of the certificate and key and/or the proxy credential is checked, {\it not\/} their
+validity!
+\initials{LDF 2011.06.29.}
+
+\LOG
+\initials{LDF 2011.06.29.}
+Added this section.
+\ENDLOG
+
+@<|main| for optdbcli@>=
+
+   {  
+
+@q ***** (5) @>
+
+       bool cert_found = false;
+       bool key_found  = false;
+
+       ifstream temp_in_strm;
+
+@q ***** (5) @>
+
+       if (DEBUG)
+       {
+           cerr << "Checking certificate." << endl;
+
+       }  /* |if (DEBUG)|  */ 
+  
+       for (vector<string>::const_iterator iter = cert_filenames.begin();
+            iter != cert_filenames.end();
+            ++iter)
+       {
+            temp_in_strm.open(iter->c_str());
+            if (temp_in_strm.is_open())
+            {
+
+                if (DEBUG)
+                {
+                    cerr << "Opened " << *iter << ".  Certificate found."
+                         << endl;
+ 
+                }  /* |if (DEBUG)|  */ 
+
+                cert_found = true;
+                temp_in_strm.close();
+
+            }  /* |if|  */
+            
+            else 
+            {
+                 cerr << "WARNING!  In `main':  "
+                      << "Failed to open certificate file `" << *iter << "'."
+                      << endl
+                      << "Continuing."
+                      << endl;
+
+            }  /* |if (DEBUG)|  */ 
+
+
+       }  /* |for|  */   
+
+
+       if (cert_filenames.size() > 0 && !cert_found)
+       {
+            cerr << "ERROR!  In `main':  Certificate not found."
+                 << endl 
+                 << "Exiting `optdbcli' unsuccessfully with exit value 1."
+                 << endl;
+    
+            exit(1);
+       }
+
+
+@q ***** (5) @>
+
+       if (DEBUG)
+       {
+           cerr << "Checking key." << endl;
+
+       }  /* |if (DEBUG)|  */ 
+
+       for (vector<string>::const_iterator iter = key_filenames.begin();
+            iter != key_filenames.end();
+            ++iter)
+       {
+            temp_in_strm.open(iter->c_str());
+            if (temp_in_strm.is_open())
+            {
+
+                if (DEBUG)
+                {
+                    cerr << "Opened " << *iter << ".  Key found."
+                         << endl;
+ 
+                }  /* |if (DEBUG)|  */ 
+
+                key_found = true;
+                temp_in_strm.close();
+
+            }  /* |if|  */
+            
+            else 
+            {
+                 cerr << "WARNING!  In `main':  "
+                      << "Failed to open key file `" << *iter << "'."
+                      << endl
+                      << "Continuing."
+                      << endl;
+
+            }  /* |if (DEBUG)|  */ 
+
+       }  /* |for|  */   
+
+       if (key_filenames.size() > 0 && !key_found)
+       {
+            cerr << "ERROR!  In `main':  Key not found."
+                 << endl 
+                 << "Exiting `optdbcli' unsuccessfully with exit value 1."
+                 << endl;
+    
+            exit(1);
+       } 
+
+@q ***** (5) Check whether to transfer proxy credential.  @>
+
+
+@ Check whether to transfer proxy credential.  Putting this code here makes it
+possible to leave out the \.{--proxy-credential} argument, if
+\.{--transfer-proxy-certificate} is used with an argument.  In this case,
+|proxy_cred_filename| is set to |transfer_proxy_cred_filename|.  It does no harm
+to use both options.  If \.{--transfer-proxy-certificate} is used without an
+argument or the argument is the same as the argument to the
+\.{--proxy-credential} option, |proxy_cred_filename| is transferred.  If a
+different argument is used with \.{--transfer-proxy-certificate}, then the
+argument to \.{--proxy-credential} is used for authentication/authorization and
+the argument to \.{--transfer-proxy-certificate} is transferred.  This may or
+may not ever be of any use.  \par One could also use a vector of filenames and
+transfer multiple proxy credentials.  It is doubtful whether this functionality
+will ever be needed, either.
+\initials{LDF 2011.09.26.}
+
+\LOG
+\initials{LDF 2011.09.26.}
+Added this section.
+
+\initials{LDF 2011.10.27.}  
+@:BUG FIX@> BUG FIX:  No longer assigning 
+|proxy_cert_filename = transfer_proxy_cert| if both |strings| 
+are non-empty.
+\ENDLOG 
+
+@<|main| for optdbcli@>=
+
+#if 1 /* 0 */
+bool save_DEBUG = DEBUG;
+DEBUG = false; /* |true|  */
+#endif 
+
+       if (DEBUG)
+       {
+
+           cerr << "`transfer_proxy_cred' == " << transfer_proxy_cred << endl;
+
+
+           if (proxy_cred_filename.empty())
+
+               cerr << "`proxy_cred_filename' is empty." << endl;
+
+           else 
+ 
+               cerr << "`proxy_cred_filename' == `" << proxy_cred_filename << "'." 
+                    << endl;
+
+           if (transfer_proxy_cred_filename.empty())
+
+               cerr << "`transfer_proxy_cred_filename' is empty." << endl;
+
+           else 
+ 
+               cerr << "`transfer_proxy_cred_filename' == `" 
+                    << transfer_proxy_cred_filename << "'." << endl;
+
+       }  /* |if (DEBUG)|  */ 
+
+
+       if (transfer_proxy_cred)
+       {
+           if (proxy_cred_filename.empty() && transfer_proxy_cred_filename.empty())
+           {
+                cerr << "WARNING!  `proxy_cred_filename' and `transfer_proxy_cred_filename' "
+                     << "are both empty!  Not transferring proxy credential."
+                     << endl;
+
+                transfer_proxy_cred = false;
+
+           }
+
+           else if (transfer_proxy_cred_filename.empty())
+              transfer_proxy_cred_filename = proxy_cred_filename;
+ 
+           else if (proxy_cred_filename.empty())
+              proxy_cred_filename = transfer_proxy_cred_filename;
+       }
+
+
+       if (DEBUG)
+       {
+
+           cerr << "After checking arguments:  `transfer_proxy_cred' == " 
+                << transfer_proxy_cred << endl;
+
+           if (proxy_cred_filename.empty())
+
+               cerr << "`proxy_cred_filename' is empty." << endl;
+
+           else 
+ 
+               cerr << "`proxy_cred_filename' == `" << proxy_cred_filename << "'." 
+                    << endl;
+
+           if (transfer_proxy_cred_filename.empty())
+
+               cerr << "`transfer_proxy_cred_filename' is empty." << endl;
+
+           else 
+ 
+               cerr << "`transfer_proxy_cred_filename' == `" 
+                    << transfer_proxy_cred_filename << "'." << endl;
+
+       }  /* |if (DEBUG)|  */ 
+
+#if 1 /* 0 */
+DEBUG = save_DEBUG; 
+#endif
+
+@q ***** (5) If no proxy credential is present, check default certificate.  @>
+
+@ If no proxy credential is present, check default certificate.
+\initials{LDF 2011.06.30.}
+
+@<|main| for optdbcli@>=
+
+       if (proxy_cred_filename.empty() && !cert_found)
+       {
+           temp_in_strm.open(DEFAULT_CERT_FILENAME.c_str());
+
+           if (temp_in_strm.is_open())
+           {
+              if (DEBUG)
+              {
+                  cerr << "Default certificate file found:  `" 
+                       << DEFAULT_CERT_FILENAME << "'."
+                       << endl;
+
+              }  /* |if (DEBUG)|  */ 
+
+              cert_found = true;
+              temp_in_strm.close();
+
+           }
+
+       }  /* |if (proxy_cred_filename.empty() && !cert_found)|  */
+
+@q ***** (5) If no proxy credential is present, check default key.  @>
+
+@ If no proxy credential is present, check default key.
+\initials{LDF 2011.06.30.}
+
+@<|main| for optdbcli@>=
+
+       if (proxy_cred_filename.empty() && !key_found)
+       {
+           temp_in_strm.open(DEFAULT_KEY_FILENAME.c_str());
+
+           if (temp_in_strm.is_open())
+           {
+              if (DEBUG)
+              {
+                  cerr << "Default key file found:  `" 
+                       << DEFAULT_KEY_FILENAME << "'."
+                       << endl;
+
+              }  /* |if (DEBUG)|  */ 
+
+              key_found = true;
+              temp_in_strm.close();
+
+          }
+
+       }  /* |if (proxy_cred_filename.empty() && !key_found)|  */
+
+@q ***** (5) If certificate and key found, set |authenticated_connection| to |true|.  @>
+
+@ If certificate and key found, set |authenticated_connection| to |true|.  
+\initials{LDF 2011.06.30.}
+
+@<|main| for optdbcli@>=
+
+       if (cert_found && key_found)
+       {
+           authenticated_connection = true;
+
+       }  /* |if (cert_found && key_found)|  */
+
+@q ***** (5) Else if no certificate and key, check proxy credential.  @>
+
+@ Else if no certificate and key, check proxy credential.
+\initials{LDF 2011.06.29.}
+
+@<|main| for optdbcli@>=
+
+       else /* |!(cert_found && key_found)|  */
+       {
+@q ****** (6) @>
+
+           if (proxy_cred_filename.empty())
+           {
+               cerr << "ERROR!  In `main':  No certificate/key pair and no proxy credential."
+                    << endl 
+                    << "This is not permitted.  "
+                    << "Exiting `optdbcli' unsuccessfully with exit value 1."
+                    << endl;
+    
+               exit(1);
+
+           }  /* |if (proxy_cred_filename.empty())|  */
+
+           temp_in_strm.open(proxy_cred_filename.c_str());
+
+           if (!temp_in_strm.is_open())
+           {
+               cerr << "ERROR!  In `main':  Proxy credential cannot be opened."
+                    << endl 
+                    << "Exiting `optdbcli' unsuccessfully with exit value 1."
+                    << endl;
+    
+               exit(1);
+
+           } 
+
+           else
+           {
+              authenticated_connection = false;
+           }
+
+@q ****** (6) @>
+
+       }   /* |else| (|!(cert_found && key_found)|)  */
+
+
+       if (DEBUG)
+       {
+
+           cerr << "authenticated_connection == " << authenticated_connection << endl;
+
+       }  /* |if (DEBUG)|  */ 
+
+
+@q ***** (5) @>
+@
+@<|main| for optdbcli@>=
+
+
+   }  /* End of group  */
+
+@q **** (4) Check for install directory.  @>
+
+@ Check for install directory.  
+\initials{LDF 2011.04.15.}
+
+If it hasn't been passed as a command-line argument, |get_dir| is used
+to create a default, which will be a directory named \filename{Installer}
+directly below the home directory of the user who called the program.
+\initials{LDF 2011.04.15.}
+
+\LOG
+\initials{LDF 2011.04.15.}
+Added this section.
+\ENDLOG
+
+@<|main| for optdbcli@>=
+
+    if (install_directory.empty())
+    {
+        if (DEBUG)
+        {
+            lock_cerr_mutex(); 
+            cerr << "[Initial Thread] In `main':  `install_directory' is empty."
+                 << endl
+                 << "Trying to create default."
+                 << endl;
+            unlock_cerr_mutex(); 
+
+        }  /* |if (DEBUG)|  */ 
+
+        install_directory = get_dir(getuid());
+
+        if (install_directory.empty())
+        {
+            lock_cerr_mutex(); 
+            cerr << "[Initial Thread] WARNING!  In `main':  `get_dir' failed."
+                 << endl
+                 << "Can't set install directory."
+                 << endl;
+            unlock_cerr_mutex(); 
+
+        }
+        else
+           install_directory += "/Installer";
+
+        if (DEBUG) 
+           cerr << "install_directory == " << install_directory << endl;
+ 
+
+    }  /* |if (install_directory)|  */
+
+    else if (DEBUG)
+
+       cerr << "install_directory == " << install_directory << endl;
+
+@q **** (4) Open log stream |log_strm| and error log stream |err_log_strm| @>
+@q **** (4) and write datestamp to them.                                   @>
+
+@ Open log stream |log_strm| and error log stream |err_log_strm| and write 
+datestamp to them.
+\initials{LDF 2010.03.10.}
+
+If |log_filename| and |err_log_filename| have not been specified by 
+command-line option and if one or more log files or error log files of the same name 
+(i.e., the default name)  exist, append a period and an integer to 
+|log_filename| and/or |err_log_filename|.  
+\initials{LDF 2010.03.10.}
+
+\LOG
+\initials{LDF 2010.03.10.}
+Added this section.
+
+\initials{LDF 2010.03.11.}
+Now opening |err_log_strm| and writing datestamp to it.
+
+\initials{LDF 2010.06.11.}
+Removed the declarations and initializations of |string log_filename| and
+|string err_log_filename|.  These are now global variables and can be set using
+the options \.{log-filename} and \.{error-log-filename}, respectively.
+
+\initials{LDF 2010.07.01.}
+@:BUG FIX@> BUG FIX: Added code for suppressing adding periods and integers to
+the end of the filename if it has been set using a command-line option.  This
+caused a problem when the web application \.{optwbsrv.fcgi} created temporary
+files in \filename{/tmp/} using |mkstemp| for use as log files: Since they
+already existed, a period and an integer was always appended to the filenames
+and new log files were created.  However, they were unknown to
+\.{optwbsrv.fcgi}, which then sent the contents of the unused files to its
+caller.
+
+\initials{LDF 2010.09.24.}
+@:BUG FIX@> BUG FIX: Now using |mkstemp| to generate the filenames for the log
+and error log files, if |log_filename| and/or |err_log_filename| is empty.
+Previously, I used loops to check whether files already existed and appended a
+period and an integer to the ends of the filenames.  The integers were
+incremented until an unused filenname was found.  However, these failed when the
+files existed, but had been created by another user and weren't readable by
+``group'' or ``others''.
+\ENDLOG
+
+@<|main| for optdbcli@>=
+
+   {
+
+       FILE* fp = 0;
+
+       int fd;
+
+       int i = 1;
+
+       stringstream temp_strm;
+
+       char temp_str[64];
+
+       if (log_filename.empty())
+       {
+           
+           strcpy(temp_str, DEFAULT_LOG_FILENAME.c_str());
+           strcat(temp_str, ".XXXXXX");
+
+           fd = mkstemp(temp_str);
+
+           if (fd == -1)
+           {
+               lock_cerr_mutex(); 
+               cerr << "[Initial Thread] Error!  `mkstemp' failed, returning -1:"
+                    << endl;
+               perror("mkstemp:");
+               cerr << "Exiting `main' unsuccessfully with exit value 1."
+                    << endl;
+               unlock_cerr_mutex(); 
+
+               exit(1);
+
+           }  /* |fd == -1|  */
+
+           close(fd);
+
+           log_filename = temp_str;
+
+           if (DEBUG) 
+              cerr << "log_filename == " << log_filename << endl;
+
+        }  /* |if (log_filename.empty())|  */
+
+       if (err_log_filename.empty())
+       {
+
+           strcpy(temp_str, DEFAULT_ERR_LOG_FILENAME.c_str());
+           strcat(temp_str, ".XXXXXX");
+
+           fd = mkstemp(temp_str);
+
+           if (fd == -1)
+           {
+               lock_cerr_mutex(); 
+               cerr << "[Initial Thread] Error!  `mkstemp' failed, returning -1:"
+                    << endl;
+               perror("mkstemp:");
+               cerr << endl 
+                    << "Exiting `main' unsuccessfully with exit value 1."
+                    << endl;
+               unlock_cerr_mutex(); 
+
+               exit(1);
+
+           }  /* |fd == -1|  */
+
+           close(fd);
+
+           err_log_filename = temp_str;
+
+           if (DEBUG) 
+              cerr << "err_log_filename == " << err_log_filename << endl;
+
+       }  /* |if (err_log_filename.empty())|  */
+
+   }  /* End of group  */
+
+@q ***** (5) @>
+@
+@<|main| for optdbcli@>=
+
+  log_strm.open(log_filename.c_str());
+
+  err_log_strm.open(err_log_filename.c_str());
+ 
+  if (!(log_strm && log_strm.is_open() && err_log_strm && err_log_strm.is_open()))
+  {
+      lock_cerr_mutex(); 
+      cerr << "ERROR!  In `main':  Failed to open log files."
+           << endl
+           << "`log_filename' == " << log_filename
+           << endl
+           << "`err_log_filename' == " << err_log_filename
+           << endl
+           << "Exiting `main' unsuccessfully with exit value 1."
+           << endl;
+      unlock_cerr_mutex();    
+
+      ++errors_occurred;
+
+      exit(1);
+
+  }  /* |if|  */
+
+  log_strm << log_filename << " --- Log file"
+           << endl 
+           << "Created " 
+           << get_datestamp() << endl << endl;
+
+  
+  err_log_strm << err_log_filename 
+               << " --- Error log file"
+               << endl 
+               << "Created " 
+               << get_datestamp() << endl << endl;
+
+@q **** (4) @>
+@
+@<|main| for optdbcli@>=
+
+   if (server_ip_address == "")
+   { 
+       lock_cerr_mutex(); 
+       cerr << "[Initial Thread] Error!  No IP address."
+            << endl 
+            << "Exiting `main' unsuccessfully with exit value 1."
+            << endl;
+       unlock_cerr_mutex(); 
+
+       log_strm << endl << "End of " << log_filename << " " 
+                << get_datestamp() << endl;
+
+       err_log_strm << endl << "End of " << err_log_filename << " " 
+                    << get_datestamp() << endl;
+
+
+       exit(1);
+
+   }  /* |else|  */
+
+   if (DEBUG) 
+   {
+      lock_cerr_mutex(); 
+      cerr << "input_filename == " << input_filename << endl
+           << "output_filename == " << output_filename << endl
+           << "server_ip_address == " << server_ip_address << endl;
+      unlock_cerr_mutex(); 
+
+   }  /* |if (DEBUG)|  */
+
+@q **** (4) @>
+@
+\LOG
+\initials{LDF 2011.06.30.}
+Removed code for exiting with an error message if 
+|read_input == true && authenticated_connection == false|.
+This is no longer necessary, because users must authenticate themselves 
+either with a certificate/key pair or a proxy credential.  
+There should be no difference from the user's point of view.  However, internally 
+there is a difference due to the way GNUTLS performs authentication.
+@:TODO@> !! TODO:  It is not clear to me yet, whether it's possible to use a 
+proxy credential for creating a TLS connection with the GNUTLS functions in the 
+same way this is done using a certificate/key pair.
+\ENDLOG
+
+@<|main| for optdbcli@>=
+   
+   if (authenticated_connection == true)
+   {
+
+       if (DEBUG)
+       {
+           lock_cerr_mutex();
+           cerr << "In `main':  Reading input to be sent to server."
+                << endl 
+                << "Calling `client_connect_auth'."
+                << endl;
+           unlock_cerr_mutex(); 
+               
+       }  /* |if (DEBUG)|  */ 
+
+       status = client_connect_auth();
+
+@q ***** (5) @>
+@
+@<|main| for optdbcli@>=
+
+       if (status != 0)
+       {
+
+           temp_strm.str("");
+
+
+           temp_strm << "ERROR!  In `main':  `client_connect_auth' failed, returning "
+                     << status
+                     << endl
+                     << "`errors_occurred' == " << errors_occurred
+                     << endl 
+                     << "`warnings_occurred' == " << warnings_occurred
+                     << endl 
+                     << "See error logfile `" << err_log_filename << "' and/or "
+                     << "logfile `" << log_filename << "' for more information."
+                     << endl
+                     << "Exiting `main' unsuccessfully with exit value 1."
+                     << endl;
+
+           lock_cerr_mutex(); 
+           cerr << temp_strm.str();
+           unlock_cerr_mutex(); 
+
+           log_strm << temp_strm.str();
+           err_log_strm << temp_strm.str();
+
+           ++errors_occurred;
+
+           log_strm << endl << "End of " << log_filename << " " 
+                    << get_datestamp() << endl;
+
+
+           err_log_strm << endl << "End of " << err_log_filename << " " 
+                        << get_datestamp() << endl;
+
+           exit(1);
+          
+       }  /* |if (status != 0)| */
+
+@q ***** (5) @>
+
+       else if (DEBUG)  /* |status == 0|  */
+       {
+           lock_cerr_mutex(); 
+           cerr << "In `main':  `client_connect_auth' succeeded."
+                << endl
+                << "`errors_occurred' == " << errors_occurred
+                << endl
+                << "`warnings_occurred' == " << warnings_occurred
+                << endl; 
+           unlock_cerr_mutex(); 
+
+       }  /* |else if (DEBUG)| (|status == 0|)  */ 
+
+@q ***** (5) @>
+
+   }  /* |else if (authenticated_connection == true)|  */
+
+@q **** (4) @>
+@
+@<|main| for optdbcli@>=
+
+   else /* |authenticated_connection == false|  */
+   {
+       /*  !! TODO:    LDF 2011.06.30.
+           Make it possible for input to be read in this case.  
+
+           LDF 2011.10.17.  Actually, I think input can be read:
+           `optdbcli' simply waits for input, unless it reads 
+           `END'.
+                  
+       */
+  
+       if (DEBUG)
+       {
+           lock_cerr_mutex();
+           cerr << "In `main':  Not reading input to be sent to server."
+                << endl 
+                << "Calling `client_connect_non_auth'."
+                << endl;
+           unlock_cerr_mutex(); 
+               
+       }  /* |if (DEBUG)|  */ 
+
+       status = client_connect_non_auth();
+
+@q ***** (5) @>
+@
+\LOG
+\initials{LDF 2010.07.21.}
+Now returning |status| instead of 1.
+\ENDLOG
+
+@<|main| for optdbcli@>=
+
+       if (status != 0)
+       {
+           lock_cerr_mutex(); 
+           cerr << "ERROR!  In `main':  `client_connect_non_auth' failed, returning "
+                << status
+                << endl
+                << "`errors_occurred' == " << errors_occurred
+                << endl 
+                << "`warnings_occurred' == " << warnings_occurred
+                << endl 
+                << "See error logfile `" << err_log_filename << "' and/or "
+                << "logfile `" << log_filename << "' for more information."
+                << endl
+                << "Exiting `main' unsuccessfully with exit value " 
+                << status << "1."
+                << endl;
+           unlock_cerr_mutex(); 
+
+           log_strm << endl << "End of " << log_filename << " " 
+                    << get_datestamp() << endl;
+
+
+           err_log_strm << endl << "End of " << err_log_filename << " " 
+                        << get_datestamp() << endl;
+
+           exit(status);
+          
+       }  /* |if (status != 0)| */
+
+@q ***** (5) @>
+
+       else if (DEBUG)  /* |status == 0|  */
+       {
+           lock_cerr_mutex(); 
+           cerr << "In `main':  `client_connect_non_auth' succeeded."
+                << endl
+                << "`errors_occurred' == " << errors_occurred
+                << endl
+                << "`warnings_occurred' == " << warnings_occurred
+                << endl;
+           unlock_cerr_mutex(); 
+
+       }  /* |else if (DEBUG)| (|status == 0|)  */ 
+
+@q ***** (5) @>
+
+   }  /* |else| (|authenticated_connection == false|)  */
+
+
+@q **** (4) @>
+@
+@<|main| for optdbcli@>=
+
+   if (errors_occurred > 0)
+   {
+      cerr << "WARNING!  In `main':  `errors_occurred' == " 
+           << errors_occurred
+           << endl 
+           << "`warnings_occurred' == "
+           << warnings_occurred
+           << endl 
+           << "See error logfile `" << err_log_filename << "' and/or "
+           << "logfile `" << log_filename << "' for more information."
+           << endl
+           << "Exiting function with return value 2."
+           << endl;
+
+       exit(2);
+
+   }  /* |if (errors_occurred > 0)|  */
+
+
+@q ***** (5) @>
+@
+\LOG
+\initials{LDF 2010.03.15.}
+Added this section.
+\ENDLOG
+
+@<|main| for optdbcli@>=
+
+   else if (warnings_occurred > 0)
+   {
+      cerr << "WARNING!  In `main':  `warnings_occurred' == " 
+           << warnings_occurred
+           << endl 
+           << "(No errors)" 
+           << endl 
+           << "See error logfile `" << err_log_filename << "' and/or "
+           << "logfile `" << log_filename << "' for more information."
+           << endl
+           << "Exiting function with return value 4."
+           << endl;
+
+       exit(4);
+
+   }  /* |if (warnings_occurred > 0)|  */
+
+@q ***** (5) @>
+@
+@<|main| for optdbcli@>=
+
+   else
+   {
+
+      log_strm << endl << "No errors or warnings." << endl;
+      err_log_strm << endl << "No errors or warnings." << endl;
+   }
+
+
+   log_strm << endl << "End of " << log_filename << " " 
+            << get_datestamp() << endl;
+
+   err_log_strm << endl << "End of " << err_log_filename << " " 
+                << get_datestamp() << endl;
+
+   if (DEBUG)
+   {
+       cerr << "*** Exiting `main' successfully with return value 0."
+            << endl;
+
+   }  /* |if (DEBUG)|  */ 
+
+   exit(0);
+
+}  /* End of |main| definition  */
+
+@q ** (2) Garbage.  @>
+@
+@<Garbage@>=
+#if 0
+#endif
+
+@q ** (2) Putting Optinum-Grid Client together.@>
+
+@ Putting Optinum-Grid Client together.
+@c
+using namespace std;
+@<Include files@>@;@/
+extern int yydebug;
+extern int zzdebug;
+@<Version control identifier@>@;@/
+@<|finish| definition@>@;@/
+@<|main| for optdbcli@>@;@/
+
+#if 0 /* 1 */ 
+@<Garbage@>@;@/
+#endif 
+
+@
+@(optdbcli.h@>=
+/* Empty  */
+
+@q (progn (cweb-mode) (outline-minor-mode))   @>
+
+@q * (1) Local variables for Emacs @>
+
+@q * Local variables for Emacs.@>
+@q Local Variables: @>
+@q mode:CWEB @>
+@q eval:(display-time) @>
+@q abbrev-mode:t @>
+@q eval:(read-abbrev-file) @>
+@q indent-tabs-mode:nil @>
+@q eval:(outline-minor-mode) @>
+@q fill-column:80 @>
+@q End: @>

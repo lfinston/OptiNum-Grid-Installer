@@ -1,0 +1,1009 @@
+@q spptenfn.web  @>
+@q Created by Laurence D. Finston (LDF) Mon May 14 11:30:43 CEST 2012 @>
+
+@q * (1) Top @>
+
+@q * (1) Copyright and License.@>
+
+@q This file is part of the OptiNum Grid Installer @>
+@q Copyright (C) 2010, 2011, 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen @>
+
+@q The OptiNum Grid Installer is free software; you can redistribute it and/or modify @>
+@q it under the terms of the GNU General Public License as published by @>
+@q the Free Software Foundation; either version 3 of the License, or @>
+@q (at your option) any later version.  @>
+
+@q The OptiNum Grid Installer is distributed in the hope that it will be useful, @>
+@q but WITHOUT ANY WARRANTY; without even the implied warranty of @>
+@q MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the @>
+@q GNU General Public License for more details.  @>
+
+@q You should have received a copy of the GNU General Public License          @>
+@q along with the OptiNum Grid Installer; if not, write to the Free Software                    @>
+@q Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA @>
+
+@q ("@@" stands for a single at-sign in the following paragraph.) @>
+
+@q Please send bug reports to Laurence.Finston@@gwdg.de@>
+
+@q Laurence D. Finston                                                   @>
+@q Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen  @>
+@q Am Fassberg 11         					         @>
+@q 37077 Goettingen              					 @>
+@q Germany                           					 @>                                
+
+@q Laurence.Finston@@gwdg.de (@@ stands for a single "at" sign.)@>
+
+@q ** (2)  spptenfn.web @>
+@ {\bf Scan\_Parse\_Parameter\_Type} functions for use with software package entries.
+
+\LOG
+\initials{LDF 2012.05.14.}
+Created this file.  It contains the definition of some of the |Scan_Parse_Parameter_Type| 
+member functions for use with software package entries.
+\ENDLOG 
+
+@q ** (2) Include files  @>
+
+@ Include files.
+
+@<Include files@>=
+#include <stdlib.h>  /* Standard Library for C  */
+#include <stdio.h>
+#include <errno.h>
+#include <unistd.h>
+#include <limits.h>
+
+#include <algorithm> /* Standard Template Library (STL) for C++  */
+#include <fstream> 
+#include <iomanip>
+#include <ios>
+#include <iostream>
+#include <map>
+#include <string>
+#include <time.h>
+#include <math.h>
+#include <sstream>  
+
+#include <set>
+#include <vector>
+#include <deque>
+
+
+#include <pthread.h>  /* POSIX threads  */
+
+#include <gcrypt.h> /* for |gcry_control| */
+#include <gnutls/gnutls.h>
+
+#if HAVE_CONFIG_H
+#include <config.h>
+#endif 
+
+#if IS_ROCKS_GOEGRID
+#undef HAVE_LIBMYSQLCLIENT
+#endif 
+
+#if HAVE_LIBMYSQLCLIENT
+#include <mysql.h>
+#endif 
+
+#include "entries.h++"  /* Headers generated from CWEB files belonging to this package  */
+#include "dstngnmt.h++"
+
+#include "glblvrbl.h++"  
+#include "glblfncs.h++"
+#include "utilfncs.h++"
+#include "parser.h++"    
+#include "scanner.h++"
+#include "x509cert.h++"
+#include "rspnstp.h++"
+#include "thrdfncs.h++"
+#include "sssndttp.h++"
+#include "glsinftp.h++"
+#include "scprpmtp.h++"
+
+
+@ Mark entries.
+\initials{LDF 2012.01.13.}
+
+This function marks or unmarks all of the entries with |package_name| and |package_version| 
+(if the latter is present) for the current user (identified by |curr_user_id|)
+as deleted (unless it's already been marked).  
+Normally, it shouldn't be possible for there to be more than one entry for a 
+given |package_name| with the same non-empty |package_version|.  
+However, if there is, this function will mark or unmark all of them.
+\initials{LDF 2012.01.13.}
+\initials{LDF 2012.05.14.}
+
+\LOG
+\initials{LDF 2012.01.13.}
+Added this function.
+
+\initials{LDF 2012.05.14.}
+Added code for catching the case that an entry has already been marked or unmarked
+and sending an appropriate response with an error code to the client.
+
+\initials{LDF 2012.05.14.}
+Moved the definition of this function from \filename{scprpmtp.web} to this file 
+(\filename{spptenfn.web}).
+
+\initials{LDF 2012.05.15.}
+Revised this function.  Various minor bug fixes.
+\ENDLOG
+
+@q ***** (5) Definition  @>
+@
+@<|Scan_Parse_Parameter_Type::mark_entries| definition@>=
+
+#if HAVE_LIBMYSQLCLIENT
+int
+Scan_Parse_Parameter_Type::mark_entries(bool deleted,
+                                        string package_name, 
+                                        string package_version)
+{
+@q ****** (6) @>
+
+    bool DEBUG = false;  /* |true|  */
+    set_debug_level(DEBUG);
+
+    int status = 0;
+
+    stringstream sql_strm;
+
+    MYSQL_RES* result;
+    MYSQL_ROW curr_row;
+
+    unsigned int row_ctr = 0;
+    unsigned int field_ctr = 0;
+
+    unsigned int curr_user_id 
+       = (effective_user_id > 0) ? effective_user_id : user_id;
+
+    int curr_entry_id;
+
+    Response_Type response; 
+    response.type = Response_Type::COMMAND_ONLY_TYPE;       
+
+    stringstream temp_strm;    
+
+    string mark_or_unmark_str = (deleted) ? "mark" : "unmark";
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::mark_entries| definition@>=
+
+    /* !! START HERE:  LDF 2012.05.14.  Check |curr_row[1]|, if non-empty,
+       use it in responses.   Also, send |affected_rows| back to client in "success"
+       response.  Combine MARK and UNMARK rules.  */
+    
+    if (DEBUG) 
+    { 
+       lock_cerr_mutex(); 
+       cerr << "[Thread " << thread_ctr << "]:  "
+            << "Entering `Scan_Parse_Parameter_Type::mark_entries':"
+            << endl;
+
+       cerr << "`user_id' == " << user_id 
+            << endl
+            << "`curr_user_id' == " << curr_user_id 
+            << endl
+            << "`deleted' == " << deleted
+            << endl;
+
+       unlock_cerr_mutex(); 
+
+    } /* |if (DEBUG)| */
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::mark_entries| definition@>=
+
+    sql_strm << "select entry_id, package_name, package_version, deleted "
+             << "from Entries where user_id = " << curr_user_id;
+
+    if (!package_name.empty())
+       sql_strm << " and package_name = '"
+                << package_name << "'";
+
+    if (!package_version.empty())
+       sql_strm << " and package_version = '" << package_version << "'";
+
+    if (DEBUG) 
+    { 
+       lock_cerr_mutex(); 
+       cerr << "[Thread " << thread_ctr << "]:  "
+            << "In `Scan_Parse_Parameter_Type::mark_entries':"
+            << endl
+            << "`sql_strm.str()' == "
+            << endl
+            << sql_strm.str()
+            << endl;
+
+       unlock_cerr_mutex(); 
+
+    } /* |if (DEBUG)| */
+
+    status = submit_mysql_query(sql_strm.str(),
+                                result, 
+                                &row_ctr, 
+                                &field_ctr);
+
+    if (status)
+    {
+        lock_cerr_mutex(); 
+        cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+             << "WARNING!  In `Scan_Parse_Parameter_Type::mark_entries':"
+             << endl 
+             << "`Scan_Parse_Parameter_Type::submit_mysql_query' failed, returning " 
+             << status << "."
+             << endl
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+        unlock_cerr_mutex(); 
+
+       if (result) 
+          mysql_free_result(result);
+
+       temp_strm.str("");
+
+
+       if (deleted)
+          temp_strm << "FAILED TO MARK ";
+       else
+          temp_strm << "FAILED TO UNMARK ";
+
+       if (!package_name.empty())
+       {
+          temp_strm << "ENTRY "
+                 << " <" << package_name << ">";
+
+          if (!package_version.empty())
+             temp_strm << " <" << package_version << ">";
+
+          temp_strm << " AS DELETED 1";
+       }
+       else
+          temp_strm << "ENTRIES AS DELETED 1";
+
+       response.command = temp_strm.str();
+
+       server_finished = false;
+
+       pthread_mutex_lock(&response_deque_mutex);
+       response_deque.push_back(response);
+       pthread_mutex_unlock(&response_deque_mutex);
+
+       return 1;
+
+    }  /* |if (status)|  */
+
+    else if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "In `Scan_Parse_Parameter_Type::mark_entries':"
+             << endl 
+             << "`Scan_Parse_Parameter_Type::submit_mysql_query' succeeded."
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */
+
+@q ******** (8) @>
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "In `Scan_Parse_Parameter_Type::mark_entries':"
+             << endl 
+             << "row_ctr == " << row_ctr 
+             << endl
+             << "field_ctr == " << field_ctr 
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */
+
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::mark_entries| definition@>=
+
+   if (row_ctr == 0)
+   {
+       if (DEBUG)
+       {
+           lock_cerr_mutex(); 
+           cerr << "[Thread " << thread_ctr << "]:  "
+                << "In `Scan_Parse_Parameter_Type::mark_entries':"
+                << endl 
+                << "No entries to mark.  Exiting function successfully with "
+                << "return value 0."
+                << endl;
+           unlock_cerr_mutex(); 
+
+       }  /* |if (DEBUG)|  */ 
+
+       mysql_free_result(result);
+
+       temp_strm.str("");
+
+       if (deleted)
+          temp_strm << "FAILED TO MARK ";
+       else
+          temp_strm << "FAILED TO UNMARK ";
+
+       if (!package_name.empty())
+       {
+          temp_strm << "ENTRY "
+                 << " <" << package_name << ">";
+
+          if (!package_version.empty())
+             temp_strm << " <" << package_version << ">";
+
+          temp_strm << " AS DELETED 0";
+       }
+       else
+          temp_strm << "ENTRIES AS DELETED 0";
+
+       response.command = temp_strm.str();
+
+       server_finished = false;
+
+       pthread_mutex_lock(&response_deque_mutex);
+       response_deque.push_back(response);
+       pthread_mutex_unlock(&response_deque_mutex);
+
+       return 0;
+
+   }  /* |if (row_ctr == 0)|  */
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::mark_entries| definition@>=
+
+   sql_strm.str("");
+
+   sql_strm << "update Entries set deleted = " << deleted 
+            << ", last_modified = utc_timestamp() where entry_id in (";  
+
+
+@q |")"|  @>
+
+@q ****** (6) @>
+
+   bool found = false;
+   vector<pair<string, string> > package_vector;
+
+   for (int i = 0; i < row_ctr; ++i)
+   {
+@q ******* (7) @>
+
+       if ((curr_row = mysql_fetch_row(result)) == 0)
+       {
+           lock_cerr_mutex(); 
+           cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+                << "ERROR!  In `Scan_Parse_Parameter_Type::mark_entries':"
+                << endl 
+                << "`mysql_fetch_row' failed:"
+                << endl
+                << mysql_error(mysql_ptr)
+                << endl 
+                << "Exiting function unsuccessfully with return value 1."
+                << endl;
+           unlock_cerr_mutex(); 
+
+           if (result)
+              mysql_free_result(result);
+
+           temp_strm.str("");
+
+           if (deleted)
+              temp_strm << "FAILED TO MARK ";
+           else
+              temp_strm << "FAILED TO UNMARK ";
+
+           if (!package_name.empty())
+           {
+              temp_strm << "ENTRY "
+                     << " <" << package_name << ">";
+
+              if (!package_version.empty())
+                 temp_strm << " <" << package_version << ">";
+
+              temp_strm << " AS DELETED 1";
+           }
+           else
+              temp_strm << "ENTRIES AS DELETED 1";
+
+           response.command = temp_strm.str();
+
+           server_finished = false;
+
+           pthread_mutex_lock(&response_deque_mutex);
+           response_deque.push_back(response);
+           pthread_mutex_unlock(&response_deque_mutex);
+
+           return 1;
+
+       }  /* |if (curr_row = mysql_fetch_row(result) == 0)|  */
+
+@q ******* (7) @>
+
+       if (curr_row[0] == 0 || strlen(curr_row[0]) == 0)
+       {
+           lock_cerr_mutex(); 
+           cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+                 << "ERROR!  In `Scan_Parse_Parameter_Type::mark_entries':"
+                 << endl 
+                 << "`curr_row[0]' is NULL or empty."
+                 << endl 
+                 << "Exiting function unsuccessfully with return value 1."
+                 << endl;
+           unlock_cerr_mutex(); 
+
+           if (result)
+              mysql_free_result(result);
+
+           temp_strm.str("");
+
+           if (deleted)
+              temp_strm << "FAILED TO MARK ";
+           else
+              temp_strm << "FAILED TO UNMARK ";
+
+           if (!package_name.empty())
+           {
+              temp_strm << "ENTRY "
+                     << " <" << package_name << ">";
+
+              if (!package_version.empty())
+                 temp_strm << " <" << package_version << ">";
+
+              temp_strm << " AS DELETED 1";
+           }
+           else
+              temp_strm << "ENTRIES AS DELETED 1";
+
+           response.command = temp_strm.str();
+
+           server_finished = false;
+
+           pthread_mutex_lock(&response_deque_mutex);
+           response_deque.push_back(response);
+           pthread_mutex_unlock(&response_deque_mutex);
+
+           return 1;
+
+       }  /* |if|  */
+
+@q ******* (7) @>
+
+       else if (DEBUG)
+       {
+           lock_cerr_mutex(); 
+           cerr << "[Thread " << thread_ctr << "]:  "
+                << "In `Scan_Parse_Parameter_Type::mark_entries':"
+                << endl 
+                << "`curr_row[0]' == " << curr_row[0] << endl;
+
+           if (curr_row[1] != 0 && strlen(curr_row[1]) > 0)
+                cerr << "`curr_row[1]' == " << curr_row[1] << endl;
+           else
+                cerr << "`curr_row[1]' is NULL or empty." << endl;
+
+           if (curr_row[2] != 0 && strlen(curr_row[2]) > 0)
+                cerr << "`curr_row[2]' == " << curr_row[2] << endl;
+           else
+                cerr << "`curr_row[2]' is NULL or empty." << endl;
+
+
+           unlock_cerr_mutex(); 
+
+       }  /* |if (DEBUG)|  */
+
+@q ******* (7) @>
+@
+@<|Scan_Parse_Parameter_Type::mark_entries| definition@>=
+
+       if (curr_row[3] == 0 || strlen(curr_row[3]) == 0)
+       {
+           lock_cerr_mutex(); 
+           cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+                << "WARNING!  In `Scan_Parse_Parameter_Type::mark_entries':"
+                << endl 
+                << "`curr_row[3]' is NULL or empty."
+                << endl
+                << "Can't tell whether entry has already been "
+                << mark_or_unmark_str << "ed for deletion or not."
+                << endl 
+                << "Will " << mark_or_unmark_str << " for deletion.  Continuing."
+                << endl;
+           unlock_cerr_mutex(); 
+
+       }  /* |if (curr_row[3] == 0 || strlen(curr_row[3]) == 0)|  */
+
+@q ******* (7) @>
+@
+\LOG
+\initials{LDF 2012.05.15.}
+@:BUG FIX@> BUG FIX:  Now sending individual messages for each package.  Formerly,
+if all of the user's software package entries were marked or unmarked, a message 
+was sent for each one, but only mentioning ``entries'' and not the specific ones.
+\ENDLOG 
+@<|Scan_Parse_Parameter_Type::mark_entries| definition@>=
+
+        else if ((deleted && atoi(curr_row[3]) == 1) || (!deleted && atoi(curr_row[3]) == 0))
+        {
+            lock_cerr_mutex(); 
+            cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+                 << "WARNING!  In `Scan_Parse_Parameter_Type::mark_entries':"
+                 << endl 
+                 << "Entry `" << curr_row[1];
+
+            if (curr_row[2] != 0 && strlen(curr_row[2]) > 0)
+                cerr << " " << curr_row[2];
+
+            cerr << "' (" << curr_row[0] << ") has already been " 
+                 << mark_or_unmark_str << "ed for deletion."
+                 << endl
+                 << "Not " << mark_or_unmark_str << "ing again.  Continuing."
+                 << endl;
+            unlock_cerr_mutex(); 
+
+            temp_strm.str("");
+
+            if (deleted)
+               temp_strm << "FAILED TO MARK ";
+            else
+               temp_strm << "FAILED TO UNMARK ";
+
+            temp_strm << "ENTRY <" << curr_row[1] << "> ";
+
+            if (curr_row[2] != 0 && strlen(curr_row[2]) > 0)
+               temp_strm << " <" << curr_row[2] << ">";
+
+            temp_strm << " AS DELETED 2";
+
+            response.command = temp_strm.str();
+
+            server_finished = false;
+
+            pthread_mutex_lock(&response_deque_mutex);
+            response_deque.push_back(response);
+            pthread_mutex_unlock(&response_deque_mutex);
+
+            response.command = "";
+            temp_strm.str("");
+
+            continue;
+
+        }  /* |else if|  */
+
+@q ******* (7) @>
+@
+@<|Scan_Parse_Parameter_Type::mark_entries| definition@>=
+
+        else
+        {
+             if (DEBUG)
+             {
+                 lock_cerr_mutex(); 
+                 cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+                      << "In `Scan_Parse_Parameter_Type::mark_entries':"
+                      << endl 
+                      << "Entry `" << curr_row[1];
+
+                 if (curr_row[2] != 0 && strlen(curr_row[2]) > 0)
+                  cerr << " " << curr_row[2];
+
+                 cerr << "' (" << curr_row[0] << ") has not already been " 
+                      << mark_or_unmark_str << "ed for deletion."
+                      << endl
+                      << "Will " << mark_or_unmark_str << "."
+                      << endl;
+                 unlock_cerr_mutex(); 
+
+             }  /* |if (DEBUG)|  */ 
+
+        }  /* |else|  */
+
+@q ******* (7) @>
+@
+@<|Scan_Parse_Parameter_Type::mark_entries| definition@>=
+
+        if (found)
+        {
+           sql_strm << ", ";
+        }
+
+        sql_strm << curr_row[0];
+
+        if (curr_row[2] && strlen(curr_row[2]) > 0)
+           package_vector.push_back(make_pair(curr_row[1], curr_row[2]));
+        else 
+           package_vector.push_back(make_pair(curr_row[1], ""));
+
+        if (!found)
+           found = true;
+
+@q ******* (7) @>
+
+   }  /* |for|  */
+
+@q |"("|  @>
+
+   if (result)
+   {
+       mysql_free_result(result);
+       result = 0;
+   }
+
+   sql_strm << ")";
+
+   if (DEBUG)
+   {
+       lock_cerr_mutex(); 
+       cerr << "[Thread " << thread_ctr << "]:  "
+            << "In `Scan_Parse_Parameter_Type::mark_entries':"
+            << endl
+            << "found == " << found << endl
+            << endl 
+             << "`sql_strm.str()' == " << sql_strm.str() 
+            << endl;
+       unlock_cerr_mutex(); 
+
+   }  /* |if (DEBUG)|  */
+
+@q ****** (6) @>
+
+@ No response has to be set up here, because there will already have been one set up 
+above for each entry that was already marked or unmarked.
+\initials{LDF 2012.05.14.}
+
+\LOG
+\initials{LDF 2012.05.14.}
+Added this section.
+\ENDLOG
+
+@<|Scan_Parse_Parameter_Type::mark_entries| definition@>=
+
+   if (!found)
+   {
+       lock_cerr_mutex(); 
+       cerr << "[Thread " << thread_ctr << "]:  "
+            << "WARNING!  In `Scan_Parse_Parameter_Type::mark_entries':"
+            << endl
+            << "`found' == `false':  Entries all " << mark_or_unmark_str << "ed for deletion "
+            << "already.  No entries to " << mark_or_unmark_str << "."
+            << endl 
+            << "Exiting function successfully with return value 0."
+            << endl;
+       unlock_cerr_mutex(); 
+
+       if (result) 
+          mysql_free_result(result);
+
+       return 0;
+
+   }  /* |if (!found)|  */
+
+   else if (DEBUG)
+   {
+       lock_cerr_mutex(); 
+       cerr << "[Thread " << thread_ctr << "]:  "
+            << "In `Scan_Parse_Parameter_Type::mark_entries':"
+            << endl
+            << "`found' == `true':  Entries not all " << mark_or_unmark_str << "ed for deletion "
+            << "already.  Will " << mark_or_unmark_str << " entry or entries."
+            << endl;
+       unlock_cerr_mutex(); 
+
+   }  /* |else if (DEBUG)|  */ 
+
+@q ****** (6) @>
+
+   status = lock_table("Entries");
+
+   if (status != 0)
+   {
+       lock_cerr_mutex(); 
+       cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+            << "WARNING!  In `Scan_Parse_Parameter_Type::mark_entries':"
+            << endl
+            << "Failed to lock database table `Entries'."
+            << endl
+            << "Will try to continue."
+            << endl;
+       unlock_cerr_mutex(); 
+
+
+   }  /* |if (status != 0)|  */
+
+   else if (DEBUG)
+   {
+       lock_cerr_mutex(); 
+       cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+            << "In `Scan_Parse_Parameter_Type::mark_entries':"
+            << endl
+            << "Locked database table `Entries' successfully."
+            << endl;
+       unlock_cerr_mutex(); 
+
+   }  /* |else if (DEBUG)|  */ 
+
+@q ****** (6) @>
+
+   long affected_rows = 0L;
+
+   status = submit_mysql_query(sql_strm.str(),
+                               result, 0, 0, &affected_rows);
+
+@q ****** (6) @>
+
+   if (status)
+   {
+       lock_cerr_mutex(); 
+       cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+            << "WARNING!  In `Scan_Parse_Parameter_Type::mark_entries':"
+            << endl 
+            << "`Scan_Parse_Parameter_Type::submit_mysql_query' failed, returning " 
+            << status << "."
+            << endl
+            << "Exiting function unsuccessfully with return value 1."
+            << endl;
+       unlock_cerr_mutex(); 
+
+      if (result) 
+         mysql_free_result(result);
+
+      unlock_tables();
+
+      temp_strm.str("");
+
+      if (deleted)
+         temp_strm << "FAILED TO MARK ";
+      else
+         temp_strm << "FAILED TO UNMARK ";
+
+      if (!package_name.empty())
+      {
+         temp_strm << "ENTRY "
+                << " <" << package_name << ">";
+
+         if (!package_version.empty())
+            temp_strm << " <" << package_version << ">";
+
+         temp_strm << " AS DELETED 1";
+      }
+      else
+         temp_strm << "ENTRIES AS DELETED 1";
+
+      response.command = temp_strm.str();
+
+      server_finished = false;
+
+      pthread_mutex_lock(&response_deque_mutex);
+      response_deque.push_back(response);
+      pthread_mutex_unlock(&response_deque_mutex);
+
+      return 1;
+
+   }  /* |if (status)|  */
+
+@q ****** (6) @>
+
+   else if (DEBUG)
+   {
+       lock_cerr_mutex(); 
+       cerr << "[Thread " << thread_ctr << "]:  "
+            << "In `Scan_Parse_Parameter_Type::mark_entries':"
+            << endl 
+            << "`Scan_Parse_Parameter_Type::submit_mysql_query' succeeded."
+            << endl
+            << "`affected_rows' == " << affected_rows
+            << endl;
+       unlock_cerr_mutex(); 
+
+   }  /* |if (DEBUG)|  */
+
+   sql_strm.str("");
+
+   mysql_free_result(result);
+   result = 0;
+   status = unlock_tables();
+
+   if (status != 0)
+   {
+       lock_cerr_mutex(); 
+       cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+            << "WARNING!  In `Scan_Parse_Parameter_Type::mark_entries':"
+            << endl
+            << "Failed to unlock database tables."
+            << endl
+            << "Will try to continue."
+            << endl;
+       unlock_cerr_mutex(); 
+
+
+   }  /* |if (status != 0)|  */
+
+   else if (DEBUG)
+   {
+       lock_cerr_mutex(); 
+       cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+            << "In `Scan_Parse_Parameter_Type::mark_entries':"
+            << endl
+            << "Unlocked database tables successfully."
+            << endl;
+       unlock_cerr_mutex(); 
+
+   }  /* |else if (DEBUG)|  */ 
+
+
+@q ****** (6) @>
+
+   if (affected_rows == 0)
+   {
+       lock_cerr_mutex(); 
+       cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+            << "WARNING!  In `Scan_Parse_Parameter_Type::mark_entries':"
+            << endl 
+            << "`affected_rows' == 0." 
+            << endl
+            << "No entries " << mark_or_unmark_str << "ed for deletion"
+            << endl 
+            << "Exiting function successfully with return value 0."
+            << endl;
+       unlock_cerr_mutex(); 
+
+      if (result) 
+         mysql_free_result(result);
+
+      unlock_tables();
+
+      temp_strm.str("");
+
+      if (deleted)
+         temp_strm << "FAILED TO MARK ";
+      else
+         temp_strm << "FAILED TO UNMARK ";
+
+      if (!package_name.empty())
+      {
+         temp_strm << "ENTRY "
+                << " <" << package_name << ">";
+
+         if (!package_version.empty())
+            temp_strm << " <" << package_version << ">";
+
+         temp_strm << " AS DELETED 0";
+      }
+      else
+         temp_strm << "ENTRIES AS DELETED 0";
+
+      response.command = temp_strm.str();
+
+      server_finished = false;
+
+      pthread_mutex_lock(&response_deque_mutex);
+      response_deque.push_back(response);
+      pthread_mutex_unlock(&response_deque_mutex);
+
+      return 0;
+
+   }  /* |if (affected_rows == 0)|  */
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::mark_entries| definition@>=
+
+    for (int i = 0; i < affected_rows; ++i)
+    {
+@q ******* (7) @>
+
+         temp_strm.str("");
+         response.command = "";
+
+         if (deleted)
+            temp_strm << "MARKED ";
+         else
+            temp_strm << "UNMARKED ";
+
+         temp_strm << "ENTRY "
+                   << " <" << package_vector[i].first << "> ";
+
+         if (!package_vector[i].second.empty())
+         {
+
+             temp_strm << "<" << package_vector[i].second << "> ";
+         }
+
+         temp_strm << "AS DELETED SUCCESSFULLY";
+
+         response.command = temp_strm.str();
+
+         server_finished = false;
+
+         pthread_mutex_lock(&response_deque_mutex);
+         response_deque.push_back(response);
+         pthread_mutex_unlock(&response_deque_mutex);
+
+@q ******* (7) @>
+
+    }  /* |for|  */
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::mark_entries| definition@>=
+
+    if (DEBUG) 
+    { 
+       lock_cerr_mutex(); 
+       cerr << "[Thread " << thread_ctr << "]:  "
+            << "Exiting `Scan_Parse_Parameter_Type::mark_entries' successfully "
+            << "with return value 0."
+            << endl;
+       unlock_cerr_mutex(); 
+
+    } /* |if (DEBUG)| */
+
+    return 0;
+
+}  /* End of |Scan_Parse_Parameter_Type::mark_entries| definition  */
+
+#endif  /* |HAVE_LIBMYSQLCLIENT|  */
+
+@q **** (4) @>
+@
+@<Garbage@>=
+
+@q **** (4) @>
+
+@q *** (3) Putting `spptenfn.web.web' together.  @>
+
+@ Putting {\tt spptenfn.web\PERIOD web} together.
+
+@q **** (4) This is what's compiled.  @>
+@ This is what's compiled.
+@c
+@<Include files@>@;@/
+using namespace std;
+@<|Scan_Parse_Parameter_Type::mark_entries| definition@>@;@/
+
+#if 0 
+@<Garbage@>@;@/
+#endif 
+
+@q **** (4) This is what's written to the header file `spptenfn.h'.  @>
+
+@ This is what's written to the header file \filename{spptenfn.h}.
+
+That is, no {\CPLUSPLUS/} code is written to the header file, but it's helpful 
+for it to exist, so that this CWEB file can be handled in exactly the same 
+way as the others.
+\initials{LDF 2012.01.13.}
+
+@(spptenfn.h@>=
+#ifndef SPPTENFN.WEB_H
+#define SPPTENFN.WEB_H 1
+/* Empty  */
+#endif 
+
+@q * (1) Emacs-Lisp code for use in indirect buffers  @>
+
+@q (progn (cweb-mode) (outline-minor-mode))                          @>
+
+@q * (1) Local variables for Emacs @>
+
+@q * Local variables for Emacs.@>
+@q Local Variables: @>
+@q mode:CWEB @>
+@q eval:(display-time) @>
+@q abbrev-mode:t @>
+@q eval:(read-abbrev-file) @>
+@q indent-tabs-mode:nil @>
+@q eval:(outline-minor-mode) @>
+@q fill-column:80 @>
+@q End: @>

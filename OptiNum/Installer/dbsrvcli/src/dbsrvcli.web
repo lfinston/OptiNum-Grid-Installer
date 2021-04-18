@@ -1,0 +1,389 @@
+@q dbsrvcli.web  @>
+@q [...]/optinum/Installer/dbsrvcli/src/dbsrvcli.web  @>
+
+@q Created by Laurence D. Finston (LDF) Mo 28. Sep 17:59:36 CEST 2009  @>
+
+@q * (1) Top @>
+
+@q * (1) Copyright and License.@>
+
+@q This file is part of the OptiNum Grid Installer @>
+@q Copyright (C) 2010, 2011, 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen @>
+
+@q The OptiNum Grid Installer is free software; you can redistribute it and/or modify @>
+@q it under the terms of the GNU General Public License as published by @>
+@q the Free Software Foundation; either version 3 of the License, or @>
+@q (at your option) any later version.  @>
+
+@q The OptiNum Grid Installer is distributed in the hope that it will be useful, @>
+@q but WITHOUT ANY WARRANTY; without even the implied warranty of @>
+@q MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the @>
+@q GNU General Public License for more details.  @>
+
+@q You should have received a copy of the GNU General Public License          @>
+@q along with the OptiNum Grid Installer; if not, write to the Free Software                    @>
+@q Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA @>
+
+@q ("@@" stands for a single at-sign in the following paragraph.) @>
+
+@q Please send bug reports to Laurence.Finston@@gwdg.de@>
+
+@q Laurence D. Finston                                                   @>
+@q Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen  @>
+@q Am Fassberg 11         					         @>
+@q 37077 Goettingen              					 @>
+@q Germany                           					 @>                                
+
+@q Laurence.Finston@@gwdg.de (@@ stands for a single "at" sign.)@>
+
+@q * (0)   @>
+
+@q This is the driver file for generating the TeX output for various             @>
+@q Optinum-Grid programs.                                                        @>
+@q It is only for use with CWEAVE and TeX and contains no code to be compiled.   @>
+@q It includes the other `.web' files.                                           @>
+
+@q LDF 2009.09.28.                                                               @>
+
+\def\docname{Optinum-Grid Installer:}
+\newtoks\parttoks
+\parttoks={Part I:  Client/Server Application}
+
+\font\ninerm=cmr9
+\let\mc=\ninerm % medium caps
+
+\def\filename#1{\.{#1}}
+
+\def\9#1{#1}
+
+\newif\ifdoinitials
+\doinitialstrue
+
+\def\initials#1{\ifdoinitials\leavevmode
+\hbox{{\ninerm $\lbrack$#1$\rbrack$\hskip .375em plus .5pt minus .5pt}}\fi}
+
+\def\<#1>{$\langle${\rm #1\/}$\rangle$}
+
+\def\PERIOD{.}
+
+%% LDF 2002.10.27.  (Copied from GNU 3DLDF)  
+%% These macros are for my log comments.  Log
+%% comments describe changes I've made and 
+%% contain other information.  It may not always be desirable to print
+%% them, so they can be suppressed by setting \dologfalse.
+
+\newif\ifdolog
+
+\dologtrue
+%\dologfalse
+
+\ifdolog
+\message{^^JPrinting log entries.}
+\def\SUBLOG#1{\setbox1=\hbox{{\bf\kern1em #1\kern1em}}%
+\dimen0=1ex
+\dimen1=1ex\advance\dimen1 by -.375pt
+\dimen2=\hsize
+\advance\dimen2 by -\wd1
+\skip0=3pt}
+
+\def\LOG{\begingroup\doinitialstrue
+   \SUBLOG{Log}%
+   \medskip\par\noindent
+   \vbox{\line{\vrule height \dimen0 width .5\dimen2 depth -\dimen1
+   \copy1\vrule height \dimen0 width .5\dimen2 depth -\dimen1}%
+   \vskip\skip0}\nobreak\par\nobreak}
+
+\def\ENDLOG{\nobreak\par
+   \nobreak
+   \vskip\skip0
+   \vbox{\line{\vrule height \dimen0 width \hsize depth -\dimen1}}%
+   \endgroup}
+
+\else
+
+\message{^^JNot printing log entries.}
+\long\def\LOG#1{\ifx#1\ENDLOG\let\SUBLOG=\relax\else\def\SUBLOG{\LOG}\fi
+\SUBLOG}
+\fi
+
+%% ** (2) Datestamp
+
+\newcount\ampmhours
+\newtoks\AMPM
+\newcount\hours
+\newcount\minutes
+
+\newtoks\datestamp
+
+\hours=\time
+\divide\hours by 60
+\minutes=\time
+\multiply\hours by 60
+\advance\minutes by -\hours
+\divide\hours by 60
+\ifnum\minutes<10\def\minutestring{0\the\minutes}\else\def\minutestring{\the%
+\minutes}\fi
+
+\def\monthstring{\ifcase\the\month\or January\or February\or March\or April\or May%
+\or June\or July\or August\or September\or October\or November\or
+December\else\errmessage{This can't happen!}\fi}
+
+\ampmhours=\hours
+
+\ifnum\ampmhours>12
+\advance\ampmhours by -12
+\AMPM={PM}\else
+\AMPM={AM}\fi
+
+\def\datestamp{\the\ampmhours :\minutestring\space\the\AMPM\space%
+on \monthstring\space \the\day, \the\year}
+
+
+\newtoks\hpxretvaltoks  %% |handle_proxy_cred| return values.
+                        %% Used in `dhprxcrt.web' where the function is
+                        %% defined, but also in `strtinst.web', where
+                        %% the return value is evaluated. 
+                        %% Therefore, \hpxretvaltoks must be declared 
+                        %% here.
+                        %% I set it just in case `strtinst.web'
+                        %% is included here, without `dhprxcrt.web' having
+                        %% been included first.
+                        %% LDF 2012.02.09.
+
+%% Provisional assignment.  Reset in `dhprxcrt.web'.  LDF 2012.02.09.
+
+\hpxretvaltoks={(Not yet defined.  `dhprxcrt.web' must be included.)}
+
+@q ** (2) Function declarations.  @>
+
+@q ** (2) @>
+
+@** Optinum-Grid Database Server-Client Programs.
+
+\newlinechar=`^^J
+                  
+@s bitset int
+
+@s bool   int
+@s bools   bool
+
+@s ifstream int
+@s ifstreams ifstream
+
+@s iterator int
+@s iterators iterator 
+
+@s key_type int 
+@s key_types key_type 
+
+@s mapped_type int 
+@s mapped_types mapped_type 
+
+@s map int
+@s maps map
+
+@s multimap map
+@s multimaps multimap
+
+@s ofstream int
+@s ofstreams ofstream
+
+@s stat int
+
+@s pair int
+@s pairs pair
+
+@s stringstream int
+@s stringstreams stringstream
+
+@s numeric_limits int
+
+@s pair   int
+@s pairs pair
+
+@s string char
+@s strings string
+
+@s tm int
+
+@s typedefs typedef
+
+@s valarray int
+@s valarrays valarray
+
+@s vector int 
+@s vectors vector
+
+@f Scan_Parse_Parameter_Type int
+
+@i glblvrbl.web   @q Global variables                                          @>   
+
+@i glblfncs.web   @q Global functions                                          @>   
+
+@i cmdlnopt.web   @q Command-line option processing                            @>   
+
+@i gntlsfnc.web   @q GNUTLS functions                                         @>   
+
+@i helper.web     @q Helper functions for GNUTLS                              @>   
+
+@i lstnfncs.web   @q Listen functions                                         @>
+
+@i cnnctcli.web   @q TCP/IP connection functions for the client               @>
+
+@i connect.web    @q TCP/IP connections using GNUTLS                          @>
+
+@i x509cert.web   @q Types and functions for handling X.509 certificates      @>
+
+@i ex_rfc2818.web @q Handling X.509 Certificates                              @>
+
+@i ex_verify.web  @q Handling X.509 Certificates                              @>
+
+@i dhprxcrt.web   @q Handle X.50 Proxy Credential                            @>
+
+@i entries.web    @q Entries  (|class Entry_Type|)                            @>   
+
+@q scanner.web    @@q FLEX scanner for server                                  @>
+
+@q parser.web     @@q Bison parser for server                                  @>
+
+@q scnrclnt.web   @@q FLEX scanner for client                                  @>
+
+@q prsrclnt.web   @@q Bison parser for client                                  @>
+
+@i prsrfncs.web   @q Functions related to the the Bison parsers               @>
+
+@i instllfn.web   @q Installation functions                                   @>
+
+@i optdbcli.web   @q Client main function                                     @>
+
+@i optdbsrv.web   @q Server main function                                      @>   
+
+@i scprpmtp.web   @q |class Scanner_Parameter_Type| and its                   @>   
+                  @q member functions                                          @>   
+
+@i spptenvf.web   @q |Scanner_Parameter_Type| member functions for            @>
+                  @q "environment" shellscripts                                @>
+
+@i spptsdtp.web   @q |Scanner_Parameter_Type::send_data_to_peer|              @>
+                  @q definition                                                @>
+
+@i spptkyfn.web   @q |Scanner_Parameter_Type| member functions for            @>
+                  @q use with GPG                                              @>
+
+@i spptprvl.web   @q |Scanner_Parameter_Type| member functions for Privileges @>
+
+@i spptshen.web   @q |Scanner_Parameter_Type::show_entry| definition          @>
+
+@i spptwren.web   @q |Scanner_Parameter_Type::write_entry| definition         @>
+
+@i spptgsfn.web   @q |Scanner_Parameter_Type| member functions involving      @>
+                  @q  Globus sites                                            @>
+
+@i spptdbfn.web   @q |Scanner_Parameter_Type| member functions for use with   @>
+                  @q databases                                                @>
+
+@i spptenfn.web   @q |Scanner_Parameter_Type| member functions for use with   @>
+                  @q software package entries                                 @>
+
+@i spptgsfn.web   @q |Scanner_Parameter_Type| member functions for use with   @>
+                  @q Globus Site data                                         @>
+
+@q spptprvl.web   @@q |Scanner_Parameter_Type| member functions for use with   @>
+                  @q privileges                                               @>
+
+@i spptsdtp.web   @q |Scanner_Parameter_Type::send_data_to_peer| definition   @>
+
+@q oldsckt.web    @@q Old code for using sockets without verification          @>
+
+@i dstngnmt.web   @q Distinguished_Name_Type                                  @>
+
+@i glsinftp.web   @q Globus_Site_Info_Type                                    @>
+
+@i rspnstp.web    @q Response_Type                                            @>
+
+@i utilfncs.web   @q Utility functions                                        @>
+
+@i strtinst.web   @q Start remote installation                                @>
+
+@i instchwn.web   @q Change owner for installed files.                        @>
+
+@i instkypr.web   @q Install key pair                                         @>
+
+@i kllprcss.web   @q Kill process                                             @>
+
+@i sssndttp.web   @q |class Session_Data|                                     @>
+
+@i thrdfncs.web   @q Thread functions                                         @>   
+
+@q Alphabetical list of CWEB files as of 2012.01.13.  @>
+
+@q cmdlnopt.web   @>
+@q cnnctcli.web   @>
+@q connect.web    @>
+@q dhprxcrt.web   @>
+@q dstngnmt.web   @>
+@q entries.web    @>
+@q ex_rfc2818.web @>
+@q ex_verify.web  @>
+@q glblfncs.web   @>
+@q glblvrbl.web   @>
+@q glsinftp.web   @>
+@q gntlsfnc.web   @>
+@q helper.web     @>
+@q instchwn.web   @>
+@q instkypr.web   @>
+@q instllfn.web   @>
+@q kllprcss.web   @>
+@q lstnfncs.web   @>
+@q oldsckt.web    @>
+@q optdbcli.web   @>
+@q optdbsrv.web   @>
+@q optpsgen.web   @>
+@q optpsgsb.web   @>
+@q parser.web     @>
+@q prsrclnt.web   @>
+@q prsrfncs.web   @>
+@q rspnstp.web    @>
+@q scanner.web    @>
+@q scnrclnt.web   @>
+@q scprpmtp.web   @>
+@q spptdbfn.web   @>
+@q spptenfn.web   @>
+@q spptenvf.web   @>
+@q spptgsfn.web   @>
+@q spptkyfn.web   @>
+@q spptprvl.web   @>
+@q spptsdtp.web   @>
+@q spptshen.web   @>
+@q spptwren.web   @>
+@q sssndttp.web   @>
+@q strtinst.web   @>
+@q thrdfncs.web   @>
+@q utilfncs.web   @>
+@q x509cert.web   @>
+
+
+
+
+
+
+@q * (1) Index.  @>
+@* Index.
+
+
+
+
+@q  * (1) Local variables for Emacs   @>
+
+@q * Local variables for Emacs.@>
+@q Local Variables: @>
+@q mode:CWEB @>
+@q eval:(display-time) @>
+@q eval:(read-abbrev-file) @>
+@q indent-tabs-mode:nil @>
+@q eval:(outline-minor-mode) @>
+@q fill-column:80 @>
+@q End: @>
+
+
+

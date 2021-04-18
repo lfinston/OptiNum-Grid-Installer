@@ -1,0 +1,728 @@
+@q spptdbfn.web  @>
+@q Created by Laurence D. Finston (LDF) Thu May 10 10:06:05 CEST 2012 @>
+
+@q * (1) Top @>
+
+@q * (1) Copyright and License.@>
+
+@q This file is part of the OptiNum Grid Installer @>
+@q Copyright (C) 2010, 2011, 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen @>
+
+@q The OptiNum Grid Installer is free software; you can redistribute it and/or modify @>
+@q it under the terms of the GNU General Public License as published by @>
+@q the Free Software Foundation; either version 3 of the License, or @>
+@q (at your option) any later version.  @>
+
+@q The OptiNum Grid Installer is distributed in the hope that it will be useful, @>
+@q but WITHOUT ANY WARRANTY; without even the implied warranty of @>
+@q MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the @>
+@q GNU General Public License for more details.  @>
+
+@q You should have received a copy of the GNU General Public License          @>
+@q along with the OptiNum Grid Installer; if not, write to the Free Software                    @>
+@q Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA @>
+
+@q ("@@" stands for a single at-sign in the following paragraph.) @>
+
+@q Please send bug reports to Laurence.Finston@@gwdg.de@>
+
+@q Laurence D. Finston                                                   @>
+@q Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen  @>
+@q Am Fassberg 11         					         @>
+@q 37077 Goettingen              					 @>
+@q Germany                           					 @>                                
+
+@q Laurence.Finston@@gwdg.de (@@ stands for a single "at" sign.)@>
+
+@ {\bf Scan\_Parse\_Parameter\_Type} member function definitions for use with the database.
+
+@q ** (2) Include files  @>
+
+@ Include files.
+
+@<Include files@>=
+#include <stdlib.h>  /* Standard Library for C  */
+#include <stdio.h>
+#include <errno.h>
+#include <limits.h>
+
+#include <algorithm> /* Standard Template Library (STL) for C++  */
+#include <fstream> 
+#include <iomanip>
+#include <ios>
+#include <iostream>
+#include <map>
+#include <string>
+#include <time.h>
+#include <math.h>
+#include <sstream>  
+
+#include <set>
+#include <vector>
+#include <deque>
+
+#include <pthread.h>  /* POSIX threads  */
+
+#include <gcrypt.h> /* for |gcry_control| */
+#include <gnutls/gnutls.h>
+
+#if HAVE_CONFIG_H
+#include <config.h>
+#endif 
+
+#if IS_ROCKS_GOEGRID
+#undef HAVE_LIBMYSQLCLIENT
+#endif 
+
+#if HAVE_LIBMYSQLCLIENT
+#include <mysql.h>
+#endif 
+
+#include "entries.h++"  /* Headers generated from CWEB files belonging to this package  */
+#include "dstngnmt.h++"
+
+#include "glblvrbl.h++"  
+#include "glblfncs.h++"
+#include "utilfncs.h++"
+#include "parser.h++"    
+#include "scanner.h++"
+#include "x509cert.h++"
+#include "rspnstp.h++"
+#include "thrdfncs.h++"
+#include "sssndttp.h++"
+#include "glsinftp.h++"
+#include "scprpmtp.h++"
+
+@q **** (4) Check database tables.  @>
+
+@ Check database tables.  
+\initials{LDF 2012.05.10.}
+
+\LOG
+\initials{LDF 2012.05.10.}
+Added this function definition.
+
+\initials{LDF 2012.05.11.}
+Now calling |Scan_Parse_Parameter_Type::lock_tables| and
+|Scan_Parse_Parameter_Type::unlock_tables| to lock and unlock the \.{Certificates} table.
+Previously, the SQL commands were executed ``by hand'' using 
+|Scan_Parse_Parameter_Type::submit_mysql_query|.  
+\par
+Using |Scan_Parse_Parameter_Type::lock_tables| and
+|Scan_Parse_Parameter_Type::unlock_tables| saves the trouble of freeing 
+|MYSQL_RES *result|.
+\ENDLOG
+
+@q ***** (5) Definition  @>
+
+@<|Scan_Parse_Parameter_Type::check_database_tables| definition@>=
+int
+Scan_Parse_Parameter_Type::check_database_tables(void)
+{
+@q ****** (6) @>
+
+    bool DEBUG = false;  /* |true|  */ 
+
+    set_debug_level(DEBUG);
+
+    int status = 0;
+
+    stringstream sql_strm;
+
+    stringstream temp_strm;
+
+    MYSQL_RES *result = 0;
+
+    unsigned int row_ctr       = 0;
+    unsigned int field_ctr     = 0;
+    long affected_rows         = 0L; 
+
+    MYSQL_ROW curr_row;
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex();
+        cerr << "Entering `Scan_Parse_Parameter_Type::check_database_tables'." 
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */ 
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::check_database_tables| definition@>=
+
+    vector<string> lock_tables_vector;
+
+    lock_tables_vector.push_back("Certificates");
+
+    status = lock_tables(&lock_tables_vector);
+ 
+    if (status != 0)
+    {
+        lock_cerr_mutex();
+        cerr << "ERROR!  In `Scan_Parse_Parameter_Type::check_database_tables':" 
+             << endl
+             << "`Scan_Parse_Parameter_Type::lock_tables' failed, returning "
+             << status << ":"
+             << endl
+             << mysql_error(mysql_ptr)             
+             << endl
+             << "Failed to lock tables."
+             << endl 
+             << "Exiting function unsuccessfully with return value -1."
+             << endl;
+        unlock_cerr_mutex(); 
+
+        return -1;
+
+    }  /* |if (status != 0)|  */
+
+    else if (DEBUG)
+    {
+        lock_cerr_mutex();
+        cerr << "In `Scan_Parse_Parameter_Type::check_database_tables':" 
+             << endl
+             << "`Scan_Parse_Parameter_Type::lock_tables' succeeded."
+             << endl
+             << "Locked tables successfully."
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |else if (DEBUG|  */
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::check_database_tables| definition@>=
+
+    sql_strm << "select certificate_id from Certificates where "
+             << "Validity_notAfter is not null and Validity_notAfter < utc_timestamp()";
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "sql_strm.str() == " << sql_strm.str() << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */ 
+
+    status = submit_mysql_query(sql_strm.str(), result, &row_ctr, &field_ctr);
+ 
+    if (status != 0)
+    {
+        lock_cerr_mutex();
+        cerr << "ERROR!  In `Scan_Parse_Parameter_Type::check_database_tables':" 
+             << endl
+             << "`Scan_Parse_Parameter_Type::submit_mysql_query' failed, returning "
+             << status << ":"
+             << endl
+             << mysql_error(mysql_ptr)
+             << endl 
+             << "Exiting function unsuccessfully with return value -1."
+             << endl;
+        unlock_cerr_mutex(); 
+
+        if (result) 
+          mysql_free_result(result);
+
+        return -1;
+
+    }  /* |if (status != 0)|  */
+
+    else if (DEBUG)
+    {
+        lock_cerr_mutex();
+        cerr << "In `Scan_Parse_Parameter_Type::check_database_tables':" 
+             << endl
+             << "`Scan_Parse_Parameter_Type::submit_mysql_query' succeeded."
+             << endl
+             << "`row_ctr' == " << row_ctr
+             << endl 
+             << "`field_ctr' == " << field_ctr
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |else if (DEBUG|  */
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::check_database_tables| definition@>=
+
+    if (row_ctr > 0)
+    {
+@q ******* (7) @>
+
+         string separator_str = "";
+
+         sql_strm.str("");
+         sql_strm << "update Certificates set serialNumber = null, "
+                  << "Validity_notBefore = null, Validity_notAfter = null "
+                  << "where certificate_id in (";
+
+         for (int i = 0; i < row_ctr; ++i)
+         {
+@q ******** (8) @>
+
+             curr_row = mysql_fetch_row(result);
+
+             if (curr_row == 0)
+             {
+                lock_cerr_mutex(); 
+                cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+                     << "ERROR!  In `Scan_Parse_Parameter_Type::check_database_tables':"
+                     << endl 
+                     << "`mysql_fetch_row' failed:"
+                     << endl
+                     << mysql_error(mysql_ptr)
+                     << endl 
+                     << "Exiting function unsuccessfully with return value -1."
+                     << endl;
+                unlock_cerr_mutex(); 
+
+                mysql_free_result(result);
+
+                return -1;
+
+             }  /* |if (curr_row == 0)|  */
+
+@q ******** (8) @>
+
+             if (curr_row[0] == 0 || strlen(curr_row[0]) == 0)
+             {
+                lock_cerr_mutex(); 
+                cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+                     << "ERROR!  In `Scan_Parse_Parameter_Type::check_database_tables':"
+                     << endl 
+                     << "`curr_row[0]' == 0 or `strlen(curr_row[0])' == 0."
+                     << endl
+                     << "Failed to extract `certificate_id'.  This shouldn't be possible."
+                     << endl 
+                     << "Exiting function unsuccessfully with return value -1."
+                     << endl;
+                unlock_cerr_mutex(); 
+
+                mysql_free_result(result);
+
+                return -1;
+
+             }
+
+             sql_strm << separator_str << curr_row[0];
+
+             if (separator_str.empty())
+                separator_str = ", ";
+
+@q ******** (8) @>
+
+         }  /* |for|  */
+
+@q ******* (7) @>
+
+         sql_strm << ")";
+
+         if (DEBUG)
+         {
+             lock_cerr_mutex(); 
+             cerr << "sql_strm.str() == " << sql_strm.str() << endl;
+             unlock_cerr_mutex(); 
+
+         }  /* |if (DEBUG)|  */ 
+
+         mysql_free_result(result);
+         result = 0;
+
+         status = submit_mysql_query(sql_strm.str(), result, 0, 0, &affected_rows);         
+
+         if (status != 0)
+         {
+             lock_cerr_mutex();
+             cerr << "ERROR!  In `Scan_Parse_Parameter_Type::check_database_tables':" 
+                  << endl
+                  << "`Scan_Parse_Parameter_Type::submit_mysql_query' failed, returning "
+                  << status << ":"
+                  << endl
+                  << mysql_error(mysql_ptr)             
+                  << endl
+                  << "Failed to update `Certificates' table."
+                  << endl 
+                  << "Exiting function unsuccessfully with return value -1."
+                  << endl;
+             unlock_cerr_mutex(); 
+
+             if (result) 
+               mysql_free_result(result);
+
+             return -1;
+
+         }  /* |if (status != 0)|  */
+
+         else if (DEBUG)
+         {
+             lock_cerr_mutex();
+             cerr << "In `Scan_Parse_Parameter_Type::check_database_tables':" 
+                  << endl
+                  << "`Scan_Parse_Parameter_Type::submit_mysql_query' succeeded."
+                  << endl
+                  << "Updated `Certificates' table successfully."
+                  << endl
+                  << "`affected_rows' == " << affected_rows
+                  << endl;
+             unlock_cerr_mutex(); 
+
+         }  /* |else if (DEBUG|  */
+
+@q ******* (7) @>
+
+    }      /* |if (row_ctr > 0)|  */
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::check_database_tables| definition@>=
+
+    mysql_free_result(result);
+    result = 0;
+    sql_strm.str("");
+
+    status = unlock_tables();
+ 
+    if (status != 0)
+    {
+        lock_cerr_mutex();
+        cerr << "ERROR!  In `Scan_Parse_Parameter_Type::check_database_tables':" 
+             << endl
+             << "`Scan_Parse_Parameter_Type::unlock_tables' failed, returning "
+             << status << ":"
+             << endl
+             << mysql_error(mysql_ptr)             
+             << endl
+             << "Failed to unlock tables."
+             << endl 
+             << "Exiting function unsuccessfully with return value -1."
+             << endl;
+        unlock_cerr_mutex(); 
+
+        return -1;
+
+    }  /* |if (status != 0)|  */
+
+    else if (DEBUG)
+    {
+        lock_cerr_mutex();
+        cerr << "In `Scan_Parse_Parameter_Type::check_database_tables':" 
+             << endl
+             << "`Scan_Parse_Parameter_Type::unlock_tables' succeeded."
+             << endl
+             << "Unlocked tables successfully."
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |else if (DEBUG|  */
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::check_database_tables| definition@>=
+
+    if (row_ctr > 0 && row_ctr != affected_rows)
+    {
+        lock_cerr_mutex();
+        cerr << "ERROR!  In `Scan_Parse_Parameter_Type::check_database_tables':" 
+             << endl
+             << "`row_ctr' > 0 and `row_ctr' != `affected_rows'."
+             << endl
+             << "This shouldn't happen."
+             << endl 
+             << "Exiting function unsuccessfully with return value -2."
+             << endl;
+        unlock_cerr_mutex(); 
+
+        return -2;
+
+    }  /* |if (row_ctr > 0 && row_ctr != affected_rows)|  */
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::check_database_tables| definition@>=
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex();
+        cerr << "Exiting `Scan_Parse_Parameter_Type::check_database_tables' successfully "
+             << "with return value " << row_ctr << "."
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */ 
+
+    if (row_ctr > INT_MAX)
+    {
+        lock_cerr_mutex();
+        cerr << "WARNING!  In `Scan_Parse_Parameter_Type::check_database_tables':" 
+             << endl
+             << "`row_ctr' > `INT_MAX'.  This almost certainly means something has gone wrong."
+             << endl 
+             << "This function returns an `int', so `row_ctr' is too large."
+             << endl 
+             << "Returning `INT_MAX' instead, but the administrator should check why this "
+             << "has happened."
+             << endl 
+             << "Exiting function successfully with return value " << INT_MAX << "."
+             << endl;
+        unlock_cerr_mutex(); 
+    }
+  
+    if (row_ctr > INT_MAX)
+       return INT_MAX;
+    else
+       return row_ctr;
+
+@q ****** (6) @>
+
+}  /* End of |Scan_Parse_Parameter_Type::check_database_tables| definition  */
+
+@q **** (4) Lock and unlock database tables.  @>
+
+@ Lock and unlock database tables.  
+\initials{LDF 2012.05.11.}
+
+\LOG
+\initials{LDF 2012.05.11.}
+Added this function definition.  
+The |inline| definition of |Scan_Parse_Parameter_Type::unlock_tables| is in
+\filename{scprpmtp.web}.
+\ENDLOG
+
+@q ***** (5) Definition  @>
+
+@<|Scan_Parse_Parameter_Type::lock_tables| definition@>=
+
+#if HAVE_LIBMYSQLCLIENT
+int
+Scan_Parse_Parameter_Type::lock_tables(vector<string> *table_vector, bool unlock, string table)
+{
+@q ****** (6) @>
+
+    bool DEBUG = false;  /* |true|  */ 
+
+    int status;
+
+    stringstream sql_strm;
+
+    MYSQL_RES *result = 0;
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex();
+        cerr << "Entering `Scan_Parse_Parameter_Type::lock_tables'."
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */ 
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::lock_tables| definition@>=
+
+    if (unlock)
+    {
+        sql_strm << "unlock tables";
+    }
+    else if (table_vector && table_vector->size() > 0)
+    {
+        if (!table.empty())
+        {
+           lock_cerr_mutex();
+           cerr << "WARNING! In `Scan_Parse_Parameter_Type::lock_tables':"
+                << endl 
+                << "`vector<string>' pointer table_vector' is non-null, "
+                << "`table_vector->size()' > 0 "
+                << "and `string table' is non-empty."
+                << endl 
+                << "Using `*table_vector' and ignoring `table'.  Continuing."
+                << endl;
+           unlock_cerr_mutex(); 
+
+        }
+
+        sql_strm << "lock tables ";
+
+        string separator = "";
+
+        for (vector<string>::const_iterator iter = table_vector->begin();
+             iter != table_vector->end();
+             ++iter)
+        {
+            sql_strm << separator << *iter << " write";
+
+            if (separator.empty())
+               separator = ", ";
+
+        }  /* |for|  */
+
+    }  /* |else if|  */
+
+    else if (!table.empty())
+    {
+        sql_strm << "lock tables " << table << " write";
+
+    }
+
+    else
+    {
+        lock_cerr_mutex(); 
+        cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+             << "ERROR!  In `Scan_Parse_Parameter_Type::lock_tables':"
+             << endl 
+             << "`unlock' == `false' and (`table_vector' is NULL or `*table_vector' is empty) "
+             << "and `table' is empty."
+             << endl 
+             << "No tables specified for locking."
+             << endl
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+        unlock_cerr_mutex(); 
+
+        return 1;
+
+    }  /* |else|  */
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::lock_tables| definition@>=
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "sql_strm.str() == " << sql_strm.str() << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */ 
+    
+
+    status = submit_mysql_query(sql_strm.str(), result);
+
+    if (status != 0)
+    {
+        lock_cerr_mutex(); 
+        cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+             << "ERROR!  In `Scan_Parse_Parameter_Type::lock_tables':"
+             << endl 
+             << "`submit_mysql_query' failed, returning " << status << "."
+             << endl 
+             << "Failed to ";
+
+        if (unlock)
+            cerr << "unlock ";
+        else
+            cerr << "lock ";
+
+        cerr << "tables."
+             << endl
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+        unlock_cerr_mutex(); 
+
+        if (result)
+           mysql_free_result(result);
+
+        return 1;
+
+    }  /* |if (status != 0)|  */
+
+    else if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+             << "In `Scan_Parse_Parameter_Type::lock_tables':"
+             << endl 
+             << "`submit_mysql_query' succeeded, returning 0:"
+             << endl;
+
+        if (unlock)
+            cerr << "Unlocked ";
+        else
+            cerr << "Locked ";
+
+        cerr << "tables successfully."
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |else if (DEBUG)|  */ 
+
+    mysql_free_result(result);
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::lock_tables| definition@>=
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex();
+        cerr << "Exiting `Scan_Parse_Parameter_Type::lock_tables' successfully "
+             << "with return value 0."
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */ 
+
+    return 0;
+
+@q ****** (6) @>
+
+}  /* End of |Scan_Parse_Parameter_Type::lock_tables| definition  */
+
+#endif /* |#if HAVE_LIBMYSQLCLIENT|  */
+
+
+@q **** (4) @>
+@
+@<Garbage@>=
+
+@q **** (4) @>
+
+@q *** (3) Putting `spptdbfn.web.web' together.  @>
+
+@ Putting {\tt spptdbfn.web\PERIOD web} together.
+
+@q **** (4) This is what's compiled.  @>
+@ This is what's compiled.
+@c
+@<Include files@>@;@/
+using namespace std;
+@<|Scan_Parse_Parameter_Type::check_database_tables| definition@>@;@/
+@<|Scan_Parse_Parameter_Type::lock_tables| definition@>@;@/
+
+#if 0 
+@<Garbage@>@;@/
+#endif 
+
+@q **** (4) This is what's written to the header file `spptdbfn.h'.  @>
+
+@ This is what's written to the header file \filename{spptdbfn.h}.
+
+That is, no {\CPLUSPLUS/} code is written to the header file, but it's helpful 
+for it to exist, so that this CWEB file can be handled in exactly the same 
+way as the others.
+\initials{LDF 2012.01.13.}
+
+@(spptdbfn.h@>=
+#ifndef SPPTDBFN.WEB_H
+#define SPPTDBFN.WEB_H 1
+/* Empty  */
+#endif 
+
+@q * (1) Emacs-Lisp code for use in indirect buffers  @>
+
+@q (progn (cweb-mode) (outline-minor-mode))                          @>
+
+@q * (1) Local variables for Emacs @>
+
+@q * Local variables for Emacs.@>
+@q Local Variables: @>
+@q mode:CWEB @>
+@q eval:(display-time) @>
+@q abbrev-mode:t @>
+@q eval:(read-abbrev-file) @>
+@q indent-tabs-mode:nil @>
+@q eval:(outline-minor-mode) @>
+@q fill-column:80 @>
+@q End: @>

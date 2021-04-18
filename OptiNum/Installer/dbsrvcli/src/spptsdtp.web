@@ -1,0 +1,547 @@
+@q spptsdtp.web  @>
+@q Created by Laurence D. Finston (LDF) Di 20. Mär 10:45:24 CET 2012  @>
+
+@q * (1) Top @>
+
+@q * (1) Copyright and License.@>
+
+@q This file is part of the OptiNum Grid Installer @>
+@q Copyright (C) 2010, 2011, 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen @>
+
+@q The OptiNum Grid Installer is free software; you can redistribute it and/or modify @>
+@q it under the terms of the GNU General Public License as published by @>
+@q the Free Software Foundation; either version 3 of the License, or @>
+@q (at your option) any later version.  @>
+
+@q The OptiNum Grid Installer is distributed in the hope that it will be useful, @>
+@q but WITHOUT ANY WARRANTY; without even the implied warranty of @>
+@q MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the @>
+@q GNU General Public License for more details.  @>
+
+@q You should have received a copy of the GNU General Public License          @>
+@q along with the OptiNum Grid Installer; if not, write to the Free Software                    @>
+@q Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA @>
+
+@q ("@@" stands for a single at-sign in the following paragraph.) @>
+
+@q Please send bug reports to Laurence.Finston@@gwdg.de@>
+
+@q Laurence D. Finston                                                   @>
+@q Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen  @>
+@q Am Fassberg 11         					         @>
+@q 37077 Goettingen              					 @>
+@q Germany                           					 @>                                
+
+@q Laurence.Finston@@gwdg.de (@@ stands for a single "at" sign.)@>
+
+@ {\bf Scan\_Parse\_Parameter\_Type}: Send data to peer.
+
+\LOG
+\initials{LDF 2012.03.20.}
+Created this file.  It contains the definition of 
+|Scan_Parse_Parameter_Type::send_data_to_peer|, which was formerly
+in \filename{scprpmtp.web}.
+\ENDLOG 
+
+@q ** (2) Include files  @>
+
+@ Include files.
+
+@<Include files@>=
+#include <stdlib.h>  /* Standard Library for C  */
+#include <stdio.h>
+#include <errno.h>
+#include <unistd.h>
+#include <limits.h>
+
+#include <algorithm> /* Standard Template Library (STL) for C++  */
+#include <fstream> 
+#include <iomanip>
+#include <ios>
+#include <iostream>
+#include <map>
+#include <string>
+#include <time.h>
+#include <math.h>
+#include <sstream>  
+
+#include <set>
+#include <vector>
+#include <deque>
+
+
+#include <pthread.h>  /* POSIX threads  */
+
+#include <gcrypt.h> /* for |gcry_control| */
+#include <gnutls/gnutls.h>
+
+#if HAVE_CONFIG_H
+#include <config.h>
+#endif 
+
+#if IS_ROCKS_GOEGRID
+#undef HAVE_LIBMYSQLCLIENT
+#endif 
+
+#if HAVE_LIBMYSQLCLIENT
+#include <mysql.h>
+#endif 
+
+#include "entries.h++"  /* Headers generated from CWEB files belonging to this package  */
+#include "dstngnmt.h++"
+
+#include "glblvrbl.h++"  
+#include "glblfncs.h++"
+#include "utilfncs.h++"
+#include "parser.h++"    
+#include "scanner.h++"
+#include "x509cert.h++"
+#include "rspnstp.h++"
+#include "thrdfncs.h++"
+#include "sssndttp.h++"
+#include "glsinftp.h++"
+#include "scprpmtp.h++"
+
+@q **** (4) Send data to peer.@>
+
+@ Send data to peer.
+\initials{LDF 2010.01.21.}
+
+\LOG
+\initials{LDF 2010.01.21.}
+Added this function.
+
+\initials{LDF 2012.03.20.}
+Moved the definition of this function from \filename{scprpmtp.web} to this file
+(\filename{spptsdtp.web}).
+\ENDLOG
+
+@q ***** (5) Definition  @>
+@
+@<|Scan_Parse_Parameter_Type::send_data_to_peer| definition@>=
+int
+Scan_Parse_Parameter_Type::send_data_to_peer(Response_Type& response, bool delete_local_file)
+{
+@q ****** (6) @>
+
+    int status = 0;
+
+    bool DEBUG = false; /* |true| */
+
+    char buffer[MAX_BUFFER + 1];
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "] "
+             << "*** Entering `Scan_Parse_Parameter_Type::send_data_to_peer'."
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)| */
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::send_data_to_peer| definition@>=
+
+   if (DEBUG)
+   {
+      lock_cerr_mutex();   
+      cerr << "[Thread " << thread_ctr << "] "
+           << "In `Scan_Parse_Parameter_Type::send_data_to_peer':"
+           << endl;
+      response.show("response:");
+
+#if 0 
+      cerr << "save_temp_files == " << save_temp_files << endl;
+      cerr << "delete_local_file == " << delete_local_file << endl;
+#endif 
+
+      unlock_cerr_mutex(); 
+
+   }  /* |if (DEBUG)| */
+ 
+   if (response.local_filename == "" 
+       && response.type != Response_Type::KEY_PAIR_TYPE)
+   {
+
+       lock_cerr_mutex(); 
+       cerr << get_datestamp() << " [Thread " << thread_ctr << "] "
+            << "ERROR!  In `Scan_Parse_Parameter_Type::send_data_to_peer':"
+            << endl 
+            << "`response.local_filename' is empty and `response.type' is not "
+            << "`Response_Type::KEY_PAIR_TYPE'."
+            << endl 
+            << "Sending `EOF' to peer and exiting function unsuccessfully with "
+            << "return value 1."
+            << endl;
+       unlock_cerr_mutex(); 
+
+       memset (buffer, 0, MAX_BUFFER + 1);      
+       buffer[0] = EOF;
+       gnutls_record_send(*session, buffer, 1);  /* Don't bother checking return value  
+                                                    \initials{LDF 2010.01.21.}
+                                                 */
+
+
+       return 1;
+
+   }  /* |if (   response.local_filename == ""
+              && response.type != Response_Type::KEY_PAIR_TYPE)| */
+
+@q ****** (6) For encrypted files:  Check that they're ASCII-armored.  @>
+
+@ For encrypted files:  Check that they're ASCII-armored.
+\initials{LDF 2011.07.06.}
+
+\LOG
+\initials{LDF 2011.07.06.}
+Added this section.
+
+\initials{LDF 2011.11.04.}
+Added test for |response.type == Response_Type::KEY_PAIR_TYPE| to this conditional.
+
+\initials{LDF 2011.11.16.}
+Removed test for |response.type == Response_Type::KEY_PAIR_TYPE| to this conditional.
+The file must be decrypted before it's sent, because this requires the key belonging
+to the user \.{optinum\_installer}.
+
+\initials{LDF 2011.11.17.}
+Added test for |response.type == Response_Type::KEY_PAIR_TYPE| to this conditional again.
+Added a conditional for setting the regular expression argument to \.{grep} if 
+|is_server && response.type == Response_Type::KEY_PAIR_TYPE|.
+\ENDLOG
+
+@<|Scan_Parse_Parameter_Type::send_data_to_peer| definition@>=
+
+   if (   response.type == Response_Type::INSTALLATION_SCRIPT_ENCRYPTED_TYPE
+       || response.type == Response_Type::DOWNLOAD_URL_ENCRYPTED_TYPE
+       || response.type == Response_Type::DOWNLOAD_COMMAND_ENCRYPTED_TYPE
+       || response.type == Response_Type::AUTHORIZATION_TYPE
+       || response.type == Response_Type::KEY_PAIR_TYPE)
+   {
+             
+       stringstream temp_strm;        
+
+       temp_strm << "cat " << response.local_filename << " | grep ";
+
+       if (is_server && response.type == Response_Type::KEY_PAIR_TYPE)
+          temp_strm << "\"BEGIN PGP PRIVATE KEY BLOCK\" ";
+       else
+          temp_strm << "\"BEGIN PGP MESSAGE\" ";
+
+       temp_strm << "> /dev/null";
+
+       status = system(temp_strm.str().c_str());
+       
+       if (status == -1 || !WIFEXITED(status))
+       {
+           lock_cerr_mutex();
+           cerr << "ERROR!  In `Scan_Parse_Parameter_Type::send_data_to_peer':"
+                << endl
+                << "`system' failed when testing encrypted file " 
+                << "`" << response.local_filename << "'."
+                << endl 
+                << "`status' == " << status << endl
+                << "`WIFEXITED(status)' == " << WIFEXITED(status) << endl
+                << endl 
+                << "Sending `EOF' to peer and exiting function unsuccessfully with "
+                << "return value 1."
+                << endl;
+           unlock_cerr_mutex(); 
+ 
+           memset (buffer, 0, MAX_BUFFER + 1);      
+           buffer[0] = EOF;
+           gnutls_record_send(*session, buffer, 1);  /* Don't bother checking return value  
+                                                        \initials{LDF 2010.01.21.}
+                                                     */
+
+           return 1;
+
+       }  /* |if (status == -1 || !WIFEXITED(status))|  */
+
+       if (WEXITSTATUS(status) != 0)
+       {
+           lock_cerr_mutex();
+           cerr << "ERROR!  In `Scan_Parse_Parameter_Type::send_data_to_peer':"
+                << endl
+                << "Encrypted file `" << response.local_filename << "' not ASCII-armored."
+                << endl 
+                << "This is not permitted."
+                << endl 
+                << "Sending `EOF' to peer and exiting function unsuccessfully with "
+                << "return value 1."
+                << endl;
+           unlock_cerr_mutex(); 
+ 
+           memset (buffer, 0, MAX_BUFFER + 1);      
+           buffer[0] = EOF;
+           gnutls_record_send(*session, buffer, 1);  /* Don't bother checking return value  
+                                                        \initials{LDF 2010.01.21.}
+                                                     */
+           return 1;
+
+       }  /* |if (WEXITSTATUS(status) != 0)|  */
+
+   }  /* |if| (encrypted file)   */     
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::send_data_to_peer| definition@>=
+
+   ifstream in_strm;
+
+   in_strm.open(response.local_filename.c_str());
+
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::send_data_to_peer| definition@>=
+
+   if (!in_strm)
+   {
+
+       lock_cerr_mutex(); 
+       cerr << get_datestamp() << " [Thread " << thread_ctr << "] "
+            << "ERROR!  In `Scan_Parse_Parameter_Type::send_data_to_peer':"
+            << endl 
+            << "Failed to open `" << response.local_filename << "' for "
+            << "reading."
+            << endl 
+            << "Sending `EOF' to peer and exiting function unsuccessfully with "
+            << "return value 1."
+            << endl;
+       unlock_cerr_mutex(); 
+
+       memset (buffer, 0, MAX_BUFFER + 1);      
+       buffer[0] = EOF;
+       gnutls_record_send(*session, buffer, 1);  /* Don't bother checking return value  
+                                                    \initials{LDF 2010.01.21.}
+                                                 */
+       return 1;
+
+   }  /* |if (!in_strm)| */
+
+@q ****** (6) @>
+@
+\LOG
+\initials{LDF 2012.03.21.}
+@:BUG FIX@> BUG FIX:  Added code to account for |ifstream::read| 
+reading 0 characters.
+\ENDLOG
+
+@<|Scan_Parse_Parameter_Type::send_data_to_peer| definition@>=
+
+   int i = 0;
+
+   for (;;)
+   {
+      memset (buffer, 0, MAX_BUFFER + 1);      
+      in_strm.read(buffer, MAX_BUFFER);
+      
+      i = in_strm.gcount();
+
+      if (DEBUG)
+      {
+          lock_cerr_mutex(); 
+          cerr << "[Thread " << thread_ctr << "] "
+               << "In `Scan_Parse_Parameter_Type::send_data_to_peer':  " 
+               << "Read " << i << " characters." << endl;
+#if 0 /* 1  */
+
+
+          cerr << "buffer == " << buffer << endl;
+#endif 
+
+          unlock_cerr_mutex(); 
+
+      }  /* |if (DEBUG)| */
+
+      if (i > 0)
+         status = gnutls_record_send(*session, buffer, i);
+      else
+      {
+         buffer[0] = '\0';
+         status = gnutls_record_send(*session, buffer, 1);
+      }
+
+      if (status < 0)
+      {
+           lock_cerr_mutex(); 
+           cerr << get_datestamp() << " [Thread " << thread_ctr << "] "
+                << "ERROR!  In `Scan_Parse_Parameter_Type::send_data_to_peer':  "
+                << "`gnutls_record_send' failed, returning "
+                << status 
+                << endl;
+           gnutls_perror(status);
+            
+           cerr << "Exiting function unsuccessfully with return value 1."
+                << endl;              
+           unlock_cerr_mutex(); 
+
+           in_strm.close();
+
+           return 1;
+
+
+      }  /* |if (status < 0)| */
+
+      else if (status == 0)
+      {
+           lock_cerr_mutex(); 
+           cerr << get_datestamp() << " [Thread " << thread_ctr << "] "
+                << "ERROR!  In `Scan_Parse_Parameter_Type::send_data_to_peer':  "
+                << "`gnutls_record_send' sent 0 bytes."
+                << endl
+                << "Exiting function unsuccessfully with return value 1."
+                << endl;              
+           unlock_cerr_mutex(); 
+
+           in_strm.close();
+
+           return 1;
+
+
+      }  /* |if (status == 0)| */
+
+      else if (DEBUG)
+      {
+           lock_cerr_mutex(); 
+           cerr << "[Thread " << thread_ctr << "] "
+                << "In `Scan_Parse_Parameter_Type::send_data_to_peer':"
+                << endl 
+                << "`gnutls_record_send' succeeded, sending " << status << " bytes."
+                << endl;
+           unlock_cerr_mutex(); 
+
+      }  /* |else if (DEBUG)| */
+
+      if ((!in_strm) || (i < MAX_BUFFER))
+         break;
+
+   }  /* |for| */
+   
+   in_strm.close();
+
+   if (i == MAX_BUFFER)  /* This should prevent |gnutls_record_recv| blocking 
+                            on the peer's side.  \initials{LDF 2010.01.21.}  */
+   {
+       memset (buffer, 0, MAX_BUFFER + 1);      
+       buffer[0] = EOF;
+       gnutls_record_send(*session, buffer, 1);  /* Don't bother checking return value  
+                                                    \initials{LDF 2010.01.21.}
+                                                 */
+   }  /* |if (i == MAX_BUFFER)| */
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::send_data_to_peer| definition@>=
+
+   if (delete_local_file && !save_temp_files)
+   {
+       status = unlink(response.local_filename.c_str()); 
+
+       if (status != 0 )
+       {
+  
+           lock_cerr_mutex(); 
+           cerr << get_datestamp() << " [Thread " << thread_ctr << "] "
+                << "WARNING!  In `Scan_Parse_Parameter_Type::send_data_to_peer':  "
+                << "Failed to unlink `" << response.local_filename << "'."
+                << endl
+                << "Continuing."
+                << endl;              
+           unlock_cerr_mutex(); 
+
+       }  /* |if (status != 0 )| */
+       
+       else if (DEBUG)
+       {
+            lock_cerr_mutex(); 
+            cerr << "[Thread " << thread_ctr << "] "
+                 << "In `Scan_Parse_Parameter_Type::send_data_to_peer':"
+                 << endl 
+                 << "Unlinked `" << response.local_filename << "' successfully."
+                 << endl;
+            unlock_cerr_mutex(); 
+
+       }  /* |else if (DEBUG)| */
+
+   }  /* |if (delete_local_file && !save_temp_files)|  */
+
+
+@q ****** (6) Exit |Scan_Parse_Parameter_Type::send_data_to_peer| successfully.  @>
+@ Exit |Scan_Parse_Parameter_Type::send_data_to_peer| successfully.  
+\initials{LDF 2010.01.21.}
+
+@<|Scan_Parse_Parameter_Type::send_data_to_peer| definition@>=
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "] "
+             << "*** Exiting `Scan_Parse_Parameter_Type::send_data_to_peer' "
+             << "successfully with return value 0."
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)| */
+
+
+    return 0;
+
+
+}  /* End of |Scan_Parse_Parameter_Type::send_data_to_peer| definition */
+
+
+@q **** (4) @>
+@
+@<Garbage@>=
+
+@q **** (4) @>
+
+@q *** (3) Putting `spptsdtp.web.web' together.  @>
+
+@ Putting {\tt spptsdtp.web\PERIOD web} together.
+
+@q **** (4) This is what's compiled.  @>
+@ This is what's compiled.
+@c
+@<Include files@>@;@/
+using namespace std;
+@<|Scan_Parse_Parameter_Type::send_data_to_peer| definition@>@;@/
+#if 0 
+@<Garbage@>@;@/
+#endif 
+
+@q **** (4) This is what's written to the header file `spptsdtp.h'.  @>
+
+@ This is what's written to the header file \filename{spptsdtp.h}.
+
+That is, no {\CPLUSPLUS/} code is written to the header file, but it's helpful 
+for it to exist, so that this CWEB file can be handled in exactly the same 
+way as the others.
+\initials{LDF 2012.01.13.}
+
+@(spptsdtp.h@>=
+#ifndef SPPTSDTP.WEB_H
+#define SPPTSDTP.WEB_H 1
+/* Empty  */
+#endif 
+
+@q * (1) Emacs-Lisp code for use in indirect buffers  @>
+
+@q (progn (cweb-mode) (outline-minor-mode))                          @>
+
+@q * (1) Local variables for Emacs @>
+
+@q * Local variables for Emacs.@>
+@q Local Variables: @>
+@q mode:CWEB @>
+@q eval:(display-time) @>
+@q abbrev-mode:t @>
+@q eval:(read-abbrev-file) @>
+@q indent-tabs-mode:nil @>
+@q eval:(outline-minor-mode) @>
+@q fill-column:80 @>
+@q End: @>

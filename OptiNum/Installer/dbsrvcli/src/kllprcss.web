@@ -1,0 +1,308 @@
+@q kllprcss.web  @>
+@q [...]/optinum/Installer/dbsrvcli/src/kllprcss.web  @>
+
+@q Created by Laurence D. Finston (LDF) Wed Oct 26 11:03:33 CEST 2011 @>
+
+@q * (1) Top @>
+
+@q * (1) Copyright and License.@>
+
+@q This file is part of the OptiNum Grid Installer @>
+@q Copyright (C) 2010, 2011, 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen @>
+
+@q The OptiNum Grid Installer is free software; you can redistribute it and/or modify @>
+@q it under the terms of the GNU General Public License as published by @>
+@q the Free Software Foundation; either version 3 of the License, or @>
+@q (at your option) any later version.  @>
+
+@q The OptiNum Grid Installer is distributed in the hope that it will be useful, @>
+@q but WITHOUT ANY WARRANTY; without even the implied warranty of @>
+@q MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the @>
+@q GNU General Public License for more details.  @>
+
+@q You should have received a copy of the GNU General Public License          @>
+@q along with the OptiNum Grid Installer; if not, write to the Free Software                    @>
+@q Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA @>
+
+@q ("@@" stands for a single at-sign in the following paragraph.) @>
+
+@q Please send bug reports to Laurence.Finston@@gwdg.de@>
+
+@q Laurence D. Finston                                                   @>
+@q Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen  @>
+@q Am Fassberg 11         					         @>
+@q 37077 Goettingen              					 @>
+@q Germany                           					 @>                                
+
+@q Laurence.Finston@@gwdg.de (@@ stands for a single "at" sign.)@>
+@q * (0) (kllprcss.web).  @>
+
+@*  (kllprcss\PERIOD web).
+
+@ Version control identifier.
+@<Version control identifier@>=
+static char version_control_id[] 
+   = "$Id: kllprcss.web 8356 2012-05-25 08:01:31Z finston $";
+  
+@q ** (2) Include files  @>
+
+@ Include files.
+
+@<Include files@>=
+
+#include <unistd.h>
+#include <string.h>
+#include <sys/types.h>
+#include <pwd.h>
+#include <signal.h>
+
+#if 0 
+#include <sys/stat.h>
+#endif 
+
+#include <stdio.h>
+#include <stdlib.h>
+
+#include <errno.h>
+#include <limits.h>
+
+using namespace std;
+
+#include <iomanip>
+#include <ios>
+#include <iostream>
+#include <fstream>
+#include <sstream>   
+#include <string>
+
+#if HAVE_CONFIG_H
+#include <config.h>
+#endif
+
+#if IS_ROCKS_GOEGRID
+#undef HAVE_LIBMYSQLCLIENT
+#endif 
+
+#ifndef _XOPEN_SOURCE
+#define _XOPEN_SOURCE
+#endif 
+
+@q ** (2) |main| definition.@>
+@ {\bf main} definition.
+\initials{LDF 2011.10.26.}
+
+\LOG
+\initials{LDF 2011.10.26.}
+Added this function.
+\ENDLOG
+
+@q *** (3) @>
+
+@<kllprcss |main| definition@>=
+int 
+main(int argc, char** argv)
+{
+
+@q **** (4) @>
+
+    bool DEBUG = false;  /* |true|  */
+
+    int status = 0;
+
+    if (DEBUG)
+    {
+        cerr << "Entering `kllprcss'." 
+             << endl;
+
+    } /* |if (DEBUG)|  */ 
+
+@q **** (4) @>
+@
+@<kllprcss |main| definition@>=
+
+   struct passwd pwbuf;
+    
+   char buf[sysconf(_SC_GETPW_R_SIZE_MAX)]; 
+
+   struct passwd *pwbufp;
+
+   status = getpwuid_r(geteuid(), &pwbuf,
+                   buf, sysconf(_SC_GETPW_R_SIZE_MAX), &pwbufp);
+
+   if (DEBUG)
+   {
+
+       cerr << "In `main':" << endl 
+            << "`getpwuid_r' returned `" << status << "'" << endl
+            << "`pwbuf.pw_name' == " << pwbuf.pw_name << endl
+            << "`pwbuf.pw_uid' == " << pwbuf.pw_uid << endl
+            << "getenv(\"SUDO_USER\") == " << getenv("SUDO_USER") 
+            << endl;
+
+   }  /* |if (DEBUG)|  */ 
+
+@q **** (4) @>
+@
+@<kllprcss |main| definition@>=
+
+   long int a;
+
+   for (int i = 1; i < argc; ++i)
+   {
+@q ***** (5) @>
+
+       a = strtol(argv[i], (char **) 0, 10);
+
+@q ***** (5) @>
+
+       if (a == LONG_MIN)
+       {
+           cerr << "ERROR!  In `kllprcss' (`main'):  `strtol' failed, returning "
+                << "`LONG_MIN' (underflow):"
+                << endl;
+ 
+           perror("strtol");
+
+           cerr << "Continuing." << endl;
+          
+       }
+
+@q ***** (5) @>
+
+       else if (a == LONG_MAX)
+       {
+           cerr << "ERROR!  In `kllprcss' (`main'):  `strtol' failed, returning "
+                << "`LONG_MAX' (overflow):"
+                << endl;
+ 
+           perror("strtol");
+
+           cerr << "Continuing." << endl;
+          
+       }
+
+@q ***** (5) @>
+
+       else if (a == 0)
+       {
+           cerr << "WARNING!  In `kllprcss' (`main'):  `strtol' returned 0."
+                << endl
+                << "Not sending `kill' signal."
+                << endl
+                << "Continuing." << endl;
+
+
+       }
+
+@q ***** (5) @>
+
+       else if (a < 0)
+       {
+           cerr << "WARNING!  In `kllprcss' (`main'):  `strtol' returned " << a 
+                << " (< 0)"
+                << endl
+                << "Not sending `kill' signal."
+                << endl
+                << "Continuing." << endl;
+
+
+       }
+
+@q ***** (5) @>
+
+@ @:TODO@> !! TODO:  First, try terminating it.  Then, kill it, if that 
+doesn't work.
+\initials{LDF 2012.01.13.}
+
+@<kllprcss |main| definition@>=
+
+       else
+       {   
+
+
+
+           cerr << "Killing process " << a << endl;
+
+           status = kill(static_cast<pid_t>(a), SIGKILL); 
+
+           if (status == -1)
+           {
+              if (errno == ESRCH)
+                  cerr << "Process " << a << " doesn't exist." << endl;
+
+               else
+               {
+                  cerr << "ERROR!  In `kllprcss' (`main'):  `kill' failed, returning -1:"
+                       << endl;
+
+                  perror("kill error");
+               
+                  cerr << "Continuing." << endl; 
+               }
+               
+
+           }
+           else if (DEBUG)
+           {
+               cerr << "In `kllprcss' (`main'):  killed process " << a 
+                    << " successfully."
+                    << endl;
+
+           }  /* |else if (DEBUG)|  */ 
+
+
+       }  /* |else|  */
+
+@q ***** (5) @>
+
+   }  /* |for|  */
+
+@q **** (4) @>
+@
+@<kllprcss |main| definition@>=
+
+    if (DEBUG)
+    {
+        cerr << "Exiting `kllprcss' successfully with exit status 0." 
+             << endl;
+
+    } /* |if (DEBUG)|  */ 
+
+    return 0;
+
+}  /* End of |main| definition  */
+
+@q ** (2) Garbage.  @>
+@
+@<Garbage@>=
+#if 0
+#endif
+
+@q ** (2) Putting  together `kllprcss.web'.  @>
+
+@ Putting  together \filename{kllprcss\PERIOD web}.
+
+@c
+@<Include files@>@;@/
+@<Version control identifier@>@;@/
+@<kllprcss |main| definition@>@;@/
+
+
+#if 0 /* 1 */ 
+@<Garbage@>@;@/
+#endif 
+
+@q (progn (cweb-mode) (outline-minor-mode))   @>
+
+@q * (1) Local variables for Emacs @>
+
+@q * Local variables for Emacs.@>
+@q Local Variables: @>
+@q mode:CWEB @>
+@q eval:(display-time) @>
+@q abbrev-mode:t @>
+@q eval:(read-abbrev-file) @>
+@q indent-tabs-mode:nil @>
+@q eval:(outline-minor-mode) @>
+@q fill-column:80 @>
+@q End: @>

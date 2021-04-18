@@ -1,0 +1,1406 @@
+@q entries.web@>
+@q Created by Laurence D. Finston (LDF) Wed Oct  7 09:43:04 CEST 2009  @>
+
+@q * (1) Top @>
+
+@q * (1) Copyright and License.@>
+
+@q This file is part of the OptiNum Grid Installer @>
+@q Copyright (C) 2010, 2011, 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen @>
+
+@q The OptiNum Grid Installer is free software; you can redistribute it and/or modify @>
+@q it under the terms of the GNU General Public License as published by @>
+@q the Free Software Foundation; either version 3 of the License, or @>
+@q (at your option) any later version.  @>
+
+@q The OptiNum Grid Installer is distributed in the hope that it will be useful, @>
+@q but WITHOUT ANY WARRANTY; without even the implied warranty of @>
+@q MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the @>
+@q GNU General Public License for more details.  @>
+
+@q You should have received a copy of the GNU General Public License          @>
+@q along with the OptiNum Grid Installer; if not, write to the Free Software                    @>
+@q Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA @>
+
+@q ("@@" stands for a single at-sign in the following paragraph.) @>
+
+@q Please send bug reports to Laurence.Finston@@gwdg.de@>
+
+@q Laurence D. Finston                                                   @>
+@q Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen  @>
+@q Am Fassberg 11         					         @>
+@q 37077 Goettingen              					 @>
+@q Germany                           					 @>                                
+
+@q Laurence.Finston@@gwdg.de (@@ stands for a single "at" sign.)@>
+
+@q ** (2)  Entries  @>
+@* Entries.
+
+@q ** (2) Include files  @>
+
+@ Include files.
+
+@<Include files@>=
+#include <stdlib.h>
+#include <stdio.h>
+#include <fstream>
+
+#include <gnutls/gnutls.h>
+#include <gnutls/x509.h>
+
+#include <algorithm>
+#include <iomanip>
+#include <ios>
+#include <iostream>
+#include <limits.h>
+#include <map>
+#include <string>
+#include <time.h>
+#include <math.h>
+#include <sstream>   
+#include <pthread.h>
+
+#include <set>
+#include <vector>
+#include <deque>
+
+#if HAVE_CONFIG_H
+# include <config.h>
+#endif
+
+#if IS_ROCKS_GOEGRID
+#undef HAVE_LIBMYSQLCLIENT
+#endif 
+
+#if HAVE_LIBMYSQLCLIENT
+#include <mysql.h>
+#endif 
+
+using namespace std;
+
+#include "dstngnmt.h++"
+#include "glblvrbl.h++"
+#include "glblfncs.h++"
+#include "utilfncs.h++"
+
+#include "parser.h++"
+#include "scanner.h++"
+
+#include "rspnstp.h++"
+#include "glsinftp.h++"
+#include "scprpmtp.h++"
+
+#ifndef _XOPEN_SOURCE
+#define _XOPEN_SOURCE
+#endif 
+
+@q ** (2) Forward declarations.  @>
+@ Forward declarations.  
+\initials{LDF 2009.10.12.}
+
+\LOG
+\initials{LDF 2009.10.12.}
+Added this section.
+\ENDLOG
+
+@<Forward declarations@>=
+
+class Scan_Parse_Parameter_Type;
+
+@q ** (2) class Entry_Type.  @>
+@ {\bf class Entry\_Type}.
+\initials{LDF 2009.10.07.}
+
+\LOG
+\initials{LDF 2009.10.07.}
+Added this |class| declaration.
+
+\initials{LDF 2009.12.29.}
+Removed |string user_name|.  Added |string installation_script|.
+
+\initials{LDF 2010.03.04.}
+Added |int entry_id|.
+
+\initials{LDF 2010.03.08.}
+Added |int install_order|.
+
+\initials{LDF 2010.05.25.}
+Added |bool private_flag|.
+
+\initials{LDF 2010.09.02.}
+Added |time_t created| and |time_t last_modified|.
+
+\initials{LDF 2011.01.26.}
+Added |bool encrypted_flag|.
+
+\initials{LDF 2011.01.27.}
+Added the |string| variables 
+|download_url_encrypted|, |download_command_encrypted|, 
+|installation_script_encrypted| and |owner|.
+
+\initials{LDF 2011.04.15.}
+Added the |unsigned int| variable |owner_key_id|.
+
+\initials{LDF 2011.05.06.}
+Added the |string| variable |authorization|. 
+
+
+\initials{LDF 2011.10.03.}
+Added the following data members:
+|bool install_or_reinstall_flag|,
+|string stdout_filename|,
+|string stderr_filename| and
+|string globus_site|.
+
+\initials{LDF 2011.10.23.}
+Added the following data members:
+|Scan_Parse_Parameter_Type* param|,
+|int remote_install_timeout|,
+|pthread_t remote_install_thread_id|,
+|pid_t remote_install_pid[2]|,
+|struct timespec remote_install_timespec|.
+
+\initials{LDF 2011.10.27.}
+Added |int remote_install_retval|.
+
+\initials{LDF 2012.01.13.}
+Added |bool deleted|.
+
+\initials{LDF 2012.02.03.}
+Added |int remote_install_reinstall_prerequisites|.
+
+\initials{LDF 2012.02.07.}
+Added |bool remote_install_create_links| 
+and |string remote_install_link_directory|.
+
+\initials{LDF 2012.02.10.}
+Changed |Entry_Type| from a |struct| to a |class|.  Added |friend| declarations.
+All data members are |private|.  The constructors, the destructor, and the operators
+are |public|.  All other functions are |private|.
+@:TODO@> !! TODO:  Add functions for accessing data members and see if I can get rid 
+of some of the |friend| declarations.
+\ENDLOG
+
+@<|class Entry_Type| declaration@>=
+
+class Entry_Type
+{
+
+    friend class less_timeout;
+
+    friend class equal_package_name_version_globus_site;
+
+    friend class less_package_name;
+
+    friend class less_package_version;
+
+    friend class less_package_name_version;
+
+    friend class less_package_name_globus_site_version;
+
+    friend class equal_package_name_globus_site;
+
+    friend int install_packages(Scan_Parse_Parameter_Type&);
+
+    friend int yyparse(void*);
+
+    friend int remote_install_rule_func(Scan_Parse_Parameter_Type*, 
+                                        int, string, string, string, 
+                                        string, string, int, int, string);
+
+    friend class Scan_Parse_Parameter_Type;
+
+    friend int exchange_data_with_client(Scan_Parse_Parameter_Type*);
+
+    friend void* remote_install_func(void*);
+
+    int entry_id;
+
+    string package_name;
+    string package_version;
+
+    string download_url;
+    string download_command;
+
+    string maintainer_name;
+    string maintainer_email_address;
+
+    string installation_script;
+
+    int install_order;
+
+    vector<Entry_Type> prerequisites;
+
+    bool private_flag;
+
+    bool encrypted_flag;
+
+    string authorization;                  /* These four are filenames  */
+    string installation_script_encrypted;
+    string download_url_encrypted;         
+    string download_command_encrypted;
+  
+    string owner;
+
+    unsigned int owner_key_id;
+
+    time_t created;
+    time_t last_modified;
+
+    Scan_Parse_Parameter_Type* param;
+    int remote_install_timeout;
+
+    int remote_install_reinstall_prerequisites;
+
+    bool remote_install_create_links;
+    string remote_install_link_directory;
+
+    pthread_t remote_install_thread_id;
+    pid_t remote_install_pid[2];
+    struct timespec remote_install_timespec;
+
+    int remote_install_retval;
+
+    bool install_or_reinstall_flag;
+    string stdout_filename; 
+    string stderr_filename; 
+    string globus_site;     
+
+    bool deleted;
+
+   @<|Entry_Type| function declarations@>@;
+
+    public:
+
+    @<|Entry_Type| constructor declarations@>@;
+    @<|Entry_Type| destructor declaration@>@;@/
+    @<|Entry_Type| operator declarations@>@;@/
+   
+};
+
+@q ** (2) |Entry_Type| functions.  @>
+@ {\bf Entry\_Type} functions.
+\initials{LDF 2009.10.07.}
+
+\LOG
+\initials{LDF 2009.10.07.}
+Added this section.
+\ENDLOG
+
+@q *** (3) Constructors.  @>
+@ Constructors.
+\initials{LDF 2009.10.12.}
+
+\LOG
+\initials{LDF 2009.10.12.}
+Added this section.
+\ENDLOG
+
+@q **** (4) Default constructor.  @>
+@ Default constructor.
+\initials{LDF 2009.10.07.}
+
+\LOG
+\initials{LDF 2009.10.07.}
+Added this function.
+\ENDLOG
+
+@<|Entry_Type| constructor declarations@>=
+Entry_Type(void);
+
+@
+@<|Entry_Type| function definitions@>=
+Entry_Type::Entry_Type(void)
+{
+
+    entry_id = 0;
+ 
+    package_name    = "";
+    package_version = "";
+
+    maintainer_name          = "";
+    maintainer_email_address = "";
+
+    download_url = "";
+    download_command = "";
+
+    installation_script = "";
+
+    install_order = 0;
+
+    private_flag = false;
+
+    encrypted_flag = false;
+
+
+    authorization                 = "";
+    download_url_encrypted        = "";
+    download_command_encrypted    = "";
+
+    installation_script_encrypted = "";
+
+    owner = "";    
+
+    owner_key_id = 0;
+
+    created       = 0;
+    last_modified = 0;
+
+
+    install_or_reinstall_flag = false;
+
+    remote_install_timeout = 0;
+    remote_install_reinstall_prerequisites = 0;
+
+    remote_install_thread_id = 0;
+    remote_install_pid[0] = 0;
+    remote_install_pid[1] = 0;
+
+    remote_install_retval = 0;
+
+    remote_install_create_links = false;  
+
+    remote_install_link_directory = "";
+
+    param = 0;
+
+    deleted = false;
+
+    return;
+
+}  /* End of |Entry_Type::Entry_Type(void)| definition  */
+
+
+@q **** (4) Constructor with |string| arguments.  @>
+@ Constructor with |string| arguments. 
+\initials{LDF 2009.10.12.}
+
+\LOG
+\initials{LDF 2009.10.12.}
+Added this function.
+\ENDLOG
+
+@<|Entry_Type| constructor declarations@>=
+Entry_Type(string a, string b = "");
+
+@
+@<|Entry_Type| function definitions@>=
+Entry_Type::Entry_Type(string a, string b)
+{
+
+    entry_id = 0;
+
+    package_name    = a;
+    package_version = b;
+
+    maintainer_name          = "";
+    maintainer_email_address = "";
+
+    download_url = "";
+    download_command = "";
+
+    installation_script = "";
+
+    install_order = 0;
+
+    private_flag = true;
+
+    encrypted_flag = false;
+
+    authorization                 = "";
+    download_url_encrypted        = "";
+    download_command_encrypted    = "";
+    installation_script_encrypted = "";
+
+    owner = "";    
+
+    owner_key_id = 0;
+
+    created       = 0;
+    last_modified = 0;
+
+    install_or_reinstall_flag = false;
+
+    param = 0;
+    remote_install_timeout = 0;
+    remote_install_reinstall_prerequisites = 0;
+    remote_install_thread_id = 0;
+    remote_install_pid[0] = 0;
+    remote_install_pid[1] = 0;
+
+    remote_install_retval = 0;
+
+    remote_install_create_links = false;  
+                                          
+    remote_install_link_directory = "";
+
+
+    deleted = false;
+
+    return;
+
+}  /* End of |Entry_Type::Entry_Type(string, string)| definition  */
+
+@q **** (4) Constructor with |int| and |string| arguments.  @>
+@ Constructor with |int| and |string| arguments. 
+\initials{LDF 2010.03.04.}
+
+\LOG
+\initials{LDF 2010.03.04.}
+Added this function.
+\ENDLOG
+
+@<|Entry_Type| constructor declarations@>=
+Entry_Type(int id, string a = "", string b = "");
+
+@
+@<|Entry_Type| function definitions@>=
+Entry_Type::Entry_Type(int id, string a, string b)
+{
+
+    entry_id = id;
+
+    package_name    = a;
+    package_version = b;
+
+    maintainer_name          = "";
+    maintainer_email_address = "";
+
+    download_url = "";
+    download_command = "";
+
+    installation_script = "";
+
+    install_order = 0;
+
+    private_flag = true;
+
+    encrypted_flag = false;
+
+    authorization                 = "";
+    download_url_encrypted        = "";
+    download_command_encrypted    = "";
+
+    installation_script_encrypted = "";
+
+    owner = "";    
+
+    owner_key_id = 0;
+
+    created       = 0;
+    last_modified = 0;
+
+    install_or_reinstall_flag = false;
+
+    param = 0;
+    remote_install_timeout = 0;
+    remote_install_reinstall_prerequisites = 0;
+    remote_install_thread_id = 0;
+    remote_install_pid[0] = 0;
+    remote_install_pid[1] = 0;
+
+    remote_install_retval = 0;
+
+    remote_install_create_links = false;  
+
+    remote_install_link_directory = "";
+
+    deleted = false;
+
+    return;
+
+}  /* End of |Entry_Type::Entry_Type(int string, string)| definition  */
+
+
+@q **** (4) Copy constructor.  @>
+@ Copy constructor.
+\initials{LDF 2011.10.23.}
+
+\LOG
+\initials{LDF 2011.10.23.}
+Added this function.
+\ENDLOG
+
+
+@q ***** (5) Declaration  @>
+
+@<|Entry_Type| constructor declarations@>=
+
+Entry_Type(const Entry_Type& e);
+
+@q ***** (5) Definition  @>
+@
+@<|Entry_Type| function definitions@>=
+Entry_Type::Entry_Type(const Entry_Type& e)
+{
+
+    bool DEBUG = false;  /* |true|  */
+    set_debug_level(DEBUG);
+
+    if (DEBUG)
+    {
+       lock_cerr_mutex(); 
+       cerr << "Entering `Entry_Type' copy constructor." << endl;
+       unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */ 
+
+   *this = e;
+
+   return;
+}
+
+@q *** (3) Destructor.  @>
+@ Destructor.
+\initials{LDF 2011.10.23.}
+
+\LOG
+\initials{LDF 2011.10.23.}
+Added this function.
+\ENDLOG
+
+@<|Entry_Type| destructor declaration@>=
+~Entry_Type(void);
+
+@
+@<|Entry_Type| function definitions@>=
+Entry_Type::~Entry_Type(void)
+{
+
+    param = 0;  /* |Scan_Parse_Parameter_Type *param| should not be
+                   deleted!  */
+
+}  /* End of |Entry_Type| destructor definition  */
+
+@q *** (3) Extract_Prerequisites.  @>
+@ Extract prerequisites.
+\initials{LDF 2010.03.05.}
+
+\LOG
+\initials{LDF 2010.03.05.}
+Added this function.
+\ENDLOG
+
+@q **** (4) Declaration  @>
+
+@<|Entry_Type| function declarations@>=
+int
+extract_prerequisites(Scan_Parse_Parameter_Type* param, stringstream& out_strm) const;
+
+@q **** (4) Definition  @>
+@
+@<|Entry_Type| function definitions@>=
+int
+Entry_Type::extract_prerequisites(Scan_Parse_Parameter_Type* param, 
+                                  stringstream& out_strm) const
+{
+@q ***** (5) @>
+
+   int DEBUG = false;  /* |true|  */
+
+   int status = 0;
+
+   if (DEBUG)
+   {
+       lock_cerr_mutex(); 
+       cerr << "[Thread " << param->thread_ctr << "]:  "
+            << "Entering `Entry_Type::extract_prerequisites'."
+            << endl;
+       unlock_cerr_mutex(); 
+
+   }  /* |if (DEBUG)|  */
+
+@q ***** (5) @>
+@
+@<|Entry_Type| function definitions@>=
+
+   for (vector<Entry_Type>::const_iterator iter = prerequisites.begin();
+        iter != prerequisites.end();
+        ++iter)
+   {
+        out_strm << "\";" << iter->package_name << " \" "
+                 << "\":" << iter->package_version << "\" ";
+
+   }  /* |for|  */
+
+@q ***** (5) @>
+@
+@<|Entry_Type| function definitions@>=
+
+   for (vector<Entry_Type>::const_iterator iter = prerequisites.begin();
+        iter != prerequisites.end();
+        ++iter)
+   {
+       status = iter->extract_prerequisites(param, out_strm);
+
+       if (status != 0)
+       {
+          lock_cerr_mutex(); 
+          cerr << "[Thread " << param->thread_ctr << "]:  "
+               << "ERROR! In `Entry_Type::extract_prerequisites':"
+               << endl
+               << "Recursive call to `Entry_Type::extract_prerequisites' "
+               << "failed, returning " << status
+               << endl
+               << "Exiting function unsuccessfully with return value 1."
+               << endl;
+          unlock_cerr_mutex(); 
+
+          return 1;
+
+       }  /* |if (status != 0)|  */
+
+   }  /* |for|  */
+
+@q ***** (5) @>
+
+   if (DEBUG)
+   {
+       lock_cerr_mutex(); 
+       cerr << "[Thread " << param->thread_ctr << "]:  "
+            << "Exiting `Entry_Type::extract_prerequisites' successfully "
+            << "with return value 0."
+            << endl;
+       unlock_cerr_mutex(); 
+
+   }  /* |if (DEBUG)|  */
+
+    return 0;
+
+@q ***** (5) @>
+
+}  /* End of |Entry_Type::extract_prerequisites| definition  */
+
+@q *** (3) Operators.  @>
+@ Operators.
+\initials{LDF 2010.03.08.}
+
+\LOG
+\initials{LDF 2010.03.08.}
+Added this section.
+\ENDLOG
+
+
+@q **** (4) Assignment operator.  @>
+@ Assignment operator.
+\initials{LDF 2011.10.23.}
+
+\LOG
+\initials{LDF 2011.10.23.}
+Added this function.
+\ENDLOG
+
+@q ***** (5) Declaration  @>
+
+@<|Entry_Type| operator declarations@>=
+
+const Entry_Type&
+operator=(const Entry_Type& e);
+
+@q ***** (5) Definition  @>
+@
+@<|Entry_Type| function definitions@>=
+const Entry_Type&
+Entry_Type::operator=(const Entry_Type& e)
+{
+
+    bool DEBUG = false;  /* |true|  */
+    set_debug_level(DEBUG);
+
+    if (DEBUG)
+    {
+       lock_cerr_mutex(); 
+       cerr << "Entering `Entry_Type' assignment operator." << endl;
+       unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */ 
+   
+    entry_id = e.entry_id;
+
+    package_name = e.package_name;
+    package_version = e.package_version;
+
+    download_url = e.download_url;
+    download_command = e.download_command;
+
+    maintainer_name = e.maintainer_name;
+    maintainer_email_address = e.maintainer_email_address;
+
+    installation_script = e.installation_script;
+
+    install_order = e.install_order;
+
+    for (vector<Entry_Type>::const_iterator iter = e.prerequisites.begin();
+         iter != e.prerequisites.end();
+         ++iter)
+        prerequisites.push_back(*iter);
+
+    private_flag = e.private_flag;
+
+    encrypted_flag = e.encrypted_flag;
+
+    authorization = e.authorization;                 
+    installation_script_encrypted = e.installation_script_encrypted;
+    download_url_encrypted = e.download_url_encrypted;         
+    download_command_encrypted = e.download_command_encrypted;
+  
+    owner = e.owner;
+
+    owner_key_id = e.owner_key_id;
+
+    created = e.created;
+    last_modified = e.last_modified;
+
+    param = e.param;
+
+    remote_install_timeout = e.remote_install_timeout;
+    remote_install_reinstall_prerequisites = e.remote_install_reinstall_prerequisites;
+
+    remote_install_thread_id = e.remote_install_thread_id;
+
+    remote_install_pid[0] = e.remote_install_pid[0];
+    remote_install_pid[1] = e.remote_install_pid[1];
+    
+    remote_install_timespec = e.remote_install_timespec;
+
+    remote_install_retval = e.remote_install_retval;
+
+    remote_install_create_links = e.remote_install_create_links;
+    remote_install_link_directory = e.remote_install_link_directory;
+
+    install_or_reinstall_flag = e.install_or_reinstall_flag;
+    stdout_filename = e.stdout_filename; 
+    stderr_filename = e.stderr_filename; 
+    globus_site = e.globus_site;     
+
+    deleted = e.deleted;
+    
+    return e;
+
+}  /* End of |Entry_Type::operator=(const Entry_Type e)| definition  */
+
+@q **** (4) Predicates.  @>
+@ Predicates.
+\initials{LDF 2010.03.08.}
+
+\LOG
+\initials{LDF 2010.03.08.}
+Added this section.
+\ENDLOG
+
+@q ***** (5) Equality.  @>
+@ Equality.
+\initials{LDF 2010.03.08.}
+
+\LOG
+\initials{LDF 2010.03.08.}
+Added this function.
+
+\initials{LDF 2012.01.27.}
+Changed argument from |const Entry_Type| to a reference to this type.
+\ENDLOG
+
+@<|Entry_Type| operator declarations@>=
+int
+operator==(const Entry_Type &e) const;
+
+@
+@<|Entry_Type| function definitions@>=
+int
+Entry_Type::operator==(const Entry_Type &e) const
+{
+
+   return 
+      (   package_name == e.package_name 
+       && (   package_version == e.package_version
+           || package_version.empty() && !e.package_version.empty()
+           || !package_version.empty() && e.package_version.empty()
+           || package_version.empty() && e.package_version == "-1"
+           || package_version == "-1" && e.package_version.empty()));
+}
+
+@q ***** (5) Less-than operator.  @>
+@ Less-than operator.
+\initials{LDF 2010.03.08.}
+
+\LOG
+\initials{LDF 2010.03.08.}
+Added this function.
+
+\initials{LDF 2012.01.27.}
+Changed argument from |const Entry_Type| to a reference to this type.
+\ENDLOG
+
+@<|Entry_Type| operator declarations@>=
+int
+operator<(const Entry_Type &e) const;
+
+@
+@<|Entry_Type| function definitions@>=
+int
+Entry_Type::operator<(const Entry_Type &e) const
+{
+
+   return install_order < e.install_order;
+
+}
+
+@q ***** (5) Greater-than operator.  @>
+@ Greater-than operator.
+\initials{LDF 2010.03.08.}
+
+\LOG
+\initials{LDF 2010.03.08.}
+Added this function.
+
+\initials{LDF 2012.01.27.}
+Changed argument from |const Entry_Type| to a reference to this type.
+\ENDLOG
+
+@<|Entry_Type| operator declarations@>=
+int
+operator>(const Entry_Type &e) const;
+
+@
+@<|Entry_Type| function definitions@>=
+int
+Entry_Type::operator>(const Entry_Type &e) const
+{
+
+   return install_order > e.install_order;
+
+}
+
+@q *** (3) Show.  @>
+@ Show.
+\initials{LDF 2009.10.12.}
+
+\LOG
+\initials{LDF 2009.10.12.}
+Added this function.
+
+\initials{LDF 2010.02.26.}
+Made this function |const|.
+
+\initials{LDF 2010.03.04.}
+Revised this function.
+
+\initials{LDF 2011.01.27.}
+Added code to account for new data members in |Entry_Type|.
+\ENDLOG
+
+@<|Entry_Type| function declarations@>=
+int
+show(string s = "", Scan_Parse_Parameter_Type* param = 0, bool show_prereqs = true) const;
+
+@
+@<|Entry_Type| function definitions@>=
+int
+Entry_Type::show(string s, Scan_Parse_Parameter_Type* param, bool show_prereqs) const
+{
+
+   if (s != "")
+      cerr << s;
+   else 
+      cerr << "Showing `Entry_Type':";
+   cerr << endl;
+
+   cerr << "entry_id:  "                      << entry_id
+        << endl 
+        << "package_name:  "                  << package_name
+        << endl
+        << "package_version:  "               << package_version
+        << endl
+        << "maintainer_name:  "               << maintainer_name
+        << endl
+        << "maintainer_email_address:  "      << maintainer_email_address
+        << endl 
+        << "download_url:  "                  << download_url
+        << endl
+        << "download_command:  "              << download_command
+        << endl
+        << "installation_script:  "           << installation_script
+        << endl
+        << "install_order:  "                 << install_order
+        << endl 
+        << "private_flag:  "                  << private_flag
+        << endl
+        << "encrypted_flag:  "                << encrypted_flag
+        << endl
+        << "owner:  "                         << owner
+        << endl 
+        << "owner_key_id:  "                  << owner_key_id
+        << endl 
+        << "authorization:  "                 << authorization
+        << endl 
+        << "download_url_encrypted:  "        << download_url_encrypted
+        << endl
+        << "download_command_encrypted:  "    << download_command_encrypted
+        << endl
+        << "installation_script_encrypted:  " << installation_script_encrypted
+        << endl
+        << "install_or_reinstall_flag:  "     << install_or_reinstall_flag
+        << endl
+        << "stdout_filename:  "               << stdout_filename
+        << endl
+        << "stderr_filename:  "               << stderr_filename
+        << endl
+        << "globus_site:  "                   << globus_site
+        << endl
+        << "deleted:  "                       << deleted
+        << endl;
+
+    if (this->param == 0)
+       cerr << "this->param is NULL." << endl;
+    else
+       cerr << "this->param is non-NULL." << endl;
+
+    cerr << "remote_install_timeout:  " << remote_install_timeout
+         << endl 
+         << "remote_install_reinstall_prerequisites:  " 
+         << remote_install_reinstall_prerequisites
+         << endl 
+         << "remote_install_thread_id:  " << remote_install_thread_id
+         << endl 
+         << "remote_install_pid[0] ==  " << remote_install_pid[0]
+         << endl 
+         << "remote_install_pid[1] ==  " << remote_install_pid[1]
+         << endl
+         << "remote_install_retval ==  " << remote_install_retval
+         << endl 
+         << "remote_install_create_links == " << remote_install_create_links
+         << endl 
+         << "remote_install_link_directory == " << remote_install_link_directory
+         << endl;
+
+    if (prerequisites.size() == 1)
+       cerr << "1 prerequisite." << endl;
+    else 
+       cerr << prerequisites.size() << " prerequisites." << endl;
+
+    if (prerequisites.size() > 0)
+    {
+       if (show_prereqs)
+       {
+           cerr << "Showing prerequisites." << endl;
+
+           for (vector<Entry_Type>::const_iterator iter = prerequisites.begin();
+                iter != prerequisites.end();
+                ++iter)
+           iter->show("Prerequisite:", param, true);
+
+       }  /* |if (show_prereqs)| */
+       else
+          cerr << "Not showing prerequisites." << endl;
+     
+    }  /* |if (prerequisites.size() > 0)|  */
+
+    return 0;
+
+}  /* End of |Entry_Type::show| definition  */
+
+
+@q ** (2) |class less_timeout|.  @>
+@ {\bf class less\_timeout}.
+\initials{LDF 2011.10.23.}
+
+\LOG
+\initials{LDF 2011.10.23.}
+Added this |struct| declaration.
+
+\initials{LDF 2012.02.14.}
+Changed this type from a |struct| to a |class|.
+Added |friend| declaration for |class Entry_Type|.
+\ENDLOG
+
+@<|class less_timeout| declaration@>=
+
+class
+less_timeout
+{
+      friend class Entry_Type;
+ 
+
+      public:
+
+      int operator() (const Entry_Type& e1, const Entry_Type& e2) const
+      {
+
+             return e1.remote_install_timeout < e2.remote_install_timeout;
+      }
+};
+
+@q ** (2) |class less_package_name|.  @>
+@ {\bf class less\_package\_name}.
+\initials{LDF 2011.10.28.}
+
+\LOG
+\initials{LDF 2011.10.28.}
+Added this |struct| declaration.
+
+\initials{LDF 2012.02.14.}
+Changed this type from a |struct| to a |class|.
+Added |friend| declaration for |class Entry_Type|.
+\ENDLOG
+
+@<|class less_package_name| declaration@>=
+
+class
+less_package_name
+{
+
+      friend class Entry_Type;
+
+      public:
+
+      int operator() (const Entry_Type& e1, const Entry_Type& e2) const;
+};
+
+@q *** (3) |operator()|.  @>
+@ {\bf operator()}.
+\initials{LDF 2011.10.28.}
+
+\LOG
+\initials{LDF 2011.10.28.}
+Removed this function definition from the |struct| declaration.
+\ENDLOG
+
+@<Comparison class function definitions@>=
+
+int 
+less_package_name::operator() (const Entry_Type& e1, const Entry_Type& e2) 
+                              const
+{
+
+    return e1.package_name < e2.package_name;
+}
+
+
+@q ** (2) |class less_package_version|.  @>
+@ {\bf class less\_package\_version}.
+\initials{LDF 2011.10.28.}
+
+\LOG
+\initials{LDF 2011.10.28.}
+Added this |struct| declaration.
+
+\initials{LDF 2012.02.14.}
+Changed this type from a |struct| to a |class|.
+Added |friend| declaration for |class Entry_Type|.
+\ENDLOG
+
+@<|class less_package_version| declaration@>=
+
+class
+less_package_version
+{
+
+      friend class Entry_Type;
+
+      public:
+
+      int operator() (const Entry_Type& e1, const Entry_Type& e2) const;
+};
+
+@q *** (3) |operator()|.  @>
+@ {\bf operator()}.
+\initials{LDF 2011.10.28.}
+
+\LOG
+\initials{LDF 2011.10.28.}
+Added this function.
+\ENDLOG
+
+@<Comparison class function definitions@>=
+
+int 
+less_package_version::operator() (const Entry_Type& e1, const Entry_Type& e2) 
+                              const
+{
+
+    return e1.package_version < e2.package_version;
+}
+
+@q ** (2) |class less_package_name_version|.  @>
+@ {\bf class less\_package\_name\_version}.
+\initials{LDF 2011.10.28.}
+
+\LOG
+\initials{LDF 2011.10.28.}
+Added this |struct| declaration.
+
+\initials{LDF 2012.02.14.}
+Changed this type from a |struct| to a |class|.
+Added |friend| declaration for |class Entry_Type|.
+\ENDLOG
+
+@<|class less_package_name_version| declaration@>=
+
+class
+less_package_name_version
+{
+
+      friend class Entry_Type;
+
+      public:
+
+      int operator() (const Entry_Type& e1, const Entry_Type& e2) const;
+};
+
+@q *** (3) |operator()|.  @>
+@ {\bf operator()}.
+\initials{LDF 2011.10.28.}
+
+\LOG
+\initials{LDF 2011.10.28.}
+Added this function.
+\ENDLOG
+
+@<Comparison class function definitions@>=
+
+int 
+less_package_name_version::operator() (const Entry_Type& e1, const Entry_Type& e2) 
+                              const
+{
+
+    string E1 = e1.package_name;
+    E1 += e1.package_version;
+
+    string E2 = e2.package_name;
+    E2 += e2.package_version;
+
+    return E1 < E2;
+}
+
+
+@q ** (2) |class less_package_name_globus_site_version|.  @>
+@ {\bf class less\_package\_name\_globus\_site\_version}.
+\initials{LDF 2011.10.28.}
+
+\LOG
+\initials{LDF 2011.10.28.}
+Added this |struct| declaration.
+
+\initials{LDF 2012.02.14.}
+Changed this type from a |struct| to a |class|.
+Added |friend| declaration for |class Entry_Type|.
+\ENDLOG
+
+@<|class less_package_name_globus_site_version| declaration@>=
+class
+less_package_name_globus_site_version
+{
+      friend class Entry_Type;
+
+      public:
+
+      int operator() (const Entry_Type& e1, const Entry_Type& e2) const;
+};
+
+@q *** (3) |operator()|.  @>
+@ {\bf operator()}.
+\initials{LDF 2011.10.28.}
+
+\LOG
+\initials{LDF 2011.10.28.}
+Added this function.
+\ENDLOG
+
+@<Comparison class function definitions@>=
+
+int 
+less_package_name_globus_site_version::operator() (const Entry_Type& e1, 
+                                                   const Entry_Type& e2) 
+                                               const
+{
+
+    string E1 = e1.package_name;
+    E1 += e1.globus_site;
+    E1 += e1.package_version;
+
+    string E2 = e2.package_name;
+    E2 += e2.globus_site;
+    E2 += e2.package_version;
+
+    return E1 < E2;
+}
+
+@q ** (2) |class equal_package_name_globus_site|.  @>
+@ {\bf class equal\_package\_name\_globus\_site}.
+\initials{LDF 2011.10.28.}
+
+\LOG
+\initials{LDF 2011.10.28.}
+Added this |struct| declaration.
+
+\initials{LDF 2012.01.27.}
+Changed name of this |struct| from |package_name_globus_site_equal| to 
+|equal_package_name_globus_site|.
+
+\initials{LDF 2012.02.14.}
+Changed this type from a |struct| to a |class|.
+Added |friend| declaration for |class Entry_Type|.
+\ENDLOG
+
+@<|class equal_package_name_globus_site| declaration@>=
+
+class
+equal_package_name_globus_site
+{
+   friend class Entry_Type;
+
+   public:
+
+   int operator() (const Entry_Type& e1, const Entry_Type& e2) const;
+
+   int operator() (const Entry_Type& e, 
+                   const pair<string, string>& s) const;
+};
+
+
+@q *** (3) |operator()|.  @>
+@ {\bf operator()}.
+\initials{LDF 2011.10.28.}
+
+\LOG
+\initials{LDF 2011.10.28.}
+Removed this function definition from the |struct| declaration.
+\ENDLOG
+
+@<Comparison class function definitions@>=
+
+int 
+equal_package_name_globus_site::operator() 
+                               (const Entry_Type& e1, const Entry_Type& e2) 
+                               const
+{
+
+     return (   e1.package_name == e2.package_name 
+             && e1.globus_site == e2.globus_site);
+}
+
+
+@q *** (3) |operator()|.  @>
+@ {\bf operator()}.
+\initials{LDF 2011.10.28.}
+
+\LOG
+\initials{LDF 2011.10.28.}
+Added this function.
+\ENDLOG
+
+@<Comparison class function definitions@>=
+
+int 
+equal_package_name_globus_site::operator() 
+                               (const Entry_Type& e, 
+                                const pair<string, string>& s) 
+                               const
+{
+
+     return (   e.package_name == s.first
+             && e.globus_site == s.second);
+}
+
+@q ** (2) |class equal_package_name_version_globus_site|.  @>
+@ {\bf class equal\_package\_name\_version\_globus\_site}.
+\initials{LDF 2011.10.28.}
+
+\LOG
+\initials{LDF 2011.10.28.}
+Added this |struct| declaration.
+
+\initials{LDF 2012.01.27.}
+Changed the name of this |struct| from |package_name_version_globus_site_equal|
+to |equal_package_name_version_globus_site|.
+
+\initials{LDF 2012.02.14.}
+Changed this type from a |struct| to a |class|.
+Added |friend| declaration for |class Entry_Type|.
+\ENDLOG
+
+@<|class equal_package_name_version_globus_site| declaration@>=
+
+class
+equal_package_name_version_globus_site
+{
+
+      friend class Entry_Type;
+
+      public:
+
+      int operator() (const Entry_Type& e1, const Entry_Type& e2) const
+      {
+
+             return (   e1.package_name == e2.package_name
+                     && e1.package_version == e2.package_version
+                     && e1.globus_site == e2.globus_site);
+      }
+};
+
+@q ** (2) Putting `entries.web' together.  @>
+
+@ Putting {\tt entries\PERIOD web} together.
+
+@q *** (3) This is what's compiled.  @>
+
+This is what's compiled.  
+\initials{LDF 2008.07.23.}
+
+@c
+@<Include files@>@;@/
+@<Forward declarations@>@;@/
+@<|class Entry_Type| declaration@>@;@/
+@<|class less_package_name| declaration@>@;@/
+@<|class less_package_version| declaration@>@;@/
+@<|class less_package_name_version| declaration@>@;@/
+@<|class less_package_name_globus_site_version| declaration@>@;@/
+@<|class less_timeout| declaration@>@;@/
+@<|class equal_package_name_globus_site| declaration@>@;@/
+@<|class equal_package_name_version_globus_site| declaration@>@;@/
+@<|Entry_Type| function definitions@>@;@/
+@<Comparison class function definitions@>@;@/
+
+@q *** (3) This is what's written to the header file.  @>
+
+@ This is what's written to the header file.  
+\initials{LDF 2008.07.23.}
+
+@(entries.h@>=
+#ifndef ENTRIES_H
+#define ENTRIES_H 1
+using namespace std;
+@<Forward declarations@>@;@/
+@<|class Entry_Type| declaration@>@;@/
+@<|class less_package_name| declaration@>@;@/
+@<|class less_package_version| declaration@>@;@/
+@<|class less_package_name_version| declaration@>@;@/
+@<|class less_package_name_globus_site_version| declaration@>@;@/
+@<|class less_timeout| declaration@>@;@/
+@<|class equal_package_name_globus_site| declaration@>@;@/
+@<|class equal_package_name_version_globus_site| declaration@>@;@/
+
+
+#endif 
+
+@q * (1) Emacs-Lisp code for use in indirect buffers  @>
+
+@q (progn (cweb-mode) (outline-minor-mode) (abbrev-mode t))           @>
+
+@q * (1) Local variables for Emacs @>
+
+@q Local Variables: @>
+@q mode:CWEB @>
+@q eval:(display-time) @>
+@q abbrev-mode: t @>
+@q eval:(read-abbrev-file) @>
+@q indent-tabs-mode:nil @>
+@q eval:(outline-minor-mode) @>
+@q fill-column:80 @>
+@q End: @>
+
+
+
+
+

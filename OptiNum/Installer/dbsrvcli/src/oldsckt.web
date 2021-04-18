@@ -1,0 +1,816 @@
+@q oldsckt.web @>
+@q Created by Laurence D. Finston (LDF) Mon Nov 23 17:19:08 CET 2009  @>
+
+@ Old socket functions.
+\initials{LDF 2010.03.12.}
+
+@q * (1) Top @>
+
+@q * (1) Copyright and License.@>
+
+@q This file is part of the OptiNum Grid Installer @>
+@q Copyright (C) 2010, 2011, 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen @>
+
+@q The OptiNum Grid Installer is free software; you can redistribute it and/or modify @>
+@q it under the terms of the GNU General Public License as published by @>
+@q the Free Software Foundation; either version 3 of the License, or @>
+@q (at your option) any later version.  @>
+
+@q The OptiNum Grid Installer is distributed in the hope that it will be useful, @>
+@q but WITHOUT ANY WARRANTY; without even the implied warranty of @>
+@q MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the @>
+@q GNU General Public License for more details.  @>
+
+@q You should have received a copy of the GNU General Public License          @>
+@q along with the OptiNum Grid Installer; if not, write to the Free Software                    @>
+@q Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA @>
+
+@q ("@@" stands for a single at-sign in the following paragraph.) @>
+
+@q Please send bug reports to Laurence.Finston@@gwdg.de@>
+
+@q Laurence D. Finston                                                   @>
+@q Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen  @>
+@q Am Fassberg 11         					         @>
+@q 37077 Goettingen              					 @>
+@q Germany                           					 @>                                
+
+@q Laurence.Finston@@gwdg.de (@@ stands for a single "at" sign.)@>
+  
+@q ** (2) Include files  @>
+
+@*3 Include files.
+
+@<Include files@>=
+
+
+#include <stdlib.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <errno.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netdb.h>
+#include <arpa/inet.h>
+#include <sys/wait.h>
+#include <signal.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <string.h>
+#include <getopt.h> 
+#include <time.h>
+#include <math.h>
+
+#include <pthread.h>
+
+#include <fstream>
+#include <iomanip>
+#include <ios>
+#include <iostream>
+#include <map>
+#include <sstream>   
+#include <string>
+#include <vector>
+
+#if HAVE_CONFIG_H
+# include <config.h>
+#endif
+
+#if IS_ROCKS_GOEGRID
+#undef HAVE_LIBMYSQLCLIENT
+#endif 
+
+#include "dstngnmt.h++"
+#include "glblvrbl.h++"
+#include "glblfncs.h++"
+
+#ifndef _XOPEN_SOURCE
+#define _XOPEN_SOURCE
+#endif 
+
+@q ** (2) Global variables  @>
+
+@ Global variables.
+\initials{LDF 2009.12.16.}
+
+@<Global variables@>=
+pthread_mutex_t cerr_mutex;
+const int MAXDATASIZE = 1024;
+string port_str = "5556";
+
+
+@q ** (2) @>
+@
+@<|main| definition@>=
+int 
+main(int argc, char* argv[])
+{
+
+   pthread_mutex_init(&cerr_mutex, 0);
+
+   lock_cerr_mutex(); 
+   cerr << "Entering `main'." << endl;
+   unlock_cerr_mutex(); 
+
+   string s;
+
+   if (argc > 1)
+      s = argv[1];
+   else 
+      s = "localhost";
+
+   optdb_connect(s, "");
+
+
+   pthread_mutex_destroy(&cerr_mutex);
+
+   cerr << "Entering `main' successfully with return value 0." << endl;
+
+   return 0;
+
+}  /* End of |main| definition   */
+
+
+@q ** (2) Client:  Connect to Server@>
+@*2 Client:  Connect to Server.
+\initials{LDF 2009.09.29.}
+
+\LOG
+\initials{LDF 2009.09.29.}
+Added this function.
+
+\initials{LDF 2009.09.29.}
+Changed arguments.
+\ENDLOG
+
+@q **** (4) Declaration  @>
+
+@<|optdb_connect| declaration@>=
+int
+optdb_connect(string address, string filename = "");
+
+
+@q **** (4) Definition  @>
+
+@
+@<|optdb_connect| definition@>=
+int
+optdb_connect(string address, string filename)
+{
+@q ***** (5) @>
+
+        lock_cerr_mutex(); 
+        cerr << "Entering `optdb_connect'."
+             << endl;
+        unlock_cerr_mutex(); 
+
+        int sockfd;
+
+        char buf[MAXDATASIZE];
+        struct addrinfo hints, *servinfo, *p;
+        int rv;
+        char s[INET6_ADDRSTRLEN];
+
+        memset(&hints, 0, sizeof hints);
+        hints.ai_family = AF_UNSPEC;
+        hints.ai_socktype = SOCK_STREAM;
+
+        cerr << "In `optdb_connect':  `address' == " << address << endl;
+
+        if ((rv = getaddrinfo(address.c_str(), port_str.c_str(), &hints, &servinfo)) != 0) 
+        {
+                lock_cerr_mutex(); 
+                cerr << "ERROR!  In `optdb_connect':  "
+                     << "`getaddrinfo' failed, returning " << rv << ":" 
+                     << endl
+                     <<  gai_strerror(rv)
+                     << endl
+                     << "Exiting function unsuccessfully with return value 1."
+                     << endl;
+                unlock_cerr_mutex(); 
+                return 1;
+
+        }  /* |if|  */
+
+        // loop through all the results and connect to the first we can
+
+        int i = 0;
+
+        for(p = servinfo; p != NULL; p = p->ai_next) 
+        {
+
+#if 0 
+            cerr << "i == " << i << endl; 
+#endif 
+
+            if ((sockfd = socket(p->ai_family, p->ai_socktype,
+                            p->ai_protocol)) == -1) 
+            {
+                    perror("client: socket");
+                    continue;
+            }
+
+            if (connect(sockfd, p->ai_addr, p->ai_addrlen) == -1) {
+                    close(sockfd);
+                    perror("client: connect");
+                    continue;
+            }
+
+            break;
+
+        }  /* |for|  */
+
+        if (p == NULL) {
+                fprintf(stderr, "client: failed to connect\n");
+                return 2;
+        }
+
+@q ***** (5) @>
+
+        inet_ntop(p->ai_family, get_in_addr((struct sockaddr *)p->ai_addr),
+                        s, sizeof s);
+        printf("client: connecting to %s\n", s);
+
+        freeaddrinfo(servinfo); // all done with this structure
+
+
+        lock_cerr_mutex(); 
+        cerr << "Exiting `optdb_connect' successfully with return value 0." 
+             << endl;
+        unlock_cerr_mutex(); 
+
+        return 0;
+
+        close(sockfd);
+
+
+
+@q ***** (5) @>
+
+@q ****** (6) @>
+
+
+        int char_ctr = 0;
+
+        if (filename != "")
+        {
+             ifstream file_strm(filename.c_str());
+
+             while(!file_strm.eof())
+             {
+                file_strm.read(buf, MAXDATASIZE - 1);
+
+                char_ctr = file_strm.gcount();
+  
+                if (char_ctr > 0)
+                   buf[char_ctr] = '\0';
+  
+                lock_cerr_mutex(); 
+                cerr << "Read " << char_ctr << " characters." << endl
+                     << "buf == " << endl
+                     << buf << endl;
+                unlock_cerr_mutex(); 
+
+                if (char_ctr > 0)
+                {
+                   if (send(sockfd, buf, char_ctr, 0) == -1) 
+                   {
+                       perror("send");
+                       exit(1);
+                   }
+
+                }  /* |if (char_ctr > 0)|  */
+
+             }      /* |while|  */
+        
+             file_strm.close();
+
+        }  /* |if (filename != "")|  */
+
+@q ****** (6) @>
+
+        else  /* |filename == ""|  */
+        {
+
+            while(cin.good())
+            {
+               cin.read(buf, MAXDATASIZE - 1);
+  
+               char_ctr = cin.gcount();
+
+               if (char_ctr > 0)
+                  buf[char_ctr] = '\0';
+  
+               lock_cerr_mutex(); 
+               cerr << "Read " << char_ctr << " characters." << endl
+                    << "buf == " << endl
+                    << buf << endl;
+               unlock_cerr_mutex(); 
+
+               if (char_ctr > 0)
+               {
+                  if (send(sockfd, buf, char_ctr, 0) == -1) 
+                  {
+                      perror("send");
+                      exit(1);
+                  }
+
+               }  /* |if (char_ctr > 0)|  */
+
+            }      /* |while|  */
+
+        } /* |else| (|filename == ""|)  */
+
+
+        close(sockfd);
+
+@q ****** (6) @>
+
+
+@q ***** (5) @>
+
+        return 0;
+
+}  /* End of |optdb_connect| definition  */
+
+
+@q ** (2) Handle Connections  @>
+@*2 Handle Connections.
+\initials{LDF 2009.09.28.}
+
+This function is based on an example from Brian ``Beej Jorgensen'' Hall's 
+{\it Beej's Guide to Network Programming}, Version 3.0.13, March 23, 2009
+(\.{http://beej.us/guide/bgnet/}).\hfil\break
+Copyright {\copyright} 2009 Brian ``Beej Jorgensen'' Hall
+\initials{LDF 2009.09.28.}
+
+\LOG
+\initials{LDF 2009.09.28.}
+Added this function.
+
+\initials{LDF 2009.10.06.}
+Removed code using |fork|.  Now using POSIX threads (pthreads) instead.
+\ENDLOG
+
+@q *** (3) Declaration  @>
+@
+@<|handle_connections| declaration@>=
+
+int 
+handle_connections(void);
+
+@q *** (3) Definition  @>
+@
+@<|handle_connections| definition@>=
+
+int 
+handle_connections(void)
+{
+@q **** (4) @>
+
+    int status = 0;
+
+    int sockfd, new_fd;  /* listen on |sock_fd|, new connection on |new_fd|  */
+    struct addrinfo hints, *servinfo, *p;
+    struct sockaddr_storage their_addr; /* connector's address information  */
+    socklen_t sin_size;
+
+    int yes=1;
+    char s[INET6_ADDRSTRLEN];
+    int rv;
+
+    const int BACKLOG = 100;  /* how many pending connections queue will hold  */
+
+    memset(&hints, 0, sizeof hints);
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags = AI_PASSIVE; /* use my IP  */
+
+@q **** (4) @>
+
+        if ((rv = getaddrinfo(NULL, port_str.c_str(), &hints, &servinfo)) != 0) 
+        {
+            fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
+            return 1;
+        }
+
+@q **** (4) Loop through all the results and bind to the first we can.  @>
+
+@ Loop through all the results and bind to the first we can.
+
+@<|handle_connections| definition@>=
+
+        for(p = servinfo; p != NULL; p = p->ai_next) 
+        {
+
+@q ***** (5) @>
+
+            if ((sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1) 
+            {
+               lock_cerr_mutex(); 
+               perror("server: socket");
+               unlock_cerr_mutex(); 
+               continue;
+            }
+
+            if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes,
+                            sizeof(int)) == -1) 
+            {
+                    lock_cerr_mutex(); 
+                    perror("setsockopt");
+                    unlock_cerr_mutex();
+                    exit(1);
+            }   
+
+            if (bind(sockfd, p->ai_addr, p->ai_addrlen) == -1) 
+            {
+                    close(sockfd);
+                    lock_cerr_mutex();
+                    perror("server: bind");
+                    unlock_cerr_mutex();
+                    continue;
+            }  
+
+            break;
+
+@q ***** (5) @>
+
+        }  /* |for|  */
+
+@q **** (4) @>
+@
+@<|handle_connections| definition@>=
+
+        if (p == 0)  
+        {
+            lock_cerr_mutex(); 
+            cerr << "[Initial thread] Server:  failed to bind" << endl;
+            unlock_cerr_mutex(); 
+
+            return 2;
+        }
+
+        freeaddrinfo(servinfo); /* all done with this structure  */
+
+        if (listen(sockfd, BACKLOG) == -1) {
+                lock_cerr_mutex();
+                perror("listen");
+                unlock_cerr_mutex();
+                exit(1);
+        }
+
+@q **** (4) @>
+
+@ The threads that are created will be detached.  There's no need to wait for them.
+\initials{LDF 2009.10.06.}
+
+@<|handle_connections| definition@>=
+
+        lock_cerr_mutex(); 
+        cerr << "[Initial thread] In `handle_connections':  server: waiting for connections..."
+             << endl;
+        unlock_cerr_mutex(); 
+
+        pthread_attr_t attr;
+
+        pthread_attr_init(&attr);
+        pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+
+@q **** (4) @>
+
+        while(1)   /* main |accept()| loop  */
+        {
+@q ***** (5) @>        
+
+            sin_size = sizeof their_addr;
+            new_fd = accept(sockfd, (struct sockaddr *)&their_addr, &sin_size);
+            if (new_fd == -1) 
+            {
+               lock_cerr_mutex();
+               perror("accept");
+               unlock_cerr_mutex();
+               continue;
+            }
+
+            inet_ntop(their_addr.ss_family, 
+                      get_in_addr((struct sockaddr *)&their_addr),
+                      s, 
+                      sizeof s);
+
+            lock_cerr_mutex(); 
+            cerr << "[Initial thread] In `handle_connections':  server: got connection from " 
+                 <<  s 
+                 << endl;
+            unlock_cerr_mutex(); 
+
+@q ***** (5) @>
+
+@ 
+@<|handle_connections| definition@>=
+
+  
+           status = pthread_create(0,
+                                   &attr, /* Attribute  */
+                                   connect_func, 
+                                   0);
+
+
+       }  /* |while|  main |accept| loop  */
+
+        pthread_attr_destroy(&attr);
+
+        return 0;
+
+}  /* End of |handle_connections| definition  */
+
+
+@q ** (2) Connect Function.  @>
+@*2 Connect Function.
+\initials{LDF 2009.10.06.}
+
+\LOG
+\initials{LDF 2009.10.06.}
+Added this function.
+\ENDLOG
+
+@q *** (3) Declaration  @>
+
+@<|connect_func| declaration@>=
+void*
+connect_func(void* v);
+
+
+@q *** (3) Definition  @>
+@
+@<|connect_func| definition@>=
+
+void*
+connect_func(void* v)
+{
+@q **** (4) @>
+
+    int status = 0;
+    
+    bool DEBUG = false;  /* |true|  */
+
+    int temp_fd;
+    int fd;
+
+    ofstream out_strm;
+
+#if 0 
+    int* exit_value = new int;
+#endif 
+
+   
+    if (DEBUG)
+    {
+        lock_cerr_mutex();
+        cerr << "Entering `connect_func'."
+             << endl;
+        unlock_cerr_mutex();
+
+    }  /* |if (DEBUG)|  */
+
+    char temp_filename[9] =  "AAXXXXXX";
+
+    temp_fd = mkstemp(temp_filename);
+
+@q **** (4) @>
+@ The thread in which this function is called is currently detached, so we're not 
+using |exit_value|.
+@<|connect_func| definition@>=
+
+    if (temp_fd == -1)
+    {
+
+        lock_cerr_mutex(); 
+        cerr << "ERROR!  In `connect_func' (child):  "
+             << "`mkstemp' failed, returning -1:"
+             << endl;
+        perror("Error:");
+        cerr << "Exiting function (and thread)";
+
+#if 0 
+        cerr << " with return value 1"
+#endif 
+        
+        cerr << "."
+             << endl;
+        unlock_cerr_mutex(); 
+
+#if 0
+        *exit_value = 1;
+        pthread_exit(exit_value);
+#endif 
+
+        pthread_exit(0);
+
+    }   /* |if (temp_fd == -1)| (|mkstemp| failed)  */
+
+@q **** (4) @>
+
+    else /* |mkstemp| succeeded  */
+    {
+            
+@q ***** (5) @>
+
+@ Close the file descriptor.  We don't need it, we just need the name.  
+This is a somewhat roundabout way of doing things, but the functions for generating 
+a unique filename only are deprecated and we want to open a {\CPLUSPLUS/} output 
+file stream (|ofstream|).
+\initials{LDF 2009.10.05.}
+
+!! TODO:  Add error handling.  \initials{LDF 2009.10.05.}
+
+@<|connect_func| definition@>=
+       
+        close(temp_fd);
+
+        out_strm.open(temp_filename);                    
+        
+        if (out_strm)
+        {
+           lock_cerr_mutex();
+           cerr << "Okay." << endl;
+           unlock_cerr_mutex();
+        }
+        else
+        {
+            lock_cerr_mutex();
+            cerr << "Not okay." << endl;
+            unlock_cerr_mutex();
+        }  
+
+@q ***** (5) @>
+
+    }  /* |else| (|mkstemp|) succeeded  */
+
+@q **** (4) @>
+@
+@<|connect_func| definition@>=
+
+    char buf[MAXDATASIZE];
+    int numbytes = 0;
+
+    for(;;)
+    {
+@q ***** (5) @>
+        status = recv(fd, buf, MAXDATASIZE - 1, 0);
+
+        if (status == -1)
+        {
+            lock_cerr_mutex(); 
+            perror("recv");   
+            unlock_cerr_mutex(); 
+        }
+
+        else if (status == 0)
+        {
+            lock_cerr_mutex(); 
+
+            cerr << "[Initial thread] In `connect_func':  "
+                 << "Server:  Client closed connection.  Finished reading."
+                 << endl;
+            unlock_cerr_mutex(); 
+
+            out_strm.close();
+
+            break;
+        }
+
+@q ***** (5) @>
+@ 
+@<|connect_func| definition@>=
+
+        else
+        {
+            numbytes = status;   
+
+            buf[numbytes] = '\0';
+
+            lock_cerr_mutex(); 
+            cerr << "Server: received " << numbytes << " characters:" 
+                 << endl 
+                 << buf
+                 << endl;
+            unlock_cerr_mutex(); 
+
+            out_strm << buf;  /* Write contents of |buf| to |out_strm|  */
+
+        }  /* |else| */
+
+@q ***** (5) @>
+
+    }  /* |for|  */
+
+    close(fd);  /* Done reading from client  */
+
+@ !! TODO:  Add error handling here and check return value of |parse_input|.  
+\initials{LDF 2009.10.05.}
+
+@<|connect_func| definition@>=
+
+   FILE* fp = fopen(temp_filename, "r");
+
+
+@ 
+@<|connect_func| definition@>=
+
+  status = unlink(temp_filename);
+
+  if (status == -1)
+  {
+      lock_cerr_mutex(); 
+      cerr << "WARNING!  In `connect_func':" 
+           << endl 
+           << "`unlink' failed to removed temporary file `" 
+           << temp_filename << "'."
+           << endl 
+           << "Continuing."
+           << endl;
+      unlock_cerr_mutex(); 
+  
+  }  /* |if (status == -1)|  */
+
+
+   lock_cerr_mutex();
+   cerr << "Exiting `thread_func' successfully."
+        << endl;
+   unlock_cerr_mutex();
+
+   pthread_exit(0);
+
+@q **** (4) @>
+
+}  /* End of |connect_func| definition  */
+
+
+
+@q ** (2) Get in-address.  @>
+@*1 Get in-address.
+\initials{LDF 2009.09.29.}
+
+This function comes from {\it Beej's Guide to Network Programming}.
+\initials{LDF 2009.09.29.}
+
+Get |sockaddr|, IPv4 or IPv6.
+
+\LOG
+\initials{LDF 2009.09.29.}
+Added this function.
+\ENDLOG
+
+@<|get_in_addr| declaration@>=
+void*
+get_in_addr(struct sockaddr *sa);
+
+
+@
+@<|get_in_addr| definition@>=
+void*
+get_in_addr(struct sockaddr *sa)
+{
+	if (sa->sa_family == AF_INET) {
+		return &(((struct sockaddr_in*)sa)->sin_addr);
+	}
+
+	return &(((struct sockaddr_in6*)sa)->sin6_addr);
+}
+
+@q ** (2) Putting `oldsckt.web' together.  @>
+
+@ Putting \filename{oldsckt.web} together.  
+\initials{LDF 2009.12.16.}
+
+@c
+@<Include files@>@;@/
+using namespace std;
+@<Global variables@>@;@/
+@<|handle_connections| declaration@>@;@/
+@<|connect_func| declaration@>@;@/
+@<|optdb_connect| declaration@>@;@/
+@<|get_in_addr| declaration@>@;@/
+@<|main| definition@>@;@/
+@<|handle_connections| definition@>@;@/
+@<|connect_func| definition@>@;@/
+@<|optdb_connect| definition@>@;@/
+@<|get_in_addr| definition@>@;@/
+
+
+
+@q (progn (cweb-mode) (outline-minor-mode))   @>
+
+@q * (1) Local variables for Emacs @>
+
+@q * Local variables for Emacs.@>
+@q Local Variables: @>
+@q mode:CWEB @>
+@q eval:(display-time) @>
+@q abbrev-mode:t @>
+@q eval:(read-abbrev-file) @>
+@q indent-tabs-mode:nil @>
+@q eval:(outline-minor-mode) @>
+@q fill-column:80 @>
+@q End: @>

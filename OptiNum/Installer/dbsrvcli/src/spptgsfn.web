@@ -1,0 +1,6318 @@
+@q spptgsfn.web  @>
+@q Created by Laurence D. Finston (LDF) Thu Apr 12 11:36:00 CEST 2012 @>
+
+@q * (1) Top @>
+
+@q * (1) Copyright and License.@>
+
+@q This file is part of the OptiNum Grid Installer @>
+@q Copyright (C) 2010, 2011, 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen @>
+
+@q The OptiNum Grid Installer is free software; you can redistribute it and/or modify @>
+@q it under the terms of the GNU General Public License as published by @>
+@q the Free Software Foundation; either version 3 of the License, or @>
+@q (at your option) any later version.  @>
+
+@q The OptiNum Grid Installer is distributed in the hope that it will be useful, @>
+@q but WITHOUT ANY WARRANTY; without even the implied warranty of @>
+@q MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the @>
+@q GNU General Public License for more details.  @>
+
+@q You should have received a copy of the GNU General Public License          @>
+@q along with the OptiNum Grid Installer; if not, write to the Free Software                    @>
+@q Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA @>
+
+@q ("@@" stands for a single at-sign in the following paragraph.) @>
+
+@q Please send bug reports to Laurence.Finston@@gwdg.de@>
+
+@q Laurence D. Finston                                                   @>
+@q Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen  @>
+@q Am Fassberg 11         					         @>
+@q 37077 Goettingen              					 @>
+@q Germany                           					 @>                                
+
+@q Laurence.Finston@@gwdg.de (@@ stands for a single "at" sign.)@>
+
+@ {\bf Scan\_Parse\_Parameter\_Type} member function definitions for Globus sites.
+
+@q ** (2) Include files  @>
+
+@ Include files.
+
+@<Include files@>=
+#include <stdlib.h>  /* Standard Library for C  */
+#include <stdio.h>
+#include <errno.h>
+#include <unistd.h>
+
+#include <algorithm> /* Standard Template Library (STL) for C++  */
+#include <fstream> 
+#include <iomanip>
+#include <ios>
+#include <iostream>
+#include <map>
+#include <string>
+#include <time.h>
+#include <math.h>
+#include <sstream>  
+
+#include <set>
+#include <vector>
+#include <deque>
+
+
+#include <pthread.h>  /* POSIX threads  */
+
+#include <gcrypt.h> /* for |gcry_control| */
+#include <gnutls/gnutls.h>
+
+#if HAVE_CONFIG_H
+#include <config.h>
+#endif 
+
+#if IS_ROCKS_GOEGRID
+#undef HAVE_LIBMYSQLCLIENT
+#endif 
+
+#if HAVE_LIBMYSQLCLIENT
+#include <mysql.h>
+#endif 
+
+#include "entries.h++"  /* Headers generated from CWEB files belonging to this package  */
+#include "dstngnmt.h++"
+
+#include "glblvrbl.h++"  
+#include "glblfncs.h++"
+#include "utilfncs.h++"
+#include "parser.h++"    
+#include "scanner.h++"
+#include "x509cert.h++"
+#include "rspnstp.h++"
+#include "thrdfncs.h++"
+#include "sssndttp.h++"
+#include "glsinftp.h++"
+#include "scprpmtp.h++"
+
+@q **** (4) Add Globus site to database.@>
+
+@ Add Globus site to database.
+\initials{LDF 2012.04.12.}
+
+\LOG
+\initials{LDF 2012.04.12.}
+Added this function.
+\ENDLOG
+
+\vskip\baselineskip
+\halign{#:\quad&#\hfil\cr
+%
+{\bf Error codes returned to the client}\span\cr
+\noalign{\vskip.5\baselineskip}
+1&MySQL API function error\cr
+%
+2&No data found for user in `Privileges' database table and not replacing.\cr
+\omit&(If not replacing, no checking is performed to determine whether user 
+is admin of an existing Globus site.)\cr
+%
+3&User not permitted to add Globus sites and not replacing.\cr
+\omit&(If not replacing, no checking is performed to determine whether user is admin 
+of an existing Globus site.)\cr
+%
+4&Data already exists for Globus site \.{Globus\_Sites} database table and not replacing.\cr
+%
+5 and 6&Server failed to retrieve Globus site ID from \.{Globus\_Sites} database table.\cr
+%
+7&User not permitted to add Globus sites and not admin of the existing Globus site.\cr
+\omit&Can't replace.\cr
+8&Options specified would cause no change to existing database entry for Globus site.  
+Not replaced.\cr
+}
+
+@q ***** (5) Definition  @>
+@
+@<|Scan_Parse_Parameter_Type::add_globus_site| definition@>=
+
+#if HAVE_LIBMYSQLCLIENT
+
+int
+Scan_Parse_Parameter_Type::add_globus_site(void)
+{
+@q ****** (6) @>
+
+    int status = 0;
+
+    bool DEBUG = false;  /* |true|  */
+
+    set_debug_level(DEBUG);
+
+    stringstream sql_strm;
+
+    stringstream temp_strm;
+
+    Response_Type response;
+
+    MYSQL_RES* result = 0;
+
+    unsigned int row_ctr       = 0;
+    unsigned int field_ctr     = 0;
+
+    int curr_user_id = (effective_user_id > 0) ? effective_user_id : user_id;
+
+    MYSQL_ROW curr_row;
+
+    bool permitted = false;
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex();  
+        cerr << get_datestamp() << " [Thread " << thread_ctr << "] "
+             << "Entering `Scan_Parse_Parameter_Type::add_globus_site'."
+             << endl;
+
+        globus_site_options.show("globus_site_options:");
+
+        cerr << "user_id == " << user_id << endl
+             << "effective_user_id == " << effective_user_id << endl
+             << "curr_user_id == " << curr_user_id << endl;
+
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */ 
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::add_globus_site| definition@>=
+
+     sql_strm << "select superuser, add_globus_site from Privileges where user_id = " 
+              << curr_user_id;
+
+     if (DEBUG)
+     {
+          cerr << "sql_strm.str() == " << sql_strm.str() << endl;
+
+     }  /* |if (DEBUG)|  */ 
+
+     status = submit_mysql_query(sql_strm.str(), result, &row_ctr, &field_ctr);
+
+     if (status != 0)
+     {
+        lock_cerr_mutex();  
+        cerr << get_datestamp() << " [Thread " << thread_ctr << "] "
+             << "ERROR!  In `Scan_Parse_Parameter_Type::add_globus_site':"
+             << endl 
+             << "`submit_mysql_query' failed, returning " << status << "."
+             << endl
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+        unlock_cerr_mutex(); 
+
+        if (result)
+           mysql_free_result(result);
+
+        temp_strm << "SERVER ADD GLOBUS_SITE <" << globus_site_options.hostname 
+                  << "> TO DATABASE FAILED 1";
+
+        response.command = temp_strm.str();
+
+        pthread_mutex_lock(&response_deque_mutex);
+        response_deque.push_back(response);
+        pthread_mutex_unlock(&response_deque_mutex);
+
+        return 1;
+
+     }  /* |if (status != 0)|  */
+
+     else if (DEBUG)
+     {
+        lock_cerr_mutex();  
+        cerr << get_datestamp() << " [Thread " << thread_ctr << "] "
+             << "In `Scan_Parse_Parameter_Type::add_globus_site':"
+             << endl 
+             << "`submit_mysql_query' succeeded.  `row_ctr' == " 
+             << row_ctr << "."
+             << endl;
+        unlock_cerr_mutex(); 
+
+     }  /* |else if (DEBUG)|  */ 
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::add_globus_site| definition@>=
+
+     if (row_ctr == 0 && globus_site_options.replace == false)
+     {
+         lock_cerr_mutex();  
+         cerr << get_datestamp() << " [Thread " << thread_ctr << "] "
+              << "WARNING!  In `Scan_Parse_Parameter_Type::add_globus_site':"
+              << endl 
+              << "`submit_mysql_query' returned 0 rows and "
+              << "`globus_site_options.replace' == `false'."
+              << endl 
+              << "No data found for user " << curr_user_id << " in `Privileges' database table."
+              << endl
+              << "Can't add Globus site to `Globus_Sites' table."
+              << endl
+              << "Exiting function unsuccessfully with return value 1."
+               << endl;
+         unlock_cerr_mutex(); 
+        
+         temp_strm << "SERVER ADD GLOBUS_SITE <" << globus_site_options.hostname 
+                   << "> TO DATABASE FAILED 2";
+
+         response.command = temp_strm.str();
+
+         pthread_mutex_lock(&response_deque_mutex);
+         response_deque.push_back(response);
+         pthread_mutex_unlock(&response_deque_mutex);
+
+         mysql_free_result(result);
+
+         return 1;
+
+     }  /* |if (row_ctr == 0)|  */
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::add_globus_site| definition@>=
+
+     curr_row = mysql_fetch_row(result);
+
+     if (curr_row == 0)
+     {
+        lock_cerr_mutex(); 
+        cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+             << "ERROR!  In `Scan_Parse_Parameter_Type::add_globus_site':"
+             << endl 
+             << "`mysql_fetch_row' failed:"
+             << endl
+             << mysql_error(mysql_ptr)
+             << endl 
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+        unlock_cerr_mutex(); 
+
+        temp_strm << "SERVER ADD GLOBUS_SITE <" << globus_site_options.hostname 
+                   << "> TO DATABASE FAILED 1";
+
+        response.command = temp_strm.str();
+
+        pthread_mutex_lock(&response_deque_mutex);
+        response_deque.push_back(response);
+        pthread_mutex_unlock(&response_deque_mutex);
+
+        mysql_free_result(result);
+
+        return 1;
+
+     }  /* |if (curr_row == 0)|  */
+
+
+     else if (DEBUG)
+     {
+         lock_cerr_mutex(); 
+         cerr << "[Thread " << thread_ctr << "]:  "
+              << "In `Scan_Parse_Parameter_Type::add_globus_site':"
+              << endl;
+
+         if (curr_row[0])
+            cerr << "`curr_row[0]' == " << curr_row[0]
+                 << endl;
+         else
+            cerr << "`curr_row[0]' is NULL." << endl;
+
+
+         if (curr_row[1])
+            cerr << "`curr_row[1]' == " << curr_row[1]
+                 << endl;
+         else
+            cerr << "`curr_row[1]' is NULL." << endl;
+
+         unlock_cerr_mutex(); 
+
+     }  /* |else if (DEBUG)|  */
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::add_globus_site| definition@>=
+
+     if (curr_row[0] && atoi(curr_row[0]) == 1)
+     {
+         permitted = true;
+
+         if (DEBUG)
+         {
+              lock_cerr_mutex();
+              cerr << "User " << curr_user_id << " is superuser.  Will add Globus site."
+                   << endl;
+              unlock_cerr_mutex(); 
+
+         }  /* |if (DEBUG)|  */ 
+
+     }
+     else if (curr_row[1] && atoi(curr_row[1]) == 1)
+     {
+
+         permitted = true;
+
+         if (DEBUG) 
+         {
+             lock_cerr_mutex();
+             cerr << "User " << curr_user_id << " is permitted to add Globus sites.  "
+                  << "Will add Globus site."
+                  << endl;
+             unlock_cerr_mutex(); 
+
+         }  /* |if (DEBUG)|  */ 
+
+     }
+     else if (globus_site_options.replace == false)
+     {
+         lock_cerr_mutex(); 
+         cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+              << "ERROR!  In `Scan_Parse_Parameter_Type::add_globus_site':"
+              << endl 
+              << "User " << curr_user_id << " is not permitted to add Globus sites "
+              << "and `globus_site_options.replace' == `false'."
+              << endl 
+              << "Exiting function unsuccessfully with return value 1."
+              << endl;
+         unlock_cerr_mutex(); 
+
+         temp_strm << "SERVER ADD GLOBUS_SITE <" << globus_site_options.hostname 
+                   << "> TO DATABASE FAILED 3";
+
+         response.command = temp_strm.str();
+
+         pthread_mutex_lock(&response_deque_mutex);
+         response_deque.push_back(response);
+         pthread_mutex_unlock(&response_deque_mutex);
+
+         mysql_free_result(result);
+
+         return 1;
+     }
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::add_globus_site| definition@>=
+
+     mysql_free_result(result);
+     result = 0;
+
+     sql_strm.str("");
+     temp_strm.str("");
+
+     sql_strm << "select globus_site_id from Globus_Sites where hostname = '"
+              << globus_site_options.hostname << "'";
+
+     if (DEBUG)
+     {
+        lock_cerr_mutex(); 
+        cerr << "sql_strm.str() == " << sql_strm.str() << endl;
+        unlock_cerr_mutex(); 
+
+     }  /* |if (DEBUG)|  */ 
+
+     status = submit_mysql_query(sql_strm.str(), result, &row_ctr, &field_ctr);
+
+     if (status != 0)
+     {
+        lock_cerr_mutex();  
+        cerr << get_datestamp() << " [Thread " << thread_ctr << "] "
+             << "ERROR!  In `Scan_Parse_Parameter_Type::add_globus_site':"
+             << endl 
+             << "`submit_mysql_query' failed, returning " << status << "."
+             << endl
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+        unlock_cerr_mutex(); 
+
+        temp_strm << "SERVER ADD GLOBUS_SITE <" << globus_site_options.hostname 
+                  << "> TO DATABASE FAILED 1";
+
+        response.command = temp_strm.str();
+
+        pthread_mutex_lock(&response_deque_mutex);
+        response_deque.push_back(response);
+        pthread_mutex_unlock(&response_deque_mutex);
+
+        if (result)
+           mysql_free_result(result);
+
+        return 1;
+
+     }  /* |if (status != 0)|  */
+
+     else if (DEBUG)
+     {
+        lock_cerr_mutex();  
+        cerr << get_datestamp() << " [Thread " << thread_ctr << "] "
+             << "In `Scan_Parse_Parameter_Type::add_globus_site':"
+             << endl 
+             << "`submit_mysql_query' succeeded.  `row_ctr' == " << row_ctr << "."
+             << endl;
+        unlock_cerr_mutex(); 
+
+     }  /* |else if (DEBUG)|  */ 
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::add_globus_site| definition@>=
+
+    if (row_ctr > 0 && globus_site_options.replace == false)
+    {
+
+        lock_cerr_mutex();  
+        cerr << get_datestamp() << " [Thread " << thread_ctr << "] "
+             << "WARNING!  In `Scan_Parse_Parameter_Type::add_globus_site':"
+             << endl 
+             << "`row_ctr' > 0 and `globus_site_options.replace' == `false'."
+             << endl
+             << "Not replacing Globus site data in `Globus_Sites' database table."
+             << endl 
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+        unlock_cerr_mutex(); 
+
+        temp_strm << "SERVER ADD GLOBUS_SITE <" << globus_site_options.hostname 
+                  << "> TO DATABASE FAILED 4";
+
+        response.command = temp_strm.str();
+
+        pthread_mutex_lock(&response_deque_mutex);
+        response_deque.push_back(response);
+        pthread_mutex_unlock(&response_deque_mutex);
+
+        if (result)
+           mysql_free_result(result);
+
+        return 1;
+
+     }  /* |if (row_ctr > 0 && globus_site_options.replace == false)|  */
+
+     else if (row_ctr > 0 && globus_site_options.replace == true)
+     {
+        if (DEBUG)
+        {
+            lock_cerr_mutex();  
+            cerr << get_datestamp() << " [Thread " << thread_ctr << "] "
+                 << "In `Scan_Parse_Parameter_Type::add_globus_site':"
+                 << endl 
+                 << "`row_ctr' == " << row_ctr << " and "
+                 << "`globus_site_options.replace' == `true'."
+                 << endl;
+
+            if (permitted)
+                cerr << "Will replace Globus site data in `Globus_Sites' database table."
+                     << endl;
+            else
+                cerr << "User not permitted to add Globus sites.  Will check if user is admin."
+                     << endl;
+             
+            unlock_cerr_mutex(); 
+
+        }  /* |if (DEBUG)|  */ 
+
+     }  /* |else if (DEBUG)|  */ 
+
+     else if (row_ctr == 0 && !permitted)
+     {
+         lock_cerr_mutex(); 
+         cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+              << "ERROR!  In `Scan_Parse_Parameter_Type::add_globus_site':"
+              << endl 
+              << "User " << curr_user_id << " is not permitted to add Globus sites "
+              << endl 
+              << "and `row_ctr' == 0, i.e., information for this Globus site does not "
+              << "already exist in the database."
+              << endl
+              << "There is therefore no point in checking if the  user is the admin."
+              << endl 
+              << "Exiting function unsuccessfully with return value 1."
+              << endl;
+         unlock_cerr_mutex(); 
+
+         temp_strm << "SERVER ADD GLOBUS_SITE <" << globus_site_options.hostname 
+                   << "> TO DATABASE FAILED 3";
+
+         response.command = temp_strm.str();
+
+         pthread_mutex_lock(&response_deque_mutex);
+         response_deque.push_back(response);
+         pthread_mutex_unlock(&response_deque_mutex);
+
+         mysql_free_result(result);
+
+         return 1;
+
+     }
+
+     else if (row_ctr == 0 && permitted)
+     {
+
+        globus_site_options.replace = false;
+
+        if (DEBUG)
+        {
+            lock_cerr_mutex();  
+            cerr << get_datestamp() << " [Thread " << thread_ctr << "] "
+                 << "In `Scan_Parse_Parameter_Type::add_globus_site':"
+                 << endl 
+                 << "`row_ctr' == 0."
+                 << endl
+                 << "Will add Globus site data to `Globus_Sites' database table."
+                 << endl;
+            unlock_cerr_mutex(); 
+
+        }  /* |if (DEBUG)|  */ 
+
+     }  /* |else if (row_ctr == 0)|  */ 
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::add_globus_site| definition@>=
+
+     if (globus_site_options.replace == true)
+     {
+
+         curr_row = mysql_fetch_row(result);
+
+         if (curr_row == 0)
+         {
+            lock_cerr_mutex(); 
+            cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+                 << "ERROR!  In `Scan_Parse_Parameter_Type::add_globus_site':"
+                 << endl 
+                 << "`mysql_fetch_row' failed:"
+                 << endl
+                 << mysql_error(mysql_ptr)
+                 << endl 
+                 << "Exiting function unsuccessfully with return value 1."
+                 << endl;
+            unlock_cerr_mutex(); 
+
+            temp_strm << "SERVER ADD GLOBUS_SITE <" << globus_site_options.hostname 
+                       << "> TO DATABASE FAILED 1";
+
+            response.command = temp_strm.str();
+
+            pthread_mutex_lock(&response_deque_mutex);
+            response_deque.push_back(response);
+            pthread_mutex_unlock(&response_deque_mutex);
+
+            mysql_free_result(result);
+
+            return 1;
+
+         }  /* |if (curr_row == 0)|  */
+
+@q ******* (7) @>
+
+        else if (DEBUG)
+        {
+            lock_cerr_mutex(); 
+            cerr << "[Thread " << thread_ctr << "]:  "
+                 << "In `Scan_Parse_Parameter_Type::add_globus_site':"
+                 << endl;
+
+            if (curr_row[0])
+               cerr << "`curr_row[0]' == " << curr_row[0]
+                    << endl;
+            else
+               cerr << "`curr_row[0]' is NULL." << endl;
+
+            unlock_cerr_mutex(); 
+
+        }  /* |else if (DEBUG)|  */
+         
+@q ******* (7) @>
+
+        if (curr_row[0] == 0)
+        {
+
+            lock_cerr_mutex(); 
+            cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+                 << "ERROR!  In `Scan_Parse_Parameter_Type::add_globus_site':"
+                 << endl 
+                 << "`curr_row[0]' is NULL.  Failed to retrieve `globus_site_id' from database."
+                 << endl
+                 << "This shouldn't occur."
+                 << endl 
+                 << "Exiting function unsuccessfully with return value 1."
+                 << endl;
+            unlock_cerr_mutex(); 
+
+            temp_strm << "SERVER ADD GLOBUS_SITE <" << globus_site_options.hostname 
+                       << "> TO DATABASE FAILED 5";
+
+            response.command = temp_strm.str();
+
+            pthread_mutex_lock(&response_deque_mutex);
+            response_deque.push_back(response);
+            pthread_mutex_unlock(&response_deque_mutex);
+
+            mysql_free_result(result);
+
+            return 1;
+
+        }  /* |if (curr_row[0] == 0)|  */
+
+
+@q ******* (7) @>
+
+        globus_site_options.globus_site_id = atoi(curr_row[0]); 
+
+        sql_strm.str("");
+
+        mysql_free_result(result);
+
+        result = 0;
+
+@q ******* (7) @>
+@
+@<|Scan_Parse_Parameter_Type::add_globus_site| definition@>=
+ 
+        if (!permitted)
+        {
+@q ******** (8) @>
+
+            if (DEBUG)
+            {
+               lock_cerr_mutex();
+               cerr << "User not permitted to add Globus sites, but an entry for this site "
+                    << "already exists."
+                    << endl
+                    << "Will check to see whether user is admin."
+                    << endl;
+               unlock_cerr_mutex(); 
+
+            }  /* |if (DEBUG)|  */ 
+
+@q ******** (8) @>
+
+           sql_strm << "select admin_id from Globus_Sites_Admins where admin_id = " 
+                    << curr_user_id << " and globus_site_id = " 
+                    << globus_site_options.globus_site_id;
+
+           if (DEBUG)
+           {
+               lock_cerr_mutex();
+               cerr << "sql_strm.str() == " << sql_strm.str() << endl;
+               unlock_cerr_mutex(); 
+
+           }  /* |if (DEBUG)|  */ 
+
+@q ******** (8) @>
+
+           status = submit_mysql_query(sql_strm.str(), result, &row_ctr, &field_ctr);
+
+           if (status != 0)
+           {
+              lock_cerr_mutex();  
+              cerr << get_datestamp() << " [Thread " << thread_ctr << "] "
+                   << "ERROR!  In `Scan_Parse_Parameter_Type::add_globus_site':"
+                   << endl 
+                   << "`submit_mysql_query' failed, returning " << status << "."
+                   << endl
+                   << "Exiting function unsuccessfully with return value 1."
+                   << endl;
+              unlock_cerr_mutex(); 
+
+              temp_strm << "SERVER ADD GLOBUS_SITE <" << globus_site_options.hostname 
+                        << "> TO DATABASE FAILED 1";
+
+              response.command = temp_strm.str();
+
+              pthread_mutex_lock(&response_deque_mutex);
+              response_deque.push_back(response);
+              pthread_mutex_unlock(&response_deque_mutex);
+
+              if (result)
+                 mysql_free_result(result);
+
+              return 1;
+
+           }  /* |if (status != 0)|  */
+
+           else if (DEBUG)
+           {
+              lock_cerr_mutex();  
+              cerr << get_datestamp() << " [Thread " << thread_ctr << "] "
+                   << "In `Scan_Parse_Parameter_Type::add_globus_site':"
+                   << endl 
+                   << "`submit_mysql_query' succeeded.  `row_ctr' == " << row_ctr << "."
+                   << endl;
+              unlock_cerr_mutex(); 
+
+           }  /* |else if (DEBUG)|  */ 
+
+           if (row_ctr == 0)
+           {
+               lock_cerr_mutex();  
+               cerr << get_datestamp() << " [Thread " << thread_ctr << "] "
+                    << "WARNING!  In `Scan_Parse_Parameter_Type::add_globus_site':"
+                    << endl 
+                    << "`row_ctr' == 0.  User " << curr_user_id << " is not admin "
+                    << "for Globus site `" << globus_site_options.hostname << "'."
+                    << endl
+                    << "Not replacing Globus site data in `Globus_Sites' database table."
+                    << endl 
+                    << "Exiting function unsuccessfully with return value 1."
+                    << endl;
+               unlock_cerr_mutex(); 
+
+               temp_strm << "SERVER ADD GLOBUS_SITE <" << globus_site_options.hostname 
+                         << "> TO DATABASE FAILED 7";
+
+               response.command = temp_strm.str();
+
+               pthread_mutex_lock(&response_deque_mutex);
+               response_deque.push_back(response);
+               pthread_mutex_unlock(&response_deque_mutex);
+
+               mysql_free_result(result);
+
+               return 1;
+
+           }  /* |if (row_ctr == 0)|  */
+
+           else /* |row_ctr > 0|  */
+           {
+
+               if (DEBUG)
+               {
+                   lock_cerr_mutex(); 
+                   cerr << "User is admin for this Globus site.  Will replace."
+                        << endl;
+                   unlock_cerr_mutex(); 
+
+               }  /* |if (DEBUG)|  */ 
+
+               sql_strm.str("");
+
+               mysql_free_result(result);
+
+               result = 0;
+
+           }  /* |else| (|row_ctr > 0|)  */
+          
+@q ******** (8) @>
+
+        }  /* |if (!permitted)|  */
+
+
+     }  /* |if (globus_site_options.replace == true)|  */
+
+@q ****** (6) Get number for |globus_site_id|.  @>
+
+@ Get number for |globus_site_id|.  
+\initials{LDF 2012.04.12.}
+
+@<|Scan_Parse_Parameter_Type::add_globus_site| definition@>=
+
+     else  /* |globus_site_options.replace == false|  */
+     {
+
+@q ******* (7) @>
+
+         mysql_free_result(result);
+
+         result = 0;
+
+@q ******* (7) @>
+@
+@<|Scan_Parse_Parameter_Type::add_globus_site| definition@>=
+
+         sql_strm.str("");
+
+         sql_strm << "select globus_site_id from Globus_Sites order by globus_site_id "
+                  << "desc limit 1";
+
+         if (DEBUG)
+         {
+             lock_cerr_mutex(); 
+             cerr << "sql_strm.str() == " << sql_strm.str() << endl;
+             unlock_cerr_mutex(); 
+
+
+         }  /* |if (DEBUG)|  */ 
+
+         status = submit_mysql_query(sql_strm.str(), result, &row_ctr, &field_ctr);
+
+         if (status != 0)
+         {
+            lock_cerr_mutex();  
+            cerr << get_datestamp() << " [Thread " << thread_ctr << "] "
+                 << "ERROR!  In `Scan_Parse_Parameter_Type::add_globus_site':"
+                 << endl 
+                 << "`submit_mysql_query' failed, returning " << status << "."
+                 << endl
+                 << "Exiting function unsuccessfully with return value 1."
+                 << endl;
+            unlock_cerr_mutex(); 
+
+            temp_strm << "SERVER ADD GLOBUS_SITE <" << globus_site_options.hostname 
+                      << "> TO DATABASE FAILED 1";
+
+            response.command = temp_strm.str();
+
+            pthread_mutex_lock(&response_deque_mutex);
+            response_deque.push_back(response);
+            pthread_mutex_unlock(&response_deque_mutex);
+
+            if (result)
+               mysql_free_result(result);
+
+            return 1;
+
+         }  /* |if (status != 0)|  */
+
+         else if (DEBUG)
+         {
+            lock_cerr_mutex();  
+            cerr << get_datestamp() << " [Thread " << thread_ctr << "] "
+                 << "In `Scan_Parse_Parameter_Type::add_globus_site':"
+                 << endl 
+                 << "`submit_mysql_query' succeeded.  `row_ctr' == " << row_ctr << "."
+                 << endl;
+            unlock_cerr_mutex(); 
+
+         }  /* |else if (DEBUG)|  */ 
+
+@q ******* (7) @>
+
+         if (row_ctr == 0)
+         {
+
+             lock_cerr_mutex();  
+             cerr << get_datestamp() << " [Thread " << thread_ctr << "] "
+                  << "WARNING!  In `Scan_Parse_Parameter_Type::add_globus_site':"
+                  << endl 
+                  << "`row_ctr' == 0."
+                  << endl
+                  << "Can't set `globus_site_options.globus_site_id'."
+                  << endl 
+                  << "Exiting function unsuccessfully with return value 1."
+                  << endl;
+             unlock_cerr_mutex(); 
+
+             temp_strm << "SERVER ADD GLOBUS_SITE <" << globus_site_options.hostname 
+                       << "> TO DATABASE FAILED 6";
+
+             response.command = temp_strm.str();
+
+             pthread_mutex_lock(&response_deque_mutex);
+             response_deque.push_back(response);
+             pthread_mutex_unlock(&response_deque_mutex);
+
+             if (result)
+                mysql_free_result(result);
+
+             return 1;
+
+          }  /* |if (row_ctr == 0)|  */
+
+          else if (DEBUG)
+          {
+              lock_cerr_mutex(); 
+              cerr << "row_ctr == " << row_ctr << endl;
+              unlock_cerr_mutex(); 
+
+          }  /* |else if (DEBUG)|  */ 
+
+@q ******* (7) @>
+@
+@<|Scan_Parse_Parameter_Type::add_globus_site| definition@>=
+
+          curr_row = mysql_fetch_row(result);
+
+          if (curr_row == 0)
+          {
+             lock_cerr_mutex(); 
+             cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+                  << "ERROR!  In `Scan_Parse_Parameter_Type::add_globus_site':"
+                  << endl 
+                  << "`mysql_fetch_row' failed:"
+                  << endl
+                  << mysql_error(mysql_ptr)
+                  << endl 
+                  << "Exiting function unsuccessfully with return value 1."
+                  << endl;
+             unlock_cerr_mutex(); 
+
+             temp_strm << "SERVER ADD GLOBUS_SITE <" << globus_site_options.hostname 
+                        << "> TO DATABASE FAILED 1";
+
+             response.command = temp_strm.str();
+
+             pthread_mutex_lock(&response_deque_mutex);
+             response_deque.push_back(response);
+             pthread_mutex_unlock(&response_deque_mutex);
+
+             mysql_free_result(result);
+
+             return 1;
+
+          }  /* |if (curr_row == 0)|  */
+
+@q ******* (7) @>
+@
+@<|Scan_Parse_Parameter_Type::add_globus_site| definition@>=
+
+          else if (DEBUG)
+          {
+              lock_cerr_mutex(); 
+              cerr << "[Thread " << thread_ctr << "]:  "
+                   << "In `Scan_Parse_Parameter_Type::add_globus_site':"
+                   << endl;
+
+              if (curr_row[0])
+                 cerr << "`curr_row[0]' == " << curr_row[0]
+                      << endl;
+              else
+                 cerr << "`curr_row[0]' is NULL." << endl;
+              unlock_cerr_mutex(); 
+
+          }  /* |else if (DEBUG)|  */
+
+          globus_site_options.globus_site_id = atoi(curr_row[0]) + 1; 
+          
+
+@q ******* (7) @>
+@
+@<|Scan_Parse_Parameter_Type::add_globus_site| definition@>=
+
+         mysql_free_result(result);
+
+         result = 0;
+
+@q ******* (7) @>
+
+     }  /* |else| (|globus_site_options.replace == false|)  */
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::add_globus_site| definition@>=
+
+     if (DEBUG)
+     {
+
+         lock_cerr_mutex(); 
+         cerr << "globus_site_options.globus_site_id == " 
+              << globus_site_options.globus_site_id 
+              << endl;
+         unlock_cerr_mutex(); 
+
+     }  /* |if (DEBUG)|  */ 
+
+
+@q ****** (6) Before replacing, check whether replacing would cause any changes @>
+@q ****** (6) to database entry.                                                @>
+
+@ Before replacing, check whether replacing would cause any changes
+to database entry.
+\initials{LDF 2012.05.04.}
+
+@<|Scan_Parse_Parameter_Type::add_globus_site| definition@>=
+
+     if (DEBUG)
+     {
+       lock_cerr_mutex(); 
+       cerr << "globus_site_options.replace == " << globus_site_options.replace << endl;
+       unlock_cerr_mutex(); 
+     }  /* |if (DEBUG)|  */ 
+
+     sql_strm.str("");
+
+     sql_strm << "select globus_site_id from Globus_Sites where "
+              << "globus_site_id = " << globus_site_options.globus_site_id << " and "
+              << "ip_address = '" << globus_site_options.ip_address << "' and "
+              << "interactive_node_name = '" << globus_site_options.interactive_node_name 
+              << "' and "
+              << "interactive_node_ip_address = '" 
+              << globus_site_options.interactive_node_ip_address << "' and "
+              << "append_ld_library_path = '" << globus_site_options.append_ld_library_path 
+              << "' and "
+              << "append_path = '" << globus_site_options.append_path << "' and "
+              << "optdbcli_path = '" << globus_site_options.optdbcli_path << "' and ";
+
+     if (globus_site_options.enabled >= 0)
+        sql_strm << "enabled = 1";
+     else
+        sql_strm << "enabled = 0";
+
+     if (DEBUG)
+     {
+       lock_cerr_mutex(); 
+       cerr << "sql_strm.str() == " << sql_strm.str() << endl;
+       unlock_cerr_mutex(); 
+     }  /* |if (DEBUG)|  */ 
+
+     status = submit_mysql_query(sql_strm.str(), result, &row_ctr, &field_ctr);
+
+     if (status != 0)
+     {
+        lock_cerr_mutex();  
+        cerr << get_datestamp() << " [Thread " << thread_ctr << "] "
+             << "ERROR!  In `Scan_Parse_Parameter_Type::add_globus_site':"
+             << endl 
+             << "`submit_mysql_query' failed, returning " << status << "."
+             << endl
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+        unlock_cerr_mutex(); 
+
+        temp_strm << "SERVER ADD GLOBUS_SITE <" << globus_site_options.hostname 
+                  << "> TO DATABASE FAILED 1";
+
+        response.command = temp_strm.str();
+
+        pthread_mutex_lock(&response_deque_mutex);
+        response_deque.push_back(response);
+        pthread_mutex_unlock(&response_deque_mutex);
+
+        if (result)
+           mysql_free_result(result);
+
+        return 1;
+
+     }  /* |if (status != 0)|  */
+
+     else if (DEBUG)
+     {
+        lock_cerr_mutex();  
+        cerr << get_datestamp() << " [Thread " << thread_ctr << "] "
+             << "In `Scan_Parse_Parameter_Type::add_globus_site':"
+             << endl 
+             << "`submit_mysql_query' succeeded."
+             << endl 
+             << "`row_ctr' == " << row_ctr
+             << endl;
+
+        unlock_cerr_mutex(); 
+
+     }  /* |else if (DEBUG)|  */ 
+
+     if (row_ctr > 0)
+     {
+
+        lock_cerr_mutex();  
+        cerr << get_datestamp() << " [Thread " << thread_ctr << "] "
+             << "WARNING!  In `Scan_Parse_Parameter_Type::add_globus_site':"
+             << endl 
+             << "Options specified would cause no change to existing database entry "
+             << "for Globus site `" << globus_site_options.hostname << "'.  Not replacing."
+             << endl
+             << "Exiting function successfully with return value 2."
+             << endl;
+        unlock_cerr_mutex(); 
+
+        temp_strm << "SERVER ADD GLOBUS_SITE <" << globus_site_options.hostname 
+                  << "> TO DATABASE FAILED 8";
+
+        response.command = temp_strm.str();
+
+        pthread_mutex_lock(&response_deque_mutex);
+        response_deque.push_back(response);
+        pthread_mutex_unlock(&response_deque_mutex);
+
+        mysql_free_result(result);
+
+        return 2;
+
+     }  /* |if (row_ctr > 0)|  */
+
+     else if (DEBUG)
+     {
+         lock_cerr_mutex(); 
+         cerr << "No rows returned.  Options specified will cause entry to be changed."
+              << endl 
+              << "Will replace."
+              << endl;
+         unlock_cerr_mutex(); 
+
+     }  /* |else if (DEBUG)|  */ 
+
+     mysql_free_result(result);
+     result = 0;    
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::add_globus_site| definition@>=
+
+     sql_strm.str("");
+
+     sql_strm << "replace into Globus_Sites (globus_site_id, hostname, "
+              << "ip_address, interactive_node_name, interactive_node_ip_address, "
+              << "append_ld_library_path, append_path, optdbcli_path, enabled, deleted, created) "
+              << "values (" << globus_site_options.globus_site_id << ", "
+              << "'" << globus_site_options.hostname << "', "
+              << "'" << globus_site_options.ip_address << "', "
+              << "'" << globus_site_options.interactive_node_name << "', "
+              << "'" << globus_site_options.interactive_node_ip_address << "', "
+              << "'" << globus_site_options.append_ld_library_path << "', "
+              << "'" << globus_site_options.append_path << "', "
+              << "'" << globus_site_options.optdbcli_path << "', ";
+
+     if (globus_site_options.enabled >= 0)
+        sql_strm << "1, ";
+     else 
+        sql_strm << "0, ";
+
+     sql_strm << "0, utc_timestamp())";
+
+     if (DEBUG)
+     {
+         lock_cerr_mutex(); 
+         cerr << "sql_strm.str() == " << sql_strm.str() << endl;
+         unlock_cerr_mutex(); 
+
+     }  /* |if (DEBUG)|  */ 
+
+
+     long affected_rows = 0L;
+
+     status = submit_mysql_query(sql_strm.str(), result, 0, 0, &affected_rows);
+
+     if (status != 0)
+     {
+        lock_cerr_mutex();  
+        cerr << get_datestamp() << " [Thread " << thread_ctr << "] "
+             << "ERROR!  In `Scan_Parse_Parameter_Type::add_globus_site':"
+             << endl 
+             << "`submit_mysql_query' failed, returning " << status << "."
+             << endl
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+        unlock_cerr_mutex(); 
+
+        temp_strm << "SERVER ADD GLOBUS_SITE <" << globus_site_options.hostname 
+                  << "> TO DATABASE FAILED 1";
+
+        response.command = temp_strm.str();
+
+        pthread_mutex_lock(&response_deque_mutex);
+        response_deque.push_back(response);
+        pthread_mutex_unlock(&response_deque_mutex);
+
+        if (result)
+           mysql_free_result(result);
+
+        return 1;
+
+     }  /* |if (status != 0)|  */
+
+     else if (DEBUG)
+     {
+        lock_cerr_mutex();  
+        cerr << get_datestamp() << " [Thread " << thread_ctr << "] "
+             << "In `Scan_Parse_Parameter_Type::add_globus_site':"
+             << endl 
+             << "`submit_mysql_query' succeeded."
+             << endl 
+             << "`affected_rows' == " << affected_rows 
+             << endl;
+
+        unlock_cerr_mutex(); 
+
+     }  /* |else if (DEBUG)|  */ 
+
+     mysql_free_result(result);
+     result = 0;
+
+     if (!permitted)
+     {
+         if (DEBUG)
+         {
+             lock_cerr_mutex(); 
+             cerr << "`permitted' == `false'.  This means that it's already been determined "
+                  << "that user " << curr_user_id << " is an admin for Globus site "
+                  << "`" << globus_site_options.hostname << "'."
+                  << endl 
+                  << "There is therefore no reason to check this again."
+                  << endl 
+                  << "Going to `END_ADD_GLOBUS_SITE'."
+                  << endl;
+             unlock_cerr_mutex(); 
+
+         }  /* |if (DEBUG)|  */ 
+
+         goto END_ADD_GLOBUS_SITE;
+
+     }  /* |if (!permitted)|  */
+
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::add_globus_site| definition@>=
+
+     sql_strm.str("");
+
+     sql_strm << "select globus_site_id from Globus_Sites_Admins where globus_site_id = " 
+              << globus_site_options.globus_site_id << " and admin_id = " 
+              << curr_user_id;
+
+     if (DEBUG)
+     {
+         lock_cerr_mutex(); 
+         cerr << "sql_strm.str() == " << sql_strm.str() << endl;
+         unlock_cerr_mutex(); 
+
+     }  /* |if (DEBUG)|  */ 
+
+     status = submit_mysql_query(sql_strm.str(), result, &row_ctr, &field_ctr);
+
+     if (status != 0)
+     {
+        lock_cerr_mutex();  
+        cerr << get_datestamp() << " [Thread " << thread_ctr << "] "
+             << "ERROR!  In `Scan_Parse_Parameter_Type::add_globus_site':"
+             << endl 
+             << "`submit_mysql_query' failed, returning " << status << "."
+             << endl
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+        unlock_cerr_mutex(); 
+
+        temp_strm << "SERVER ADD GLOBUS_SITE <" << globus_site_options.hostname 
+                  << "> TO DATABASE FAILED 1";
+
+        response.command = temp_strm.str();
+
+        pthread_mutex_lock(&response_deque_mutex);
+        response_deque.push_back(response);
+        pthread_mutex_unlock(&response_deque_mutex);
+
+        if (result)
+           mysql_free_result(result);
+
+        return 1;
+
+     }  /* |if (status != 0)|  */
+
+     else if (DEBUG)
+     {
+        lock_cerr_mutex();  
+        cerr << get_datestamp() << " [Thread " << thread_ctr << "] "
+             << "In `Scan_Parse_Parameter_Type::add_globus_site':"
+             << endl 
+             << "`submit_mysql_query' succeeded."
+             << endl
+             << "`row_ctr' == " << row_ctr
+             << endl;
+
+        unlock_cerr_mutex(); 
+
+     }  /* |else if (DEBUG)|  */ 
+
+     mysql_free_result(result);
+     result = 0;
+
+@q ****** (6) @>
+
+     if (row_ctr > 0)
+     {
+         if (DEBUG)
+         {
+             lock_cerr_mutex(); 
+             cerr << "Row exists in `Globus_Sites_Admins' for `admin_id' == "
+                  << "`curr_user_id' == " << curr_user_id 
+                  << " and `globus_site_id' == " 
+                  << globus_site_options.globus_site_id
+                  << " already.  Not adding."
+                  << endl;
+             unlock_cerr_mutex(); 
+
+         }  /* |if (DEBUG)|  */ 
+
+     }  /* |if (row_ctr > 0)|  */
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::add_globus_site| definition@>=
+
+     else  /* |row_ctr = 0|  */
+     {
+@q ******* (7) @>
+
+        if (DEBUG)
+        {
+            lock_cerr_mutex(); 
+            cerr << "Row doesn't already exist in `Globus_Sites_Admins' for `admin_id' == "
+                 << "`curr_user_id' == " << curr_user_id 
+                 << " and `globus_site_id' == " 
+                 << globus_site_options.globus_site_id
+                 << " already.  Will add."
+                 << endl;
+            unlock_cerr_mutex(); 
+
+        }  /* |if (DEBUG)|  */ 
+
+        sql_strm.str("");
+
+        sql_strm << "insert into Globus_Sites_Admins (admin_id, globus_site_id) "
+                 << "values (" << curr_user_id << ", " 
+                 << globus_site_options.globus_site_id << ")";
+
+        if (DEBUG)
+        {
+            lock_cerr_mutex();
+            cerr << "sql_strm.str() == " << sql_strm.str() << endl;
+            unlock_cerr_mutex();
+
+        }  /* |if (DEBUG)|  */ 
+
+        status = submit_mysql_query(sql_strm.str(), result);
+
+        if (status != 0)
+        {
+           lock_cerr_mutex();  
+           cerr << get_datestamp() << " [Thread " << thread_ctr << "] "
+                << "ERROR!  In `Scan_Parse_Parameter_Type::add_globus_site':"
+                << endl 
+                << "`submit_mysql_query' failed, returning " << status << "."
+                << endl
+                << "Exiting function unsuccessfully with return value 1."
+                << endl;
+           unlock_cerr_mutex(); 
+
+           temp_strm << "SERVER ADD GLOBUS_SITE <" << globus_site_options.hostname 
+                     << "> TO DATABASE FAILED 1";
+
+           response.command = temp_strm.str();
+
+           pthread_mutex_lock(&response_deque_mutex);
+           response_deque.push_back(response);
+           pthread_mutex_unlock(&response_deque_mutex);
+
+           if (result)
+              mysql_free_result(result);
+
+           return 1;
+
+        }  /* |if (status != 0)|  */
+
+        else if (DEBUG)
+        {
+           lock_cerr_mutex();  
+           cerr << get_datestamp() << " [Thread " << thread_ctr << "] "
+                << "In `Scan_Parse_Parameter_Type::add_globus_site':"
+                << endl 
+                << "`submit_mysql_query' succeeded."
+                << endl
+                << "`affected_rows' == " << affected_rows
+                << endl;
+
+           unlock_cerr_mutex(); 
+
+        }  /* |else if (DEBUG)|  */ 
+
+@q ******* (7) @>
+
+     }  /* |else| (|row_ctr = 0|)  */
+
+
+@q ****** (6) Exit |Scan_Parse_Parameter_Type::add_globus_site| successfully.  @>
+@ Exit |Scan_Parse_Parameter_Type::add_globus_site| successfully.  
+\initials{LDF 2012.04.12.}
+
+@<|Scan_Parse_Parameter_Type::add_globus_site| definition@>=
+
+     END_ADD_GLOBUS_SITE:
+
+     if (result)
+        mysql_free_result(result);
+
+
+     temp_strm << "SERVER ADD GLOBUS_SITE <" << globus_site_options.hostname 
+               << "> TO DATABASE SUCCEEDED ";
+
+     if (globus_site_options.replace == true)
+        temp_strm << "1";
+     else
+        temp_strm << "0";
+
+     response.command = temp_strm.str();
+
+     pthread_mutex_lock(&response_deque_mutex);
+     response_deque.push_back(response);
+     pthread_mutex_unlock(&response_deque_mutex);
+
+     if (DEBUG)
+     {
+         lock_cerr_mutex();  
+         cerr << get_datestamp() << " [Thread " << thread_ctr << "] "
+              << "Exiting `Scan_Parse_Parameter_Type::add_globus_site' successfully "
+              << "with return value 0."
+              << endl;
+         unlock_cerr_mutex(); 
+
+     }  /* |if (DEBUG)|  */ 
+
+     return 0;
+
+}  /* End of |Scan_Parse_Parameter_Type::add_globus_site| definition   */
+
+#endif 
+
+@q **** (4) Show Globus sites.  @>
+
+@ Show Globus sites.
+\initials{LDF 2012.04.13.}
+
+\LOG
+\initials{LDF 2012.04.13.}
+Added this function.
+\ENDLOG
+
+@q ***** (5) Definition  @>
+@
+@<|Scan_Parse_Parameter_Type::show_globus_sites| definition@>=
+
+#if HAVE_LIBMYSQLCLIENT
+int
+Scan_Parse_Parameter_Type::show_globus_sites(Response_Type &response, 
+                                             char buffer[])
+{
+@q ****** (6) @>
+
+    bool DEBUG = false;  /* |true|  */
+    set_debug_level(DEBUG);
+
+    int status = 0;
+
+    MYSQL_RES* result          = 0;
+    unsigned int row_ctr       = 0;
+    unsigned int field_ctr     = 0;
+   
+    MYSQL_ROW curr_row;
+
+    MYSQL_RES* result_1        = 0;
+    unsigned int row_ctr_1     = 0;
+    unsigned int field_ctr_1   = 0;
+   
+    MYSQL_ROW curr_row_1;
+
+    stringstream sql_strm;
+
+    stringstream temp_strm;
+
+    unsigned int curr_user_id = (effective_user_id > 0) ? effective_user_id : user_id;
+
+    bool html = (response.output_format == Response_Type::OUTPUT_FORMAT_HTML) ? true : false;
+
+@q ****** (6) @>
+
+    if (DEBUG) 
+    { 
+       lock_cerr_mutex(); 
+       cerr << "[Thread " << thread_ctr << "]:  "
+            << "Entering `Scan_Parse_Parameter_Type::show_globus_sites'."
+            << endl
+            << "response.globus_site == " << response.globus_site
+            << endl 
+            << "response.globus_site_set.size() == " << response.globus_site_set.size()
+            << endl;
+
+       if (response.globus_site_set.size() > 0)
+       {
+
+           cerr << "response.globus_site_set:" << endl;
+
+           for (set<string>::const_iterator iter = response.globus_site_set.begin();
+                iter != response.globus_site_set.end();
+                ++iter)
+           {
+                cerr << *iter << endl;
+           }
+
+       }  /* |if|  */
+
+       unlock_cerr_mutex(); 
+
+    } /* |if (DEBUG)| */
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::show_globus_sites| definition@>=
+
+    sql_strm.str("");
+
+    sql_strm << "select globus_site_id, hostname, ip_address, "
+             << "interactive_node_name, interactive_node_ip_address, "
+             << "append_ld_library_path, append_path, optdbcli_path, "
+             << "enabled, deleted, created, last_modified "
+             << "from Globus_Sites where globus_site_id > 0 ";
+
+    if (!response.globus_site.empty())
+    {
+         sql_strm << "and hostname = '" << response.globus_site << "' ";
+    }
+    else if (response.globus_site_set.size() == 1)
+    {
+         sql_strm << "and hostname = '" << *response.globus_site_set.begin() << "' ";
+    }
+    else if (response.globus_site_set.size() > 1)
+    {
+        string or_string = "";
+
+        sql_strm << "and (";
+
+        for (set<string>::const_iterator iter = response.globus_site_set.begin();
+             iter != response.globus_site_set.end();
+             ++iter)
+        {
+            sql_strm << or_string << "hostname = '" << *iter << "' ";
+             
+            or_string = "or ";
+
+        }
+      
+        sql_strm << ") ";
+
+    }  /* |else|  */
+
+    sql_strm << "order by globus_site_id";
+
+    if (DEBUG)
+    {
+       lock_cerr_mutex();
+       cerr << "sql_strm.str() == " << sql_strm.str() << endl;
+       unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */ 
+
+    status = submit_mysql_query(sql_strm.str(), result, &row_ctr, &field_ctr);
+
+    if (status != 0)
+    {
+         lock_cerr_mutex(); 
+         cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+              << "ERROR!  In `Scan_Parse_Parameter_Type::show_globus_sites':"
+              << endl 
+              << "`Scan_Parse_Parameter_Type::submit_mysql_query' failed, returning " 
+              << status << "."
+              << endl
+              << "Exiting function unsuccessfully with return value 1."
+              << endl;
+         unlock_cerr_mutex(); 
+
+         if (result) 
+            mysql_free_result(result);
+
+         return 1;
+
+    }  /* |if (status != 0)|  */
+
+
+    else if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "In `Scan_Parse_Parameter_Type::show_globus_sites':"
+             << endl 
+             << "`Scan_Parse_Parameter_Type::submit_mysql_query' succeeded."
+             << endl 
+             << "row_ctr == " << row_ctr 
+             << endl
+             << "field_ctr == " << field_ctr 
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */
+
+    bool dump_to_file = false;
+    ofstream out_strm;
+    
+    if (row_ctr == 0)
+    {
+
+        response.command = "SERVER NO GLOBUS_SITES TO SHOW";
+ 
+        response.local_filename = "";
+
+        memset(buffer, 0, MAX_BUFFER + 1);
+
+        if (result)
+           mysql_free_result(result);
+
+        return 2;
+
+    }  /* |if (row_ctr == 0)|  */
+
+@q ****** (6) @>
+@
+Here, the message to be sent to the client is stored in |buffer| instead of storing it 
+in |response.command|.  This is because of what |exchange_data_with_client| 
+(in \filename{connect.web}) does after this function returns.  
+\initials{LDF 2010.10.27.}
+
+@<|Scan_Parse_Parameter_Type::show_globus_sites| definition@>=
+
+    else /* |row_ctr > 0|  */
+    {
+@q ******* (7) @>
+
+       temp_strm.str("");
+
+       if (row_ctr == 1)
+          temp_strm << "*** Globus site ***";
+       else
+          temp_strm << "*** Globus sites ***";
+
+       temp_strm << endl << endl;
+
+       for (int i = 0; i < row_ctr; ++i)
+       {
+@q ******** (8) @>
+
+           if ((curr_row = mysql_fetch_row(result)) == 0)
+           {
+                lock_cerr_mutex(); 
+                cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+                     << "ERROR!  In `Scan_Parse_Parameter_Type::show_globus_sites':"
+                     << endl 
+                     << "`mysql_fetch_row' failed:"
+                     << endl
+                     << mysql_error(mysql_ptr)
+                     << endl 
+                     << "Exiting function unsuccessfully with return value 1."
+                     << endl;
+                unlock_cerr_mutex(); 
+
+                mysql_free_result(result);
+
+                response.command = "SERVER SHOW GLOBUS_SITES FAILED";
+
+                return 1;
+
+           }  /* |if (curr_row = mysql_fetch_row(result) == 0)|  */
+
+@q ******** (8) @>
+@
+\begingroup
+\obeylines
+Columns:
+|globus_site_id|
+|hostname|
+|ip_address|
+|interactive_node_name|
+|interactive_node_ip_address|
+|append_ld_library_path|
+|append_path|
+|optdbcli_path|
+|enabled|
+|deleted|
+|created|
+|last_modified|
+\endgroup
+
+@<|Scan_Parse_Parameter_Type::show_globus_sites| definition@>=
+
+           else /* |mysql_fetch_row(result)| succeeded  */
+           {
+@q ********* (9) @>
+
+                if (DEBUG)
+                {
+       
+                    lock_cerr_mutex(); 
+                    cerr << "[Thread " << thread_ctr << "]:  "
+                         << "In `Scan_Parse_Parameter_Type::show_globus_sites':"
+                         << endl 
+                         << "`mysql_fetch_row' succeeded."
+                         << endl;
+                    unlock_cerr_mutex(); 
+ 
+
+                }  /* |if (DEBUG)|  */ 
+
+@q ********* (9) |globus_site_id|  @>
+@ |globus_site_id|.
+@<|Scan_Parse_Parameter_Type::show_globus_sites| definition@>=
+ 
+                if (curr_row[0] && strlen(curr_row[0]))
+                {
+                    if (DEBUG)
+                    {
+                        cerr << "globus_site_id  == " << curr_row[0] << endl;
+
+                    }  /* |if (DEBUG)|  */ 
+
+                    temp_strm << "globus_site_id:  " << curr_row[0]
+                              << endl;
+
+
+                } /* |if (curr_row[0])|  */
+
+                else  /* |curr_row[0] == 0 || strlen(curr_row[0]) == 0|  */
+                {
+                    if (DEBUG)
+                    {
+                        cerr << "globus_site_id  == NULL" << endl;
+
+                    }  /* |if (DEBUG)|  */ 
+
+
+                    temp_strm << "globus_site_id:  NULL" << endl;
+
+                }  /* |else| (|curr_row[0] == 0 || strlen(curr_row[0]) == 0|)  */
+
+@q ********* (9) |hostname|.  @>
+
+@ |hostname|.
+\initials{LDF 2012.03.26.}
+
+@<|Scan_Parse_Parameter_Type::show_globus_sites| definition@>=
+ 
+                if (curr_row[1] && strlen(curr_row[1]))
+                {
+                    if (DEBUG)
+                    {
+                        cerr << "hostname  == " << curr_row[1] << endl;
+
+                    }  /* |if (DEBUG)|  */ 
+
+                    temp_strm << "hostname:  " << curr_row[1] << endl;
+
+
+                } /* |if (curr_row[1] && strlen(curr_row[1]))|  */
+
+                else
+                {
+                    if (DEBUG)
+                    {
+                        cerr << "hostname == NULL or empty string" << endl;
+
+                    }  /* |if (DEBUG)|  */ 
+
+
+                    temp_strm << "hostname:  NULL" << endl;
+
+                }  /* |else| (|curr_row[1] == 0 || strlen(curr_row[1]) == 0|)  */
+
+
+@q ********* (9) |ip_address|.  @>
+@ |ip_address|.  
+\initials{LDF 2012.03.26.}
+
+@<|Scan_Parse_Parameter_Type::show_globus_sites| definition@>=
+ 
+                if (curr_row[2] && strlen(curr_row[2]))
+                {
+                    if (DEBUG)
+                    {
+                        cerr << "ip_address  == " << curr_row[2] << endl;
+
+                    }  /* |if (DEBUG)|  */ 
+
+                    temp_strm << "ip_address:  " << curr_row[2] << endl;
+
+
+                } /* |if (curr_row[2] && strlen(curr_row[2]))|  */
+
+                else
+                {
+                    if (DEBUG)
+                    {
+                        cerr << "ip_address == NULL or empty string" << endl;
+
+                    }  /* |if (DEBUG)|  */ 
+
+
+                    temp_strm << "ip_address:  NULL" << endl;
+
+                }  /* |else| (|curr_row[2] == 0 || strlen(curr_row[2]) == 0|)  */
+
+
+@q ********* (9) |interactive_node_name|.  @>
+
+@ |interactive_node_name|.  
+\initials{LDF 2012.03.26.}
+
+@<|Scan_Parse_Parameter_Type::show_globus_sites| definition@>=
+ 
+                if (curr_row[3] && strlen(curr_row[3]))
+                {
+                    if (DEBUG)
+                    {
+                        cerr << "interactive_node_name  == " << curr_row[3] << endl;
+
+                    }  /* |if (DEBUG)|  */ 
+
+                    temp_strm << "interactive_node_name:  " << curr_row[3] << endl;
+
+
+                } /* |if (curr_row[3] && strlen(curr_row[3]))|  */
+
+                else
+                {
+                    if (DEBUG)
+                    {
+                        cerr << "interactive_node_name == NULL or empty string" << endl;
+
+                    }  /* |if (DEBUG)|  */ 
+
+
+                    temp_strm << "interactive_node_name:  NULL" << endl;
+
+                }  /* |else| (|curr_row[3] == 0 || strlen(curr_row[3]) == 0|)  */
+
+@q ********* (9) |interactive_node_ip_address|.  @>
+
+@ |interactive_node_ip_address|.  
+\initials{LDF 2012.03.26.}
+
+@<|Scan_Parse_Parameter_Type::show_globus_sites| definition@>=
+ 
+                if (curr_row[4] && strlen(curr_row[4]))
+                {
+                    if (DEBUG)
+                    {
+                        cerr << "interactive_node_ip_address  == " << curr_row[4] << endl;
+
+                    }  /* |if (DEBUG)|  */ 
+
+                    temp_strm << "interactive_node_ip_address:  " << curr_row[4] << endl;
+
+
+                } /* |if (curr_row[4] && strlen(curr_row[4]))|  */
+
+                else
+                {
+                    if (DEBUG)
+                    {
+                        cerr << "interactive_node_ip_address == NULL or empty string" << endl;
+
+                    }  /* |if (DEBUG)|  */ 
+
+
+                    temp_strm << "interactive_node_ip_address:  NULL" << endl;
+
+                }  /* |else| (|curr_row[4] == 0 || strlen(curr_row[4]) == 0|)  */
+
+@q ********* (9) |append_ld_library_path|.  @>
+
+@ |append_ld_library_path|.  
+\initials{LDF 2012.03.26.}
+
+@<|Scan_Parse_Parameter_Type::show_globus_sites| definition@>=
+ 
+                if (curr_row[5] && strlen(curr_row[5]))
+                {
+                    if (DEBUG)
+                    {
+                        cerr << "append_ld_library_path  == " << curr_row[5] << endl;
+
+                    }  /* |if (DEBUG)|  */ 
+
+                    temp_strm << "append_ld_library_path:  " << curr_row[5] << endl;
+
+
+                } /* |if (curr_row[5] && strlen(curr_row[5]))|  */
+
+                else
+                {
+                    if (DEBUG)
+                    {
+                        cerr << "append_ld_library_path == NULL or empty string" << endl;
+
+                    }  /* |if (DEBUG)|  */ 
+
+
+                    temp_strm << "append_ld_library_path:  NULL" << endl;
+
+                }  /* |else| (|curr_row[5] == 0 || strlen(curr_row[5]) == 0|)  */
+
+@q ********* (9) |append_path|.  @>
+
+@ |append_path|.  
+\initials{LDF 2012.03.26.}
+
+@<|Scan_Parse_Parameter_Type::show_globus_sites| definition@>=
+ 
+                if (curr_row[6] && strlen(curr_row[6]))
+                {
+                    if (DEBUG)
+                    {
+                        cerr << "append_path  == " << curr_row[6] << endl;
+
+                    }  /* |if (DEBUG)|  */ 
+
+                    temp_strm << "append_path:  " << curr_row[6] << endl;
+
+
+                } /* |if (curr_row[6] && strlen(curr_row[6]))|  */
+
+                else
+                {
+                    if (DEBUG)
+                    {
+                        cerr << "append_path == NULL or empty string" << endl;
+
+                    }  /* |if (DEBUG)|  */ 
+
+
+                    temp_strm << "append_path:  NULL" << endl;
+
+                }  /* |else| (|curr_row[6] == 0 || strlen(curr_row[6]) == 0|)  */
+
+
+@q ********* (9) |optdbcli_path|.  @>
+
+@ |optdbcli_path|.  
+\initials{LDF 2012.03.26.}
+
+@<|Scan_Parse_Parameter_Type::show_globus_sites| definition@>=
+ 
+                if (curr_row[7] && strlen(curr_row[7]))
+                {
+                    if (DEBUG)
+                    {
+                        cerr << "optdbcli_path  == " << curr_row[7] << endl;
+
+                    }  /* |if (DEBUG)|  */ 
+
+                    temp_strm << "optdbcli_path:  " << curr_row[7] << endl;
+
+
+                } /* |if (curr_row[7] && strlen(curr_row[7]))|  */
+
+                else
+                {
+                    if (DEBUG)
+                    {
+                        cerr << "optdbcli_path == NULL or empty string" << endl;
+
+                    }  /* |if (DEBUG)|  */ 
+
+
+                    temp_strm << "optdbcli_path:  NULL" << endl;
+
+                }  /* |else| (|curr_row[7] == 0 || strlen(curr_row[7]) == 0|)  */
+
+@q ********* (9) |enabled|.  @>
+
+@ |enabled|.  
+\initials{LDF 2012.03.26.}
+
+@<|Scan_Parse_Parameter_Type::show_globus_sites| definition@>=
+ 
+                if (curr_row[8] && strlen(curr_row[8]))
+                {
+                    if (DEBUG)
+                    {
+                        cerr << "enabled  == " << curr_row[8] << endl;
+
+                    }  /* |if (DEBUG)|  */ 
+
+                    temp_strm << "enabled:  " << curr_row[8] << endl;
+
+
+                } /* |if (curr_row[8] && strlen(curr_row[8]))|  */
+
+                else
+                {
+                    if (DEBUG)
+                    {
+                        cerr << "enabled == NULL or empty string" << endl;
+
+                    }  /* |if (DEBUG)|  */ 
+
+
+                    temp_strm << "enabled:  NULL" << endl;
+
+                }  /* |else| (|curr_row[8] == 0 || strlen(curr_row[8]) == 0|)  */
+
+
+@q ********* (9) |deleted|.  @>
+
+@ |deleted|.  
+\initials{LDF 2012.04.16.}
+
+\LOG
+\initials{LDF 2012.04.16.}
+Added this section.
+\ENDLOG
+
+@<|Scan_Parse_Parameter_Type::show_globus_sites| definition@>=
+ 
+                if (curr_row[9] && strlen(curr_row[9]))
+                {
+                    if (DEBUG)
+                    {
+                        cerr << "deleted  == " << curr_row[9] << endl;
+
+                    }  /* |if (DEBUG)|  */ 
+
+                    temp_strm << "deleted:  " << curr_row[9] << endl;
+
+
+                } /* |if (curr_row[9] && strlen(curr_row[9]))|  */
+
+                else
+                {
+                    if (DEBUG)
+                    {
+                        cerr << "deleted == NULL or empty string" << endl;
+
+                    }  /* |if (DEBUG)|  */ 
+
+
+                    temp_strm << "deleted:  NULL" << endl;
+
+                }  /* |else| (|curr_row[9] == 0 || strlen(curr_row[9]) == 0|)  */
+
+
+@q ********* (9) |created|.  @>
+
+@ |created|.  
+\initials{LDF 2012.04.16.}
+
+\LOG
+\initials{LDF 2012.04.16.}
+Added this section.
+\ENDLOG
+
+@<|Scan_Parse_Parameter_Type::show_globus_sites| definition@>=
+ 
+                if (curr_row[10] && strlen(curr_row[10]))
+                {
+                    if (DEBUG)
+                    {
+                        cerr << "created  == " << curr_row[10] << endl;
+
+                    }  /* |if (DEBUG)|  */ 
+
+                    temp_strm << "created:  " << curr_row[10] << endl;
+
+
+                } /* |if (curr_row[10] && strlen(curr_row[10]))|  */
+
+                else
+                {
+                    if (DEBUG)
+                    {
+                        cerr << "created == NULL or empty string" << endl;
+
+                    }  /* |if (DEBUG)|  */ 
+
+
+                    temp_strm << "created:  NULL" << endl;
+
+                }  /* |else| (|curr_row[10] == 0 || strlen(curr_row[10]) == 0|)  */
+
+
+
+
+@q ********* (9) |last_modified|.  @>
+
+@ |last_modified|.  
+\initials{LDF 2012.04.16.}
+
+\LOG
+\initials{LDF 2012.04.16.}
+Added this section.
+\ENDLOG
+
+@<|Scan_Parse_Parameter_Type::show_globus_sites| definition@>=
+ 
+                if (curr_row[11] && strlen(curr_row[11]))
+                {
+                    if (DEBUG)
+                    {
+                        cerr << "last_modified  == " << curr_row[11] << endl;
+
+                    }  /* |if (DEBUG)|  */ 
+
+                    temp_strm << "last_modified:  " << curr_row[11] << endl;
+
+
+                } /* |if (curr_row[11] && strlen(curr_row[11]))|  */
+
+                else
+                {
+                    if (DEBUG)
+                    {
+                        cerr << "last_modified == NULL or empty string" << endl;
+
+                    }  /* |if (DEBUG)|  */ 
+
+
+                    temp_strm << "last_modified:  NULL" << endl;
+
+                }  /* |else| (|curr_row[11] == 0 || strlen(curr_row[11]) == 0|)  */
+
+@q ********* (9) @>
+
+                temp_strm << endl;
+
+@q ********* (9) Query for admins.  @>
+
+@ Query for admins.  
+\initials{LDF 2012.04.13.}
+
+@<|Scan_Parse_Parameter_Type::show_globus_sites| definition@>=
+
+@q ********** (10) @>
+
+                sql_strm.str("");
+
+                sql_strm << "select UI.user_id, UI.user_name, UI.commonName, "
+                         << "UI.organizationalUnitName from User_Info as UI, "
+                         << "Globus_Sites_Admins as GSA where GSA.admin_id = UI.user_id "
+                         << "and GSA.globus_site_id = " << curr_row[0] << " order by UI.user_id";
+
+               if (DEBUG)
+               {
+                   lock_cerr_mutex();
+                   cerr << "sql_strm.str() == " << sql_strm.str() << endl;
+                   unlock_cerr_mutex();
+
+               }  /* |if (DEBUG)|  */ 
+
+               status = submit_mysql_query(sql_strm.str(), result_1, &row_ctr_1, &field_ctr_1);
+
+@q ********** (10) @>
+@
+@<|Scan_Parse_Parameter_Type::show_globus_sites| definition@>=
+
+               if (status != 0)
+               {
+                    lock_cerr_mutex(); 
+                    cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+                         << "ERROR!  In `Scan_Parse_Parameter_Type::show_globus_sites':"
+                         << endl 
+                         << "`Scan_Parse_Parameter_Type::submit_mysql_query' failed, returning " 
+                         << status << "."
+                         << endl
+                         << "Exiting function unsuccessfully with return value 1."
+                         << endl;
+                    unlock_cerr_mutex(); 
+
+                    if (result) 
+                       mysql_free_result(result);
+
+                    if (result_1) 
+                       mysql_free_result(result_1);
+
+                    return 1;
+
+               }  /* |if (status != 0)|  */
+
+@q ********** (10) @>
+@
+@<|Scan_Parse_Parameter_Type::show_globus_sites| definition@>=
+
+               else if (DEBUG)
+               {
+                   lock_cerr_mutex(); 
+                   cerr << "[Thread " << thread_ctr << "]:  "
+                        << "In `Scan_Parse_Parameter_Type::show_globus_sites':"
+                        << endl 
+                        << "`Scan_Parse_Parameter_Type::submit_mysql_query' succeeded."
+                        << endl 
+                        << "row_ctr_1 == " << row_ctr_1 
+                        << endl
+                        << "field_ctr_1 == " << field_ctr_1 
+                        << endl;
+                   unlock_cerr_mutex(); 
+
+               }  /* |if (DEBUG)|  */
+
+@q ********** (10) @>
+@
+@<|Scan_Parse_Parameter_Type::show_globus_sites| definition@>=
+
+              if (row_ctr_1 == 0)
+              {
+                  if (DEBUG)
+                  {
+                      lock_cerr_mutex();
+                      cerr << "`row_ctr_1' == 0.  No admins." << endl;
+                      unlock_cerr_mutex(); 
+
+                  }  /* |if (DEBUG)|  */ 
+
+
+                  temp_strm << "No admins" << endl;
+              }
+
+              else /* |row_ctr_1 > 0|  */
+              {
+@q *********** (11) @>
+
+                  for (int j = 0; j < row_ctr_1; ++j)
+                  {
+@q ************ (12) @>
+
+                       if ((curr_row_1 = mysql_fetch_row(result_1)) == 0)
+                       {
+                            lock_cerr_mutex(); 
+                            cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+                                 << "ERROR!  In `Scan_Parse_Parameter_Type::show_globus_sites':"
+                                 << endl 
+                                 << "`mysql_fetch_row' failed:"
+                                 << endl
+                                 << mysql_error(mysql_ptr)
+                                 << endl 
+                                 << "Exiting function unsuccessfully with return value 1."
+                                 << endl;
+                            unlock_cerr_mutex(); 
+
+                            mysql_free_result(result);
+                            mysql_free_result(result_1);
+
+                            response.command = "SERVER SHOW GLOBUS_SITES FAILED";
+
+                            return 1;
+
+                       }  /* |if (curr_row_1 = mysql_fetch_row(result_1) == 0)|  */
+
+@q ************ (12) @>
+
+                       else if (DEBUG)
+                       {
+                           lock_cerr_mutex(); 
+                           cerr << "`mysql_fetch_row' succeeded (querying for admins)."  << endl;
+                           unlock_cerr_mutex(); 
+
+                       }  /* |else if (DEBUG)|  */ 
+
+@q ************ (12) @>
+@
+@<|Scan_Parse_Parameter_Type::show_globus_sites| definition@>=
+
+                       if (curr_row_1[0] && strlen(curr_row_1[0]))
+                       {
+                           if (DEBUG)
+                           {
+                               cerr << "admin user_id  == " << curr_row_1[0] << endl;
+
+                           }  /* |if (DEBUG)|  */ 
+
+                           temp_strm << "admin user_id:  " << curr_row_1[0]
+                                     << endl;
+
+
+                       } /* |if (curr_row_1[0])|  */
+
+                       else  /* |curr_row_1[0] == 0 || strlen(curr_row_1[0]) == 0|  */
+                       {
+                           if (DEBUG)
+                           {
+                               cerr << "admin user_id  == NULL" << endl;
+
+                           }  /* |if (DEBUG)|  */ 
+
+
+                           temp_strm << "admin user_id:  NULL" << endl;
+
+                       }  /* |else| (|curr_row_1[0] == 0 || strlen(curr_row_1[0]) == 0|)  */
+
+@q ************ (12) @>
+@
+@<|Scan_Parse_Parameter_Type::show_globus_sites| definition@>=
+
+                       if (curr_row_1[1] && strlen(curr_row_1[1]))
+                       {
+                           if (DEBUG)
+                           {
+                               cerr << "admin user_name  == " << curr_row_1[1] << endl;
+
+                           }  /* |if (DEBUG)|  */ 
+
+                           temp_strm << "admin user_name:  " << curr_row_1[1]
+                                     << endl;
+
+
+                       } /* |if (curr_row_1[1])|  */
+
+                       else  /* |curr_row_1[1] == 0 || strlen(curr_row_1[1]) == 0|  */
+                       {
+                           if (DEBUG)
+                           {
+                               cerr << "admin user_name  == NULL" << endl;
+
+                           }  /* |if (DEBUG)|  */ 
+
+
+                           temp_strm << "admin user_name:  NULL" << endl;
+
+                       }  /* |else| (|curr_row_1[1] == 0 || strlen(curr_row_1[1]) == 0|)  */
+
+
+@q ************ (12) @>
+@
+@<|Scan_Parse_Parameter_Type::show_globus_sites| definition@>=
+
+                       if (curr_row_1[2] && strlen(curr_row_1[2]))
+                       {
+                           if (DEBUG)
+                           {
+                               cerr << "admin commonName  == " << curr_row_1[2] << endl;
+
+                           }  /* |if (DEBUG)|  */ 
+
+                           temp_strm << "admin commonName:  " << curr_row_1[2]
+                                     << endl;
+
+
+                       } /* |if (curr_row_1[2])|  */
+
+                       else  /* |curr_row_1[2] == 0 || strlen(curr_row_1[2]) == 0|  */
+                       {
+                           if (DEBUG)
+                           {
+                               cerr << "admin commonName  == NULL" << endl;
+
+                           }  /* |if (DEBUG)|  */ 
+
+
+                           temp_strm << "admin commonName:  NULL" << endl;
+
+                       }  /* |else| (|curr_row_1[2] == 0 || strlen(curr_row_1[2]) == 0|)  */
+
+@q ************ (12) @>
+@
+@<|Scan_Parse_Parameter_Type::show_globus_sites| definition@>=
+
+                       if (curr_row_1[3] && strlen(curr_row_1[3]))
+                       {
+                           if (DEBUG)
+                           {
+                               cerr << "admin organizationalUnitName  == " << curr_row_1[3] 
+                                    << endl;
+
+                           }  /* |if (DEBUG)|  */ 
+
+                           temp_strm << "admin organizationalUnitName:  " << curr_row_1[3]
+                                     << endl;
+
+
+                       } /* |if (curr_row_1[3])|  */
+
+                       else  /* |curr_row_1[3] == 0 || strlen(curr_row_1[3]) == 0|  */
+                       {
+                           if (DEBUG)
+                           {
+                               cerr << "admin organizationalUnitName  == NULL" << endl;
+
+                           }  /* |if (DEBUG)|  */ 
+
+
+                           temp_strm << "admin organizationalUnitName:  NULL" << endl;
+
+                       }  /* |else| (|curr_row_1[3] == 0 || strlen(curr_row_1[3]) == 0|)  */
+
+                       temp_strm << endl;
+
+@q ************ (12) @>
+
+                  }  /* |for (int j = 0; j < row_ctr_1; ++j)|  */
+
+@q *********** (11) @>
+
+                mysql_free_result(result_1);
+                result_1 = 0;
+
+@q *********** (11) @>
+
+              }  /* |else| (|row_ctr_1 > 0|)  */
+
+@q ********** (10) @>
+
+@q ********* (9) @>
+
+           }  /* |else| (|mysql_fetch_row(result)| succeeded)  */
+
+
+
+@q ******** (8) @>
+@ After the loop, a newline character or two are added to the end 
+of the text that's sent to the client, so we dump it to a file even if |temp_strm.str()| 
+contains a number of characters somewhat smaller than |MAX_BUFFER|.  Currently, 
+|MAX_BUFFER - 10| is used. 
+\initials{LDF 2010.11.04.}
+
+@<|Scan_Parse_Parameter_Type::show_globus_sites| definition@>=
+
+            if (!dump_to_file && temp_strm.str().size() >= MAX_BUFFER - 10)  
+            {
+
+                char temp_filename[] = "/tmp/TTXXXXXX";
+
+                int temp_fd = mkstemp(temp_filename);
+
+                if (temp_fd == -1)
+                {
+
+                    lock_cerr_mutex(); 
+                    cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+                         << "ERROR!  In "
+                         << "`Scan_Parse_Parameter_Type::show_globus_sites':"
+                         << endl 
+                         << "`mkstemp' failed.  Can't open temporary file."
+                         << endl
+                         << "Exiting function unsuccessfully with return value 1."
+                         << endl;
+                    unlock_cerr_mutex(); 
+
+                    mysql_free_result(result);
+
+                    memset (buffer, 0, MAX_BUFFER + 1);      
+                    response.command = "SERVER SHOW GLOBUS_SITES FAILED";
+
+                    return 1;
+
+                }  /* |if (temp_fd == -1)|  */
+
+                temp_file_vector.push_back(string(temp_filename));
+
+                close(temp_fd);
+
+                response.local_filename  = temp_filename;
+
+                out_strm.open(response.local_filename.c_str());
+
+                dump_to_file = true;
+              
+            }  /* |if|  */
+
+@q ******** (8) @>
+
+           if (dump_to_file)
+           {
+               out_strm << temp_strm.str() << endl;
+               temp_strm.str("");
+           }
+
+@q ******** (8) @>
+
+       }  /* |for|  */
+
+@q ******* (7) @>
+
+       if (dump_to_file)
+       {
+          out_strm << endl;
+          out_strm.close();
+       }
+       else 
+       {
+          temp_strm << endl;
+       }
+
+       memset (buffer, 0, MAX_BUFFER + 1);      
+
+       if (!dump_to_file)
+          strcpy(buffer, temp_strm.str().c_str());
+                  
+       response.command = "SERVER SENDING GLOBUS_SITE INFO";
+
+@q ******* (7) @>
+
+    }  /* |else| (|row_ctr > 0|)  */
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::show_globus_sites| definition@>=
+
+    if (result)
+       mysql_free_result(result);
+
+    if (result_1)
+       mysql_free_result(result_1);
+
+    if (DEBUG) 
+    { 
+       lock_cerr_mutex(); 
+       cerr << "[Thread " << thread_ctr << "]:  "
+            << "Exiting `Scan_Parse_Parameter_Type::show_globus_sites' successfully "
+            << "with return value 0."
+            << endl;
+       unlock_cerr_mutex(); 
+
+    } /* |if (DEBUG)| */
+
+    return 0;
+
+@q ****** (6) @>
+
+}  /* End of |Scan_Parse_Parameter_Type::show_globus_sites| definition  */
+
+#endif /* |HAVE_LIBMYSQLCLIENT|  */
+
+@q **** (4) Delete Globus sites.  @>
+
+@ Delete Globus sites.
+\initials{LDF 2012.04.16.}
+
+\LOG
+\initials{LDF 2012.04.16.}
+Added this function.
+\ENDLOG
+
+@q ***** (5) Definition  @>
+@
+@<|Scan_Parse_Parameter_Type::delete_globus_sites| definition@>=
+
+#if HAVE_LIBMYSQLCLIENT
+int
+Scan_Parse_Parameter_Type::delete_globus_sites(bool finally)
+{
+@q ****** (6) @>
+
+    bool DEBUG = false;  /* |true|  */
+    set_debug_level(DEBUG);
+
+    int status = 0;
+
+    MYSQL_RES *result          = 0;
+    unsigned int row_ctr       = 0;
+    unsigned int field_ctr     = 0;
+   
+    MYSQL_ROW curr_row;
+
+    stringstream sql_strm;
+
+    stringstream temp_strm;
+
+    unsigned int curr_user_id = (effective_user_id > 0) ? effective_user_id : user_id;
+
+    Response_Type response;
+    response.type = Response_Type::COMMAND_ONLY_TYPE;
+
+    if (DEBUG) 
+    { 
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "Entering `Scan_Parse_Parameter_Type::delete_globus_sites'."
+             << endl
+             << "globus_site_set.size() == " << globus_site_set.size() 
+             << endl;
+        unlock_cerr_mutex(); 
+
+    } /* |if (DEBUG)|  */
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::delete_globus_sites| definition@>=
+
+    if (globus_site_set.size() == 0)
+    {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "WARNING! In `Scan_Parse_Parameter_Type::delete_globus_sites':"
+             << endl
+             << "`globus_site_set.size()' == 0.  " 
+             << "Not deleting Globus sites."
+             << endl 
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+         unlock_cerr_mutex(); 
+
+         response.command = "SERVER DELETE GLOBUS_SITES FAILED 0";
+
+         pthread_mutex_lock(&response_deque_mutex);
+         response_deque.push_back(response);
+         pthread_mutex_unlock(&response_deque_mutex);
+
+         globus_site_set.clear();
+
+         return 1;
+
+    }  /* |if (globus_site_set.size() == 0)|  */
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::delete_globus_sites| definition@>=
+    
+    if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "`globus_site_set':"
+             << endl;
+        for (set<string>::const_iterator iter = globus_site_set.begin();
+             iter != globus_site_set.end();
+             ++iter)
+        {
+           cerr << *iter << endl;
+        }
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */ 
+
+@q ****** (6) Determine whether the current user has permission to delete Globus sites.  @>
+@ Determine whether the current user has permission to delete Globus sites.  
+He or she might be a ``superuser'' or have the ``delete Globus site'' permission.  Otherwise,
+we must determine below whether he or she is an admin of each of the Globus sites
+found by the following SQL query.
+\initials{LDF 2012.04.16.}
+
+@<|Scan_Parse_Parameter_Type::delete_globus_sites| definition@>=
+
+   bool permitted = false;
+  
+   unsigned int privilege_val = 0U;
+
+
+   status = check_privileges(privilege_val, true, "delete_globus_site");
+
+   if (DEBUG)
+   {
+       lock_cerr_mutex();
+       cerr << "`Scan_Parse_Parameter_Type::check_privileges' returned " << status << endl;
+       unlock_cerr_mutex();
+
+   }  /* |if (DEBUG)|  */  
+
+   if (status != 0)
+   {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "ERROR!  In `Scan_Parse_Parameter_Type::delete_globus_sites':"
+             << endl
+             << "`Scan_Parse_Parameter_Type::check_privileges' failed, returning "
+             << status 
+             << endl 
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+         unlock_cerr_mutex(); 
+
+         if (globus_site_set.size() == 1)
+            temp_strm << "SERVER DELETE GLOBUS_SITE <" << *globus_site_set.begin()
+                      << "> FAILED 4";
+
+         else            temp_strm << "SERVER DELETE GLOBUS_SITES FAILED 4";
+
+         response.command = temp_strm.str();
+
+         pthread_mutex_lock(&response_deque_mutex);
+         response_deque.push_back(response);
+         pthread_mutex_unlock(&response_deque_mutex);
+
+         globus_site_set.clear();
+
+         return 1;
+
+   }  /* |if (status != 0)|   */
+
+   else if (DEBUG)
+   {
+       lock_cerr_mutex();
+       cerr << "`Scan_Parse_Parameter_Type::check_privileges' succeeded.  "
+            << "`privilege_val ==' " << privilege_val
+            << endl;
+       unlock_cerr_mutex(); 
+
+   }  /* |else if (DEBUG)|  */ 
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::delete_globus_sites| definition@>=
+
+    if (privilege_val > 0)
+    {
+        permitted = true;
+
+        lock_cerr_mutex();
+        cerr << "`privilege_val' == " << privilege_val 
+             << endl 
+             << "User " << curr_user_id << " is superuser and/or "
+             << "has permission to delete Globus sites."
+             << endl;
+        unlock_cerr_mutex(); 
+    }
+    else if (DEBUG)
+    {
+        lock_cerr_mutex();
+        cerr << "`privilege_val' == 0.  User " << curr_user_id << " is not superuser and "
+             << "doesn't have permission to delete Globus sites."
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |else if (DEBUG)|  */ 
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::delete_globus_sites| definition@>=
+
+    string or_str = "";
+
+    sql_strm.str("");
+
+    sql_strm << "select T.globus_site_id, GSS.hostname, T.admin_id from "
+             << "(select GS.globus_site_id, "
+             << "GSA.admin_id from Globus_Sites as GS left join Globus_Sites_Admins "
+             << "as GSA on GS.globus_site_id = GSA.globus_site_id and "
+             << "GSA.admin_id = " << curr_user_id << " order by GS.globus_site_id) as T, "
+             << "Globus_Sites as GSS where T.globus_site_id = GSS.globus_site_id and (";
+
+    set<string> temp_set;
+
+    for (set<string>::const_iterator iter = globus_site_set.begin();
+         iter != globus_site_set.end();
+         ++iter)
+    {
+        sql_strm << or_str << "GSS.hostname = '" << *iter << "' ";
+
+        if (or_str.empty()) 
+           or_str = "or ";
+
+    } /* |for|  */
+
+    sql_strm << ") order by T.globus_site_id";
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex();
+        cerr << "`sql_strm.str()' == " << sql_strm.str() << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */ 
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::delete_globus_sites| definition@>=
+
+    status = submit_mysql_query(sql_strm.str(), result, &row_ctr, &field_ctr);
+
+    sql_strm.str("");
+
+    if (status != 0)
+    {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "ERROR!  In `Scan_Parse_Parameter_Type::delete_globus_sites':"
+             << endl
+             << "`Scan_Parse_Parameter_Type::submit_mysql_query' failed, returning "
+             << status << ":"
+             << endl 
+             << mysql_error(mysql_ptr)
+             << endl 
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+         unlock_cerr_mutex(); 
+
+         if (globus_site_set.size() == 1)
+            temp_strm << "SERVER DELETE GLOBUS_SITE <" << *globus_site_set.begin()
+                      << "> FAILED 1";
+         else
+            temp_strm << "SERVER DELETE GLOBUS_SITES FAILED 1";
+
+         response.command = temp_strm.str();
+
+         pthread_mutex_lock(&response_deque_mutex);
+         response_deque.push_back(response);
+         pthread_mutex_unlock(&response_deque_mutex);
+
+        if (result)
+            mysql_free_result(result);
+
+         globus_site_set.clear();
+
+         return 1;
+
+    }  /* |if (status != 0)|  */
+
+    else if (DEBUG)
+    {
+        lock_cerr_mutex();
+        cerr << "`submit_mysql_query' succeeded.  `row_ctr ==' " << row_ctr
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |else if (DEBUG)|  */ 
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::delete_globus_sites| definition@>=
+
+    if (row_ctr == 0)
+    {
+       
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "WARNING!  In `Scan_Parse_Parameter_Type::delete_globus_sites':"
+             << endl
+             << "`Scan_Parse_Parameter_Type::submit_mysql_query' returned 0 rows."
+             << endl 
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+         unlock_cerr_mutex(); 
+
+         if (globus_site_set.size() == 1)
+            temp_strm << "SERVER DELETE GLOBUS_SITE <" << *globus_site_set.begin()
+                      << "> FAILED 2";
+         else
+            temp_strm << "SERVER DELETE GLOBUS_SITES FAILED 2";
+
+         response.command = temp_strm.str();
+
+         pthread_mutex_lock(&response_deque_mutex);
+         response_deque.push_back(response);
+         pthread_mutex_unlock(&response_deque_mutex);
+
+         if (result)
+            mysql_free_result(result);
+
+         globus_site_set.clear();
+
+         return 1;
+
+
+    }  /* |if (row_ctr == 0)|  */
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::delete_globus_sites| definition@>=
+
+    if ((curr_row = mysql_fetch_row(result)) == 0)
+    {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "ERROR!  In `Scan_Parse_Parameter_Type::delete_globus_sites':"
+             << endl
+             << "`mysql_fetch_row' failed, returning 0:"
+             << endl 
+             << mysql_error(mysql_ptr)
+             << endl 
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+         unlock_cerr_mutex(); 
+
+         if (globus_site_set.size() == 1)
+            temp_strm << "SERVER DELETE GLOBUS_SITE <" << *globus_site_set.begin()
+                      << "> FAILED 1";
+         else
+            temp_strm << "SERVER DELETE GLOBUS_SITES FAILED 1";
+
+         response.command = temp_strm.str();
+
+         pthread_mutex_lock(&response_deque_mutex);
+         response_deque.push_back(response);
+         pthread_mutex_unlock(&response_deque_mutex);
+
+         mysql_free_result(result);
+
+         globus_site_set.clear();
+
+         return 1;
+       
+    }  /* |if ((curr_row = mysql_fetch_row(result)) == 0)|  */
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::delete_globus_sites| definition@>=
+
+    else if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "`mysql_fetch_row' succeeded." << endl;
+        unlock_cerr_mutex(); 
+    }  /* |else if (DEBUG)|  */ 
+
+    int curr_globus_site_id;
+
+    for (int i = 0;  i < row_ctr;  ++i)
+    {
+@q ******* (7) @>
+
+         if (curr_row[0] == 0 || strlen(curr_row[0]) == 0)
+         {
+              lock_cerr_mutex(); 
+              cerr << "[Thread " << thread_ctr << "]:  "
+                   << "ERROR!  In `Scan_Parse_Parameter_Type::delete_globus_sites':"
+                   << endl
+                   << "`curr_row[0]' is NULL or empty."
+                   << endl 
+                   << "Exiting function unsuccessfully with return value 1."
+                   << endl;
+               unlock_cerr_mutex(); 
+
+               if (globus_site_set.size() == 1)
+                  temp_strm << "SERVER DELETE GLOBUS_SITE <" << *globus_site_set.begin()
+                            << "> FAILED 1";
+               else
+                  temp_strm << "SERVER DELETE GLOBUS_SITES FAILED 1";
+
+               response.command = temp_strm.str();
+
+               pthread_mutex_lock(&response_deque_mutex);
+               response_deque.push_back(response);
+               pthread_mutex_unlock(&response_deque_mutex);
+
+               mysql_free_result(result);
+
+               globus_site_set.clear();
+
+               return 1;
+
+         }  /* |if|  */
+
+@q ******* (7) @>
+@
+@<|Scan_Parse_Parameter_Type::delete_globus_sites| definition@>=
+
+         curr_globus_site_id = atoi(curr_row[0]);
+
+         if (DEBUG)
+         {
+             lock_cerr_mutex();
+             cerr << "`curr_globus_site_id' == " << curr_globus_site_id << endl
+                  << "`curr_row[1]' == " << curr_row[1] << endl;
+
+             if (curr_row[2] == 0)
+                 cerr << "`curr_row[2]' == NULL.  User " << curr_user_id
+                      << " not admin."
+                      << endl;
+             else
+                 cerr << "`curr_row[2]' == " << curr_row[2] << ".  "
+                      << "User " << curr_user_id << " is admin."
+                      << endl;
+                       
+             unlock_cerr_mutex(); 
+        
+         }  /* |if (DEBUG)|  */ 
+
+@q ******* (7) @>
+
+         if (permitted == false && curr_row[2] == 0)
+         {
+
+              lock_cerr_mutex(); 
+              cerr << "[Thread " << thread_ctr << "]:  "
+                   << "WARNING!  In `Scan_Parse_Parameter_Type::delete_globus_sites':"
+                   << endl
+                   << "User " << curr_user_id 
+                   << " is not admin of Globus site `" << curr_row[1] << "' "
+                   << "and is not otherwise entitled to delete Globus sites."
+                   << endl 
+                   << "Continuing."
+                   << endl;
+               unlock_cerr_mutex(); 
+
+               temp_strm.str("");
+               temp_strm << "SERVER DELETE GLOBUS_SITE <" << curr_row[1]
+                         << "> FAILED 3";
+
+               response.command = temp_strm.str();
+
+               temp_strm.str("");
+
+               pthread_mutex_lock(&response_deque_mutex);
+               response_deque.push_back(response);
+               pthread_mutex_unlock(&response_deque_mutex);
+
+               continue;            
+
+         }  /* |if (permitted == false && curr_row[2] == 0)|  */
+
+@q ******* (7) @>
+@
+@<|Scan_Parse_Parameter_Type::delete_globus_sites| definition@>=
+
+         else  /* |permitted == true || curr_row[2] == 1|  */
+         {
+@q ******** (8) @>
+
+              temp_set.insert(curr_row[1]);
+
+              if (DEBUG)
+              {
+                  lock_cerr_mutex();
+                  cerr << "`permitted' == " << permitted
+                       << endl
+                       << "`curr_row[2]' == " << curr_row[2]
+                       << endl
+                       << "Deleting Globus site `" << curr_row[1] << "'."
+                       << endl;
+                  unlock_cerr_mutex(); 
+
+              }  /* |if (DEBUG)|  */ 
+
+              if (sql_strm.str().empty())
+              {
+
+
+                 sql_strm << "delete from GS, GSA using Globus_Sites as GS, "
+                          << "Globus_Sites_Admins as GSA "
+                          << "where (GS.globus_site_id = "
+                          << curr_row[0] << " "
+                          << "and GSA.globus_site_id = " << curr_row[0] << ")";
+              }
+              else
+                  sql_strm << " or (globus_site_id = " << curr_row[0] << " "
+                          << "and GSA.globus_site_id = " << curr_row[0] << ")";
+
+@q ******** (8) @>
+
+         }  /* |else| (|permitted == true || curr_row[2] == 1|)  */
+     
+@q ******* (7) @>
+
+    }  /* |for|  */
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::delete_globus_sites| definition@>=
+    
+     mysql_free_result(result);
+     result = 0;
+
+     if (DEBUG)
+     {
+         lock_cerr_mutex();
+         cerr << "sql_strm.str() == " << sql_strm.str() << endl;
+         unlock_cerr_mutex(); 
+
+     }  /* |if (DEBUG)|  */ 
+
+@q ****** (6) @>
+
+     if (sql_strm.str().empty())
+     {
+         lock_cerr_mutex(); 
+         cerr << "[Thread " << thread_ctr << "]:  "
+              << "WARNING!  In `Scan_Parse_Parameter_Type::delete_globus_sites':"
+              << endl
+              << "`sql_strm.str()' is empty.  Can't delete Globus sites."
+              << endl 
+              << "Exiting function unsuccessfully with return value 1."
+              << endl;
+          unlock_cerr_mutex(); 
+
+          globus_site_set.clear();
+
+          return 1;
+
+     }  /* |if (sql_strm.str().empty())|  */
+
+@q ****** (6) @>
+
+     long affected_rows = 0L;
+
+     status = submit_mysql_query(sql_strm.str(), result, 0, 0, &affected_rows);
+
+     if (status != 0)
+     {
+         lock_cerr_mutex(); 
+         cerr << "[Thread " << thread_ctr << "]:  "
+              << "ERROR!  In `Scan_Parse_Parameter_Type::delete_globus_sites':"
+              << endl
+              << "`Scan_Parse_Parameter_Type::submit_mysql_query' failed, returning "
+              << status << ":"
+              << endl 
+              << mysql_error(mysql_ptr)
+              << endl 
+              << "Exiting function unsuccessfully with return value 1."
+              << endl;
+          unlock_cerr_mutex(); 
+
+          if (globus_site_set.size() == 1)
+             temp_strm << "SERVER DELETE GLOBUS_SITE <" << *globus_site_set.begin()
+                       << "> FAILED 1";
+          else
+             temp_strm << "SERVER DELETE GLOBUS_SITES FAILED 1";
+
+          response.command = temp_strm.str();
+
+          pthread_mutex_lock(&response_deque_mutex);
+          response_deque.push_back(response);
+          pthread_mutex_unlock(&response_deque_mutex);
+
+         if (result)
+             mysql_free_result(result);
+
+          globus_site_set.clear();
+
+          return 1;
+
+     }  /* |if (status != 0)|  */
+
+     else if (DEBUG)
+     {
+          lock_cerr_mutex(); 
+          cerr << "`submit_mysql_query' succeeded."
+               << endl  
+               << "`affected_rows' == " << affected_rows
+               << endl;
+          unlock_cerr_mutex(); 
+
+     }  /* |else if (DEBUG)|  */ 
+
+     if (affected_rows == 0)
+     {
+         lock_cerr_mutex(); 
+         cerr << "[Thread " << thread_ctr << "]:  "
+              << "ERROR!  In `Scan_Parse_Parameter_Type::delete_globus_sites':"
+              << endl
+              << "`affected_rows' == 0."
+              << endl 
+              << "This shouldn't happen."
+              << endl 
+              << "Exiting function unsuccessfully with return value 1."
+              << endl;
+          unlock_cerr_mutex(); 
+
+          if (globus_site_set.size() == 1)
+             temp_strm << "SERVER DELETE GLOBUS_SITE <" << *globus_site_set.begin()
+                       << "> FAILED 1";
+          else
+             temp_strm << "SERVER DELETE GLOBUS_SITES FAILED 1";
+
+          response.command = temp_strm.str();
+
+          pthread_mutex_lock(&response_deque_mutex);
+          response_deque.push_back(response);
+          pthread_mutex_unlock(&response_deque_mutex);
+
+         if (result)
+             mysql_free_result(result);
+
+          globus_site_set.clear();
+
+          return 1;
+
+     }  /* |if| (0 affected rows)  */
+
+    temp_strm.str("");         
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "temp_set.size() == " << temp_set.size() << endl
+             << "Showing `temp_set':"
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */ 
+
+    for (set<string>::const_iterator iter = temp_set.begin();
+         iter != temp_set.end();
+         ++iter)
+    {
+        if (DEBUG)
+        {
+            lock_cerr_mutex(); 
+            cerr << "`*iter' == " << *iter << endl;
+            unlock_cerr_mutex(); 
+
+        }  /* |if (DEBUG)|  */ 
+
+        temp_strm << "SERVER DELETE GLOBUS_SITE <" << *iter
+                  << "> SUCCEEDED";
+
+        response.command = temp_strm.str();
+
+        pthread_mutex_lock(&response_deque_mutex);
+        response_deque.push_back(response);
+        pthread_mutex_unlock(&response_deque_mutex);
+
+        temp_strm.str("");   
+
+    } /* |for|  */
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::delete_globus_sites| definition@>=
+
+    if (result)
+       mysql_free_result(result);
+
+    globus_site_set.clear();
+
+    if (DEBUG) 
+    { 
+       lock_cerr_mutex(); 
+       cerr << "[Thread " << thread_ctr << "]:  "
+            << "Exiting `Scan_Parse_Parameter_Type::delete_globus_sites' successfully "
+            << "with return value 0."
+            << endl;
+       unlock_cerr_mutex(); 
+
+    } /* |if (DEBUG)| */
+
+    return 0;
+
+@q ****** (6) @>
+
+}  /* End of |Scan_Parse_Parameter_Type::delete_globus_sites| definition  */
+
+#endif /* |HAVE_LIBMYSQLCLIENT|  */
+
+@q **** (4) Mark Globus site for deletion.  @>
+
+@ Mark Globus site for deletion.
+\initials{LDF 2012.04.16.}
+
+\LOG
+\initials{LDF 2012.04.16.}
+Added this function.
+
+\initials{LDF 2012.04.30.}
+@:BUG FIX@> BUG FIX: Now calling |Scan_Parse_Parameter_Type::check_privileges| 
+to determine whether the ``current user'' is allowed to mark or unmark the Globus site
+for deletion.
+\ENDLOG
+
+@q ***** (5) Definition  @>
+@
+@<|Scan_Parse_Parameter_Type::mark_globus_site| definition@>=
+
+#if HAVE_LIBMYSQLCLIENT
+int
+Scan_Parse_Parameter_Type::mark_globus_site(bool delete_gs, 
+                                            string globus_site, 
+                                            int enable_optional)
+{
+@q ****** (6) @>
+
+    bool DEBUG = false;  /* |true|  */
+    set_debug_level(DEBUG);
+
+    int status = 0;
+
+    MYSQL_RES *result          = 0;
+    unsigned int row_ctr       = 0;
+    unsigned int field_ctr     = 0;
+   
+    MYSQL_ROW curr_row;
+
+    stringstream sql_strm;
+
+    stringstream temp_strm;
+
+    unsigned int curr_user_id = (effective_user_id > 0) ? effective_user_id : user_id;
+
+    Response_Type response;
+    response.type = Response_Type::COMMAND_ONLY_TYPE;
+
+    if (DEBUG) 
+    { 
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "Entering `Scan_Parse_Parameter_Type::mark_globus_site'."
+             << endl;
+        unlock_cerr_mutex(); 
+
+    } /* |if (DEBUG)|  */
+
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::mark_globus_site| definition@>=
+
+    unsigned int privilege_val = 0;
+
+    status = check_privileges(privilege_val, true, "delete_globus_site", globus_site);
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "`Scan_Parse_Parameter_Type::check_privileges' returned " << status << "."
+             << endl
+             << "privilege_val == " << privilege_val << endl;
+         unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */ 
+ 
+    if (status != 0)
+    {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "ERROR! In `Scan_Parse_Parameter_Type::mark_globus_site':"
+             << endl
+             << "`Scan_Parse_Parameter_Type::check_privileges' failed, returning " << status << "."
+             << endl
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+        unlock_cerr_mutex(); 
+
+        temp_strm << "FAILED TO ";
+
+        if (delete_gs == true)  
+          temp_strm << "MARK ";
+        else 
+          temp_strm << "UNMARK ";
+
+        temp_strm << "GLOBUS_SITE <" << globus_site << "> AS DELETED 1";
+
+        response.command = temp_strm.str();
+
+        pthread_mutex_lock(&response_deque_mutex);
+        response_deque.push_back(response);
+        pthread_mutex_unlock(&response_deque_mutex);
+
+        return 1;
+
+    }  /* |if (status != 0)|  */
+
+    else if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "In `Scan_Parse_Parameter_Type::mark_globus_site':"
+             << endl
+             << "`Scan_Parse_Parameter_Type::check_privileges' succeeded."
+             << endl
+             << "`privilege_val' == " << privilege_val 
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |else if (DEBUG)|  */ 
+
+    if (privilege_val == 0)
+    {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "ERROR! In `Scan_Parse_Parameter_Type::mark_globus_site':"
+             << endl
+             << "User " << curr_user_id << " is not permitted to ";
+
+        if (delete_gs == true)  
+          cerr << "mark ";
+        else 
+          cerr << "unmark ";
+
+        cerr << "Globus site `" << globus_site << "' as deleted."
+             << endl 
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+        unlock_cerr_mutex(); 
+
+        temp_strm << "FAILED TO ";
+
+        if (delete_gs == true)  
+          temp_strm << "MARK ";
+        else 
+          temp_strm << "UNMARK ";
+
+        temp_strm << "GLOBUS_SITE <" << globus_site << "> AS DELETED 2";
+
+        response.command = temp_strm.str();
+
+        pthread_mutex_lock(&response_deque_mutex);
+        response_deque.push_back(response);
+        pthread_mutex_unlock(&response_deque_mutex);
+
+        return 1;
+
+    }  /* |if (status != 0)|  */
+
+    else if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "In `Scan_Parse_Parameter_Type::mark_globus_site':"
+             << endl
+             << "User " << curr_user_id << " is permitted to ";
+
+        if (delete_gs == true)  
+          cerr << "mark ";
+        else 
+          cerr << "unmark ";
+
+        cerr << "Globus site `" << globus_site << "' as deleted."
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |else if (DEBUG)|  */ 
+   
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::mark_globus_site| definition@>=
+
+    if (delete_gs == true)  
+       sql_strm << "update Globus_Sites set deleted = 1, enabled = 0, "
+                << "last_modified = utc_timestamp() where "
+                << "hostname = '" << globus_site << "'";
+    else
+    {
+           sql_strm << "update Globus_Sites set deleted = 0, "
+                    << "last_modified = utc_timestamp()";
+           
+           if (enable_optional == 0 || enable_optional == 1)
+              sql_strm << ", enabled = 1";
+
+           sql_strm << " where hostname = '" << globus_site << "'";
+    }
+ 
+    if (DEBUG) 
+    { 
+        lock_cerr_mutex(); 
+        cerr << "`sql_strm.str()' == "
+             << endl 
+             << sql_strm.str()
+             << endl;
+        unlock_cerr_mutex(); 
+
+    } /* |if (DEBUG)|  */
+
+    long affected_rows = 0L;
+
+    status = submit_mysql_query(sql_strm.str(), result, 0, 0, &affected_rows);
+
+    if (status != 0)
+    {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "ERROR! In `Scan_Parse_Parameter_Type::mark_globus_site':"
+             << endl
+             << "`submit_mysql_query' failed, returning " << status << "."
+             << endl 
+             << mysql_error(mysql_ptr)
+             << endl
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+        unlock_cerr_mutex(); 
+
+        temp_strm << "FAILED TO ";
+
+        if (delete_gs == true)  
+          temp_strm << "MARK ";
+        else 
+          temp_strm << "UNMARK ";
+
+        temp_strm << "GLOBUS_SITE <" << globus_site << "> AS DELETED 1";
+
+        response.command = temp_strm.str();
+
+        pthread_mutex_lock(&response_deque_mutex);
+        response_deque.push_back(response);
+        pthread_mutex_unlock(&response_deque_mutex);
+
+        if (result)
+           mysql_free_result(result);
+
+        return 1;
+
+    }  /* |if (status != 0)|  */
+
+    else if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "In `Scan_Parse_Parameter_Type::mark_globus_site':"
+             << endl
+             << "`submit_mysql_query' succeeded."
+             << endl 
+             << "`affected_rows' == " << affected_rows
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |else if (DEBUG)|  */ 
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::mark_globus_site| definition@>=
+
+    if (affected_rows == 0)
+    {
+
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "WARNING! In `Scan_Parse_Parameter_Type::mark_globus_site':"
+             << endl
+             << "No rows affected."
+             << endl
+             << "Exiting function successfully with return value 2."
+             << endl;
+        unlock_cerr_mutex(); 
+
+        temp_strm << "FAILED TO ";
+
+        if (delete_gs == true)  
+          temp_strm << "MARK ";
+        else 
+          temp_strm << "UNMARK ";
+
+        temp_strm << "GLOBUS_SITE <" << globus_site << "> AS DELETED 0";
+
+        response.command = temp_strm.str();
+
+        pthread_mutex_lock(&response_deque_mutex);
+        response_deque.push_back(response);
+        pthread_mutex_unlock(&response_deque_mutex);
+
+        mysql_free_result(result);
+
+        return 2;
+
+    }  /* |if (affected_rows == 0)|  */
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::mark_globus_site| definition@>=
+
+    if (delete_gs == true)  
+       temp_strm << "MARKED ";
+    else 
+       temp_strm << "UNMARKED ";
+
+    temp_strm << "GLOBUS_SITE <" << globus_site << "> AS DELETED SUCCESSFULLY";
+
+    response.command = temp_strm.str();
+
+    pthread_mutex_lock(&response_deque_mutex);
+    response_deque.push_back(response);
+    pthread_mutex_unlock(&response_deque_mutex);
+
+    mysql_free_result(result);
+
+    if (DEBUG) 
+    { 
+       lock_cerr_mutex(); 
+       cerr << "[Thread " << thread_ctr << "]:  "
+            << "Exiting `Scan_Parse_Parameter_Type::mark_globus_site' successfully "
+            << "with return value 0."
+            << endl;
+       unlock_cerr_mutex(); 
+
+    } /* |if (DEBUG)| */
+
+    return 0;
+
+@q ****** (6) @>
+
+}  /* End of |Scan_Parse_Parameter_Type::mark_globus_site| definition  */
+
+#endif /* |HAVE_LIBMYSQLCLIENT|  */
+
+@q **** (4) Enable or disable Globus site.  @>
+
+@ Enable or disable Globus site.
+\initials{LDF 2012.04.30.}
+
+\LOG
+\initials{LDF 2012.04.30.}
+Added this function.  In \filename{scprpmtp.web}, an |inline| function 
+|Scan_Parse_Parameter_Type::disable_globus_site| is defined, which calls this function 
+with |bool enable = false|.
+\ENDLOG
+
+@q ***** (5) Definition  @>
+@
+@<|Scan_Parse_Parameter_Type::enable_globus_site| definition@>=
+
+#if HAVE_LIBMYSQLCLIENT
+int
+Scan_Parse_Parameter_Type::enable_globus_site(string globus_site, 
+                                              bool enable)
+{
+@q ****** (6) @>
+
+    bool DEBUG = false;  /* |true|  */
+    set_debug_level(DEBUG);
+
+    int status = 0;
+
+    MYSQL_RES *result          = 0;
+    unsigned int row_ctr       = 0;
+    unsigned int field_ctr     = 0;
+   
+    MYSQL_ROW curr_row;
+
+    stringstream sql_strm;
+
+    stringstream temp_strm;
+
+    unsigned int curr_user_id = (effective_user_id > 0) ? effective_user_id : user_id;
+
+    Response_Type response;
+    response.type = Response_Type::COMMAND_ONLY_TYPE;
+
+    string func_name_str;
+
+    if (enable)
+       func_name_str = "Scan_Parse_Parameter_Type::enable_globus_site";
+    else
+       func_name_str = "Scan_Parse_Parameter_Type::disable_globus_site";
+
+    if (DEBUG) 
+    { 
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "Entering `" << func_name_str << "'." << endl;
+
+        unlock_cerr_mutex(); 
+
+    } /* |if (DEBUG)|  */
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::enable_globus_site| definition@>=
+
+    unsigned int privilege_val = 0U;
+
+    status = check_privileges(privilege_val, true, "enable_globus_site", globus_site);
+
+    if (status != 0)
+    {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "ERROR! In `" << func_name_str << "':"
+             << endl
+             << "`Scan_Parse_Parameter_Type::check_privileges' failed, returning " << status << "."
+             << endl
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+        unlock_cerr_mutex(); 
+
+        temp_strm << "FAILED TO ";
+
+        if (enable)  
+          temp_strm << "ENABLE ";
+        else 
+          temp_strm << "DISABLE ";
+
+        temp_strm << "GLOBUS_SITE <" << globus_site << "> 3";
+
+        response.command = temp_strm.str();
+
+        pthread_mutex_lock(&response_deque_mutex);
+        response_deque.push_back(response);
+        pthread_mutex_unlock(&response_deque_mutex);
+
+        if (result)
+           mysql_free_result(result);
+
+        return 1;
+
+    }  /* |if (status != 0)|  */
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::enable_globus_site| definition@>=
+
+    if (privilege_val == 0)
+    {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "WARNING!  In  `" << func_name_str << "':"
+             << endl
+             << "`privilege_val' == 0.  User " << curr_user_id << " does not have permission "
+             << "to ";
+
+        if (enable)  
+          cerr << "enable ";
+        else 
+          cerr << "disable ";
+
+        cerr << "Globus site `" << globus_site << "'."
+             << endl
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+        unlock_cerr_mutex(); 
+
+        temp_strm << "FAILED TO ";
+
+        if (enable)  
+          temp_strm << "ENABLE ";
+        else 
+          temp_strm << "DISABLE ";
+
+        temp_strm << "GLOBUS_SITE <" << globus_site << "> 4";
+
+        response.command = temp_strm.str();
+
+        pthread_mutex_lock(&response_deque_mutex);
+        response_deque.push_back(response);
+        pthread_mutex_unlock(&response_deque_mutex);
+
+        return 1;
+
+    }  /* |if (status != 0)|  */
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::enable_globus_site| definition@>=
+
+    sql_strm << "select globus_site_id, enabled from Globus_Sites "
+             << "where hostname = '" << globus_site << "'";
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "sql_strm.str() == " << sql_strm.str() << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */ 
+
+    status = submit_mysql_query(sql_strm.str(), result, &row_ctr, &field_ctr);
+
+    if (status != 0)
+    {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "ERROR! In `" << func_name_str << "':"
+             << endl
+             << "`submit_mysql_query' failed, returning " << status << "."
+             << endl 
+             << mysql_error(mysql_ptr)
+             << endl
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+        unlock_cerr_mutex(); 
+
+        temp_strm << "FAILED TO ";
+
+        if (enable)  
+          temp_strm << "ENABLE ";
+        else 
+          temp_strm << "DISABLE ";
+
+        temp_strm << "GLOBUS_SITE <" << globus_site << "> 1";
+
+        response.command = temp_strm.str();
+
+        pthread_mutex_lock(&response_deque_mutex);
+        response_deque.push_back(response);
+        pthread_mutex_unlock(&response_deque_mutex);
+
+        if (result)
+           mysql_free_result(result);
+
+        return 1;
+
+    }  /* |if (status != 0)|  */
+
+    else if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "In `" << func_name_str << "':"
+             << endl
+             << "`submit_mysql_query' succeeded."
+             << endl
+             << "`row_ctr' == " << row_ctr
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |else if (DEBUG)|  */ 
+
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::enable_globus_site| definition@>=    
+
+    if (row_ctr == 0)
+    {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "WARNING! In `" << func_name_str << "':"
+             << endl
+             << "`Scan_Parse_Parameter_Type::submit_mysql_query' returned 0 rows."
+             << endl 
+             << "No data found for Globus site `" << globus_site << "' in database."
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+        unlock_cerr_mutex(); 
+
+        temp_strm << "FAILED TO ";
+
+        if (enable)  
+          temp_strm << "ENABLE ";
+        else 
+          temp_strm << "DISABLE ";
+
+        temp_strm << "GLOBUS_SITE <" << globus_site << "> 0";
+
+        response.command = temp_strm.str();
+
+        pthread_mutex_lock(&response_deque_mutex);
+        response_deque.push_back(response);
+        pthread_mutex_unlock(&response_deque_mutex);
+
+        if (result)
+           mysql_free_result(result);
+
+        return 1;
+
+    }  /* |if (row_ctr == 0)|  */
+
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::enable_globus_site| definition@>=
+
+    if ((curr_row = mysql_fetch_row(result)) == 0)
+    {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "ERROR!  In " << func_name_str << "':"
+             << endl
+             << "`mysql_fetch_row' failed, returning 0:"
+             << endl 
+             << mysql_error(mysql_ptr)
+             << endl 
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+         unlock_cerr_mutex(); 
+
+        temp_strm << "FAILED TO ";
+
+        if (enable)  
+          temp_strm << "ENABLE ";
+        else 
+          temp_strm << "DISABLE ";
+
+        temp_strm << "GLOBUS_SITE <" << globus_site << "> 1";
+
+        response.command = temp_strm.str();
+
+        pthread_mutex_lock(&response_deque_mutex);
+        response_deque.push_back(response);
+        pthread_mutex_unlock(&response_deque_mutex);
+
+        mysql_free_result(result);
+
+       return 1;
+       
+    }  /* |if ((curr_row = mysql_fetch_row(result)) == 0)|  */
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::enable_globus_site| definition@>=
+
+    else if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "`mysql_fetch_row' succeeded." << endl;
+        unlock_cerr_mutex(); 
+    }  /* |else if (DEBUG)|  */ 
+
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::enable_globus_site| definition@>=
+
+    int curr_globus_site_id;
+
+    if (curr_row[0] == 0 || strlen(curr_row[0]) ==  0)
+    {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "ERROR!  In " << func_name_str << "':"
+             << endl
+             << "`curr_row[0]' == 0 or `strlen(curr_row[0])' == 0."
+             << endl 
+             << "`mysql_fetch_row' failed to return value of `globus_site_id' column from "
+             << "database table `Globus_Sites' for Globus site '" << globus_site << "'."
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+         unlock_cerr_mutex(); 
+
+         temp_strm << "FAILED TO ";
+
+         if (enable)  
+           temp_strm << "ENABLE ";
+         else 
+           temp_strm << "DISABLE ";
+
+         temp_strm << "GLOBUS_SITE <" << globus_site << "> 1";
+
+         response.command = temp_strm.str();
+
+         pthread_mutex_lock(&response_deque_mutex);
+         response_deque.push_back(response);
+         pthread_mutex_unlock(&response_deque_mutex);
+
+         mysql_free_result(result);
+
+         return 1;
+
+    }  /* |if (curr_row[0] == 0 || strlen(curr_row[0]) ==  0)|  */
+
+    else
+    {
+         curr_globus_site_id = atoi(curr_row[0]);
+
+         if (DEBUG)
+         {
+             lock_cerr_mutex(); 
+             cerr << "curr_globus_site_id == " << curr_globus_site_id << endl;
+             unlock_cerr_mutex(); 
+
+         }  /* |if (DEBUG)|  */ 
+
+    }  /* |else|  */
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::enable_globus_site| definition@>=
+
+    bool enabled_val;
+
+    if (curr_row[1] == 0 || strlen(curr_row[1]) ==  0)
+    {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "WARNING!  In " << func_name_str << "':"
+             << endl
+             << "`curr_row[1]' == 0 or `strlen(curr_row[1])' == 0."
+             << endl 
+             << "`mysql_fetch_row' failed to return value of `enabled' column from "
+             << "database table `Globus_Sites' for Globus site '" << globus_site << "'."
+             << endl 
+             << "Continuing."
+             << endl;
+         unlock_cerr_mutex(); 
+
+    }  /* |if (curr_row[1] == 0 || strlen(curr_row[1]) ==  0)|  */
+ 
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::enable_globus_site| definition@>=
+
+    else
+    {
+@q ******* (7) @>
+
+        if (DEBUG)
+        {
+            lock_cerr_mutex(); 
+            cerr << "`curr_row[1]' == " << curr_row[1] << endl;
+            unlock_cerr_mutex(); 
+        }  /* |if (DEBUG)|  */ 
+
+@q ******* (7) @>
+ 
+        enabled_val = (atoi(curr_row[1]) > 0) ? true : false;
+
+        if (DEBUG)
+        {
+            lock_cerr_mutex(); 
+            cerr << "`enabled_val' == " << enabled_val << endl;
+            unlock_cerr_mutex(); 
+
+        }  /* |if (DEBUG)|  */ 
+        
+@q ******* (7) @>
+
+        if (enable == enabled_val)
+        {
+            lock_cerr_mutex(); 
+            cerr << "[Thread " << thread_ctr << "]:  "
+                 << "WARNING!  In " << func_name_str << "':"
+                 << endl
+                 << "`enable' == `enabled_val' == " << enable
+                 << endl;
+
+            if (enable)  
+              cerr << "Globus site `" << globus_site << "' already enabled.  Not enabling.";
+            else 
+              cerr << "Globus site `" << globus_site << "' already disabled.  Not disabling.";
+      
+            cerr << endl
+                 << "Exiting function successfully with return value 0."
+                 << endl;
+             unlock_cerr_mutex(); 
+
+            temp_strm << "FAILED TO ";
+
+            if (enable)  
+              temp_strm << "ENABLE ";
+            else 
+              temp_strm << "DISABLE ";
+
+            temp_strm << "GLOBUS_SITE <" << globus_site << "> 2";
+
+            response.command = temp_strm.str();
+
+            pthread_mutex_lock(&response_deque_mutex);
+            response_deque.push_back(response);
+            pthread_mutex_unlock(&response_deque_mutex);
+
+            mysql_free_result(result);
+
+            return 0;
+
+        }  /* |if (enable == enabled_val)|  */
+
+@q ******* (7) @>
+
+        else if (DEBUG)
+        {
+            lock_cerr_mutex(); 
+            cerr << "`enable' != `enabled_val':" << endl
+                 << "`enable' == " << enable
+                 << endl 
+                 << "`enabled_val' == " << enabled_val
+                 << endl;
+            unlock_cerr_mutex(); 
+
+        }  /* |else if (DEBUG)|  */ 
+        
+@q ******* (7) @>
+
+    }  /* |else|  */
+
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::enable_globus_site| definition@>=
+
+    mysql_free_result(result);
+    sql_strm.str("");
+
+    sql_strm << "update Globus_Sites set enabled = " << enable << " where globus_site_id = "
+             << curr_globus_site_id;
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "sql_strm.str() == " << sql_strm.str() << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */ 
+
+    long affected_rows = 0L;
+
+    status = submit_mysql_query(sql_strm.str(), result, 0, 0, &affected_rows);
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::enable_globus_site| definition@>=
+
+    if (status != 0)
+    {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "ERROR! In `" << func_name_str << "':"
+             << endl
+             << "`submit_mysql_query' failed, returning " << status << "."
+             << endl 
+             << mysql_error(mysql_ptr)
+             << endl
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+        unlock_cerr_mutex(); 
+
+        temp_strm << "FAILED TO ";
+
+        if (enable)  
+          temp_strm << "ENABLE ";
+        else 
+          temp_strm << "DISABLE ";
+
+        temp_strm << "GLOBUS_SITE <" << globus_site << "> 1";
+
+        response.command = temp_strm.str();
+
+        pthread_mutex_lock(&response_deque_mutex);
+        response_deque.push_back(response);
+        pthread_mutex_unlock(&response_deque_mutex);
+
+        if (result)
+           mysql_free_result(result);
+
+        return 1;
+
+    }  /* |if (status != 0)|  */
+
+    else if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "In `" << func_name_str << "':"
+             << endl
+             << "`submit_mysql_query' succeeded."
+             << endl
+             << "`affected_rows' == " << affected_rows
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |else if (DEBUG)|  */ 
+
+    if (affected_rows == 0)
+    {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "WARNING! In `" << func_name_str << "':"
+             << endl
+             << "`Scan_Parse_Parameter_Type::submit_mysql_query' did not affect any rows."
+             << endl 
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+        unlock_cerr_mutex(); 
+
+        temp_strm << "FAILED TO ";
+
+        if (enable)  
+          temp_strm << "ENABLE ";
+        else 
+          temp_strm << "DISABLE ";
+
+        temp_strm << "GLOBUS_SITE <" << globus_site << "> 1";
+
+        response.command = temp_strm.str();
+
+        pthread_mutex_lock(&response_deque_mutex);
+        response_deque.push_back(response);
+        pthread_mutex_unlock(&response_deque_mutex);
+
+        if (result)
+           mysql_free_result(result);
+
+        return 1;
+
+    }  /* |if (affected_rows == 0)|  */
+
+    else if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "`affected_rows' == " << affected_rows
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |else if (DEBUG)|  */ 
+
+@q ****** (6) @>
+@
+\LOG
+\initials{LDF 2012.05.21.}
+@:BUG FIX@> BUG FIX:  Added assignment |globus_site_map[globus_site] = enable|.
+\ENDLOG 
+
+@<|Scan_Parse_Parameter_Type::enable_globus_site| definition@>=
+
+    if (enable)
+       temp_strm << "ENABLED ";
+    else
+       temp_strm << "DISABLED ";
+ 
+    temp_strm << "GLOBUS_SITE <" << globus_site << "> SUCCESSFULLY";
+
+    response.command = temp_strm.str();
+
+    globus_site_map[globus_site] = enable;
+
+    pthread_mutex_lock(&response_deque_mutex);
+    response_deque.push_back(response);
+    pthread_mutex_unlock(&response_deque_mutex);
+
+    if (DEBUG) 
+    { 
+       lock_cerr_mutex(); 
+       cerr << "[Thread " << thread_ctr << "]:  "
+            << "Exiting `" << func_name_str << "' successfully with return value 0."
+            << endl;
+       unlock_cerr_mutex(); 
+
+    } /* |if (DEBUG)| */
+
+    return 0;
+
+@q ****** (6) @>
+
+}  /* End of |Scan_Parse_Parameter_Type::enable_globus_site| definition  */
+
+#endif /* |HAVE_LIBMYSQLCLIENT|  */
+
+@q **** (4) Check privileges.  @>
+
+@ Check privileges.
+\initials{LDF 2012.04.30.}
+
+\LOG
+\initials{LDF 2012.04.30.}
+Added this function.
+
+\initials{LDF 2012.05.03.}
+Added optional argument |int *save_globus_site_id|.  Default is 0.
+\ENDLOG
+
+Return values:  0 if successful, otherwise 1.
+\initials{LDF 2012.05.03.}
+
+@q ***** (5) Definition  @>
+@
+@<|Scan_Parse_Parameter_Type::check_privileges| definition@>=
+
+#if HAVE_LIBMYSQLCLIENT
+int
+Scan_Parse_Parameter_Type::check_privileges(unsigned int &privilege_val, 
+                                            bool quit_on_success,
+                                            string privilege, 
+                                            string globus_site,
+                                            int *save_globus_site_id)
+{
+@q ****** (6) @>
+
+    bool DEBUG = false;  /* |true|  */
+    set_debug_level(DEBUG);
+
+    int status = 0;
+
+    MYSQL_RES *result          = 0;
+    unsigned int row_ctr       = 0;
+    unsigned int field_ctr     = 0;
+   
+    MYSQL_ROW curr_row;
+
+    stringstream sql_strm;
+
+    stringstream temp_strm;
+
+    unsigned int curr_user_id = (effective_user_id > 0) ? effective_user_id : user_id;
+
+    privilege_val = 0U;
+    
+    if (DEBUG) 
+    { 
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "Entering `Scan_Parse_Parameter_Type::check_privileges'."
+             << endl;
+        unlock_cerr_mutex(); 
+
+    } /* |if (DEBUG)|  */
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::check_privileges| definition@>=
+
+    if (save_globus_site_id != 0 && quit_on_success == true)
+    {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "WARNING!  In `Scan_Parse_Parameter_Type::check_privileges':"
+             << endl 
+             << "`save_globus_site_id' is non-NULL and "
+             << "`quit_on_success' == `true'."
+             << endl 
+             << "Setting `quit_on_success' to `false'.  Otherwise, "
+             << "function could exit before setting `save_globus_site_id'."
+             << endl
+             << "Continuing."
+             << endl;
+        unlock_cerr_mutex(); 
+
+        quit_on_success == false;
+
+    }  /* |if (save_globus_site_id != 0 && quit_on_success == true)|  */
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::check_privileges| definition@>=
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "`globus_site' == " << globus_site << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */ 
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::check_privileges| definition@>=
+
+   sql_strm << "select superuser";
+
+   if (!privilege.empty())
+      sql_strm << ", " << privilege;
+
+   sql_strm << " from Privileges where user_id = " << curr_user_id;
+
+   if (DEBUG)
+   {
+       lock_cerr_mutex();
+       cerr << "`sql_strm.str()' == " << sql_strm.str() << endl,
+       unlock_cerr_mutex();
+
+   }  /* |if (DEBUG)|  */  
+
+   status = submit_mysql_query(sql_strm.str(), result, &row_ctr, &field_ctr);
+
+   if (status != 0)
+   {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "ERROR!  In `Scan_Parse_Parameter_Type::check_privileges':"
+             << endl
+             << "`Scan_Parse_Parameter_Type::submit_mysql_query' failed, returning "
+             << status << ":"
+             << endl 
+             << mysql_error(mysql_ptr)
+             << endl 
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+         unlock_cerr_mutex(); 
+
+        if (result)
+            mysql_free_result(result);
+
+         return 1;
+
+
+   }  /* |if (status != 0)|   */
+
+   else if (DEBUG)
+   {
+       lock_cerr_mutex();
+       cerr << "`submit_mysql_query' succeeded."
+            << endl 
+            << "`row_ctr ==' " << row_ctr
+            << endl 
+            << "`field_ctr ==' " << field_ctr
+            << endl;
+       unlock_cerr_mutex(); 
+
+   }  /* |else if (DEBUG)|  */ 
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::check_privileges| definition@>=
+
+    if (row_ctr == 0)
+    {
+        if (DEBUG)
+        {
+            lock_cerr_mutex();
+            cerr << "`row_ctr' == 0.  No entry found for `curr_user_id' "
+                 << "in `Privileges' table."
+                 << endl;
+            unlock_cerr_mutex(); 
+ 
+        }  /* |if (DEBUG)|  */ 
+
+    }  /* |if (row_ctr == 0)|  */
+
+@q ****** (6) @>
+
+@ There should be at most one row, so we don't bother checking 
+for more.
+\initials{LDF 2012.04.30.}
+
+@<|Scan_Parse_Parameter_Type::check_privileges| definition@>=
+
+    else  /* |row_ctr > 0|  */
+    {
+@q ******* (7) @>
+ 
+        if ((curr_row = mysql_fetch_row(result)) == 0)
+        {
+            lock_cerr_mutex(); 
+            cerr << "[Thread " << thread_ctr << "]:  "
+                 << "ERROR!  In `Scan_Parse_Parameter_Type::check_privileges':"
+                 << endl
+                 << "`mysql_fetch_row' failed, returning 0:"
+                 << endl 
+                 << mysql_error(mysql_ptr)
+                 << endl 
+                 << "Exiting function unsuccessfully with return value 1."
+                 << endl;
+             unlock_cerr_mutex(); 
+
+             mysql_free_result(result);
+
+             return 1;
+           
+        }  /* |if ((curr_row = mysql_fetch_row(result)) == 0)|  */
+
+@q ******* (7) @>
+@
+@<|Scan_Parse_Parameter_Type::check_privileges| definition@>=
+
+        else if (DEBUG)
+        {
+            lock_cerr_mutex(); 
+            cerr << "`mysql_fetch_row' succeeded." << endl;
+            unlock_cerr_mutex(); 
+
+        }  /* |else if (DEBUG)|  */ 
+
+@q ******* (7) @>
+
+        if (curr_row[0] != 0 && strlen(curr_row[0]) > 0 && atoi(curr_row[0]) == 1)
+           privilege_val += 1;
+ 
+        if (DEBUG)
+        {
+
+            lock_cerr_mutex(); 
+            cerr << "User " << curr_user_id << " is ";
+
+            if (!(privilege_val & 1U))
+               cerr << "not ";
+
+            cerr << "superuser." << endl;
+            unlock_cerr_mutex(); 
+
+        }  /* |if (DEBUG)|  */ 
+
+        if (field_ctr > 0 && curr_row[1] != 0 && strlen(curr_row[1]) > 0 && atoi(curr_row[1]) == 1)
+           privilege_val += 2;
+
+        if (DEBUG)
+        {
+
+            lock_cerr_mutex(); 
+            cerr << "User " << curr_user_id << " ";
+
+            if (privilege_val & 2U)
+               cerr << "has privilege ";
+            else
+               cerr << "doesn't have privilege ";
+
+            cerr << "\"" << privilege << "\"." << endl;
+            unlock_cerr_mutex(); 
+
+        }  /* |if (DEBUG)|  */ 
+
+@q ******* (7) @>
+
+    }  /* |else| (|row_ctr > 0|)  */
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::check_privileges| definition@>=
+
+    mysql_free_result(result);
+
+    if (privilege_val > 0 && quit_on_success == true)
+    {
+         if (DEBUG)
+         {
+
+             lock_cerr_mutex(); 
+             cerr << "[Thread " << thread_ctr << "]:  "
+                  << "In `Scan_Parse_Parameter_Type::check_privileges':"
+                  << endl
+                  << "`privilege_val' > 0 and `quit_on_success' == `true'."
+                  << endl
+                  << "Exiting function successfully with return value 0."
+                  << endl;
+             unlock_cerr_mutex();              
+
+         }  /* |if (DEBUG)|  */ 
+
+         return 0;
+
+    }  /* |if (privilege_val > 0 && quit_on_success == true)|  */
+
+    if (globus_site.empty())
+    {
+         if (DEBUG)
+         {
+
+             lock_cerr_mutex(); 
+             cerr << "[Thread " << thread_ctr << "]:  "
+                  << "In `Scan_Parse_Parameter_Type::check_privileges':"
+                  << endl
+                  << "`globus_site' is empty.  Not checking whether user " << curr_user_id 
+                  << " is admin of a Globus site."
+                  << endl
+                  << "Exiting function successfully with return value 0."
+                  << endl;
+             unlock_cerr_mutex();              
+
+         }  /* |if (DEBUG)|  */ 
+
+         return 0;
+
+    }  /* |if (globus_site.empty())|  */
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::check_privileges| definition@>=
+
+    result = 0;
+    row_ctr = 0;
+    field_ctr = 0;
+
+    sql_strm.str("");
+
+    sql_strm << "select T.globus_site_id, GSS.hostname, T.admin_id from "
+             << "(select GS.globus_site_id, "
+             << "GSA.admin_id from Globus_Sites as GS left join Globus_Sites_Admins "
+             << "as GSA on GS.globus_site_id = GSA.globus_site_id and "
+             << "GSA.admin_id = " << curr_user_id << " order by GS.globus_site_id) as T, "
+             << "Globus_Sites as GSS where T.globus_site_id = GSS.globus_site_id and "
+             << "GSS.hostname = '" << globus_site<< "' order by T.globus_site_id";
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex();
+        cerr << "`sql_strm.str()' == " << sql_strm.str() << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */ 
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::check_privileges| definition@>=
+
+    status = submit_mysql_query(sql_strm.str(), result, &row_ctr, &field_ctr);
+
+    sql_strm.str("");
+
+    if (status != 0)
+    {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "ERROR!  In `Scan_Parse_Parameter_Type::check_privileges':"
+             << endl
+             << "`Scan_Parse_Parameter_Type::submit_mysql_query' failed, returning "
+             << status << ":"
+             << endl 
+             << mysql_error(mysql_ptr)
+             << endl 
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+         unlock_cerr_mutex(); 
+
+        if (result)
+            mysql_free_result(result);
+
+         return 1;
+
+    }  /* |if (status != 0)|  */
+
+    else if (DEBUG)
+    {
+        lock_cerr_mutex();
+        cerr << "`submit_mysql_query' succeeded.  `row_ctr ==' " << row_ctr
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |else if (DEBUG)|  */ 
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::check_privileges| definition@>=
+
+    if (row_ctr == 0)
+    {
+       
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "WARNING!  In `Scan_Parse_Parameter_Type::check_privileges':"
+             << endl
+             << "`Scan_Parse_Parameter_Type::submit_mysql_query' returned 0 rows."
+             << endl 
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+         unlock_cerr_mutex(); 
+
+         if (result)
+            mysql_free_result(result);
+
+         return 1;
+
+    }  /* |if (row_ctr == 0)|  */
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::check_privileges| definition@>=
+
+    if ((curr_row = mysql_fetch_row(result)) == 0)
+    {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "ERROR!  In `Scan_Parse_Parameter_Type::check_privileges':"
+             << endl
+             << "`mysql_fetch_row' failed, returning 0:"
+             << endl 
+             << mysql_error(mysql_ptr)
+             << endl 
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+         unlock_cerr_mutex(); 
+
+         mysql_free_result(result);
+
+         return 1;
+       
+    }  /* |if ((curr_row = mysql_fetch_row(result)) == 0)|  */
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::check_privileges| definition@>=
+
+    else if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "`mysql_fetch_row' succeeded." << endl;
+        unlock_cerr_mutex(); 
+    }  /* |else if (DEBUG)|  */ 
+
+    int curr_globus_site_id;
+
+    if (curr_row[0] == 0 || strlen(curr_row[0]) == 0)
+    {
+         lock_cerr_mutex(); 
+         cerr << "[Thread " << thread_ctr << "]:  "
+              << "ERROR!  In `Scan_Parse_Parameter_Type::check_privileges':"
+              << endl
+              << "`curr_row[0]' is NULL or empty."
+              << endl 
+              << "Exiting function unsuccessfully with return value 1."
+              << endl;
+          unlock_cerr_mutex(); 
+
+          mysql_free_result(result);
+
+          if (save_globus_site_id)
+             *save_globus_site_id = -1;
+
+          return 1;
+
+    }  /* |if|  */
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::check_privileges| definition@>=
+
+    curr_globus_site_id = atoi(curr_row[0]);
+
+    if (save_globus_site_id)
+        *save_globus_site_id = curr_globus_site_id;
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex();
+        cerr << "`curr_globus_site_id' == " << curr_globus_site_id << endl
+             << "`curr_row[1]' == " << curr_row[1] << endl;
+
+        if (curr_row[2] == 0)
+            cerr << "`curr_row[2]' == NULL.  User " << curr_user_id
+                 << " not admin."
+                 << endl;
+        else
+            cerr << "`curr_row[2]' == " << curr_row[2] << ".  "
+                 << "User " << curr_user_id << " is admin."
+                 << endl;
+                  
+        unlock_cerr_mutex(); 
+    
+    }  /* |if (DEBUG)|  */ 
+
+@q ****** (6) @>
+
+    if (curr_row[2] != 0)
+    {
+
+        privilege_val += 4U;
+
+        if (DEBUG)
+        {
+             lock_cerr_mutex(); 
+             cerr << "[Thread " << thread_ctr << "]:  "
+                  << "In `Scan_Parse_Parameter_Type::check_privileges':"
+                  << endl
+                  << "User " << curr_user_id 
+                  << " is admin of Globus site `" << curr_row[1] << "'."
+                  << endl;
+              unlock_cerr_mutex(); 
+
+        }  /* |if (DEBUG)|  */ 
+
+    }  /* |if (curr_row[2] != 0)|  */
+
+    else if (DEBUG)
+    {
+
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "In `Scan_Parse_Parameter_Type::check_privileges':"
+             << endl
+             << "User " << curr_user_id 
+             << " is not admin of Globus site `" << curr_row[1] << "'."
+             << endl;
+        unlock_cerr_mutex(); 
+
+
+    }  /* |else if (DEBUG)|  */
+ 
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::check_privileges| definition@>=
+
+    if (result)
+       mysql_free_result(result);
+
+    if (DEBUG) 
+    { 
+       lock_cerr_mutex(); 
+       cerr << "[Thread " << thread_ctr << "]:  "
+            << "Exiting `Scan_Parse_Parameter_Type::check_privileges' successfully "
+            << "with return value 0."
+            << endl;
+       unlock_cerr_mutex(); 
+
+    } /* |if (DEBUG)| */
+
+    return 0;
+
+@q ****** (6) @>
+
+}  /* End of |Scan_Parse_Parameter_Type::check_privileges| definition  */
+
+#endif /* |HAVE_LIBMYSQLCLIENT|  */
+
+@q **** (4) Edit Globus site.  @>
+
+@ Edit Globus site.
+\initials{LDF 2012.05.03.}
+
+\LOG
+\initials{LDF 2012.05.03.}
+Added this function.
+
+\initials{LDF 2012.05.07.}
+Added code to account for the case where the argument |int set_or_unset = 1|, 
+i.e., ``unsetting''.
+\ENDLOG
+
+\vskip\baselineskip
+\halign{#:\quad&#\hfil\cr
+%
+{\bf Return values}\span\cr
+\noalign{\vskip.5\baselineskip}
+%%0&\cr
+%
+0&Success\cr
+%
+1&Error\cr
+%
+2&Options specified cause no change to database entry for Globus site |globus_site|\cr
+%
+}
+
+\vskip\baselineskip
+\halign{#:\quad&#\hfil\cr
+%
+{\bf Error codes returned to the client}\span\cr
+\noalign{\vskip.5\baselineskip}
+%%0&\cr
+%
+1&MySQL error\cr
+%
+2&User not permitted to edit Globus site |globus_site|\cr
+%
+3&Globus site |globus_site| unknown\cr
+%
+4&No options set\cr
+%
+5&Options specified cause no change to database entry for Globus site |globus_site|\cr
+}
+
+@q ***** (5) Definition  @>
+
+@<|Scan_Parse_Parameter_Type::edit_globus_site| definition@>=
+
+#if HAVE_LIBMYSQLCLIENT
+int
+Scan_Parse_Parameter_Type::edit_globus_site(string globus_site,
+                                            int set_or_unset)
+{
+@q ****** (6) @>
+
+    bool DEBUG = false;  /* |true|  */
+    set_debug_level(DEBUG);
+
+    int status = 0;
+
+    MYSQL_RES *result          = 0;
+    unsigned int row_ctr       = 0;
+    unsigned int field_ctr     = 0;
+   
+    MYSQL_ROW curr_row;
+
+    stringstream sql_strm;
+
+    stringstream temp_strm;
+
+    Response_Type response;
+
+    response.type = Response_Type::COMMAND_ONLY_TYPE;
+
+    unsigned int curr_user_id = (effective_user_id > 0) ? effective_user_id : user_id;
+    
+    if (DEBUG) 
+    { 
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "Entering `Scan_Parse_Parameter_Type::edit_globus_site'."
+             << endl;
+
+        cerr << "`globus_site' == " << globus_site << endl
+             << "`set_or_unset' == " << set_or_unset << endl;
+
+        globus_site_options.show();
+
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */ 
+
+@q ****** (6) Check privileges of user |curr_user_id|.  @>
+
+@ Check privileges of user |curr_user_id|.  
+\initials{LDF 2012.05.03.}
+
+@<|Scan_Parse_Parameter_Type::edit_globus_site| definition@>=
+
+    unsigned int privilege_val = 0U;
+
+    int globus_site_id = -1;
+
+    status = check_privileges(privilege_val, 
+                              false, 
+                              "edit_globus_site", 
+                              globus_site, 
+                              &globus_site_id);
+
+    if (DEBUG)
+    {
+         cerr << "`Scan_Parse_Parameter_Type::check_privileges' returned " << status 
+              << endl
+              << "`privilege_val' == " << privilege_val
+              << endl 
+              << "`globus_site_id' == " << globus_site_id
+              << endl;
+
+    }  /* |if (DEBUG)|  */ 
+
+@q ******* (7) @>
+
+    if (status != 0)
+    {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "ERROR!  In `Scan_Parse_Parameter_Type::edit_globus_site':"
+             << endl
+             << "`Scan_Parse_Parameter_Type::check_privileges' failed, returning "
+             << status << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (status != 0)|  */
+
+@q ******* (7) @>
+
+    else if (privilege_val == 0)
+    {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "WARNING!  In `Scan_Parse_Parameter_Type::edit_globus_site':"
+             << endl
+             << "Following call to `Scan_Parse_Parameter_Type::check_privileges', "
+             << "`privilege_val' == 0."
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |else if (privilege_val == 0)|  */
+
+@q ******* (7) @>
+
+    if (!(status == 0 && privilege_val > 0))
+    {
+         lock_cerr_mutex(); 
+         cerr << "User " << curr_user_id << " not permitted to edit "
+              << "Globus site `" << globus_site << "'." << endl
+              << "Exiting function unsuccessfully with return value 1."
+              << endl;
+         unlock_cerr_mutex(); 
+
+         temp_strm << "SERVER FAILED TO EDIT GLOBUS_SITE <" << globus_site << "> 2";
+
+         response.command = temp_strm.str();
+
+         if (DEBUG) 
+         { 
+             lock_cerr_mutex(); 
+             cerr << "`response.command' == " << response.command
+                  << endl;
+             unlock_cerr_mutex(); 
+
+         } /* |if (DEBUG)| */
+                   
+         pthread_mutex_lock(&response_deque_mutex);
+         response_deque.push_back(response);
+         pthread_mutex_unlock(&response_deque_mutex);
+
+         globus_site_options.clear();
+
+         return 1;
+
+    }  /* |if (!(status == 0 && privilege_val > 0))|  */
+
+@q ******* (7) |globus_site_id <= 0|.  @>
+
+@ |globus_site_id <= 0|.  This code should never be reached, because in this case, 
+|Scan_Parse_Parameter_Type::check_privileges| should have returned 1.
+\initials{LDF 2012.05.03.}
+
+@<|Scan_Parse_Parameter_Type::edit_globus_site| definition@>=
+
+    if (globus_site_id <= 0)
+    {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "WARNING!  In `Scan_Parse_Parameter_Type::edit_globus_site':"
+             << endl
+             << "Following call to `Scan_Parse_Parameter_Type::check_privileges', "
+             << "`globus_site_id' == " << globus_site_id << "."
+             << endl 
+             << "No data found for Globus site `" << globus_site << "'.  Can't edit."
+             << endl
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+         unlock_cerr_mutex(); 
+
+         temp_strm << "SERVER FAILED TO EDIT GLOBUS_SITE <" << globus_site << "> 3";
+
+         response.command = temp_strm.str();
+
+         if (DEBUG) 
+         { 
+             lock_cerr_mutex(); 
+             cerr << "`response.command' == " << response.command
+                  << endl;
+             unlock_cerr_mutex(); 
+
+         } /* |if (DEBUG)| */
+                   
+         pthread_mutex_lock(&response_deque_mutex);
+         response_deque.push_back(response);
+         pthread_mutex_unlock(&response_deque_mutex);
+
+         globus_site_options.clear();
+
+         return 1; 
+
+    }  /* |if (status != 0)|  */
+
+@q ******* (7) @>
+
+@q ****** (6) Get Globus site data.  @>
+
+@ Get Globus site data.  Check whether the options specified would cause a change 
+in the database row.  That is, don't submit an \.{UPDATE} command unless something will
+be changed.  If the values specified are the same as the ones that are already there, 
+the \.{UPDATE} command will succeed from the point of MySQL and no message would be issued.
+Therefore, we must check this here, if we want this information.
+\initials{LDF 2012.05.03.}
+
+@<|Scan_Parse_Parameter_Type::edit_globus_site| definition@>=
+
+@q ******* (7) @>
+
+   bool found = false;
+
+   string prefix = "select globus_site_id from Globus_Sites where ";
+
+@q ******* (7) @>
+
+   if (!globus_site_options.ip_address.empty())
+   {
+       if (found)
+       {
+          sql_strm << " and ";
+       }
+
+       if (set_or_unset == 0)
+          sql_strm << "ip_address = '" 
+                   << globus_site_options.ip_address << "'";
+       else
+          sql_strm << "ip_address = ''"; 
+
+
+       found = true;
+   }
+
+@q ******* (7) @>
+
+   if (!globus_site_options.interactive_node_name.empty())
+   {
+
+       if (found)
+       {
+          sql_strm << " and ";
+       }
+
+       if (set_or_unset == 0)
+          sql_strm << "interactive_node_name = '" 
+                   << globus_site_options.interactive_node_name << "'";
+       else
+          sql_strm << "interactive_node_name = ''";
+
+
+       found = true;
+
+   }
+
+@q ******* (7) @>
+
+   if (!globus_site_options.interactive_node_ip_address.empty())
+   {
+       if (found)
+       {
+          sql_strm << " and ";
+       }
+    
+       if (set_or_unset == 0)
+          sql_strm << "interactive_node_ip_address = '" 
+                   << globus_site_options.interactive_node_ip_address << "'";
+       else
+          sql_strm << "interactive_node_ip_address = ''";
+
+       found = true;
+   }
+
+@q ******* (7) @>
+
+   if (!globus_site_options.append_ld_library_path.empty())
+   {
+       if (found)
+       {
+          sql_strm << " and ";
+       }
+
+       if (set_or_unset == 0)
+          sql_strm << "append_ld_library_path = '" 
+                   << globus_site_options.append_ld_library_path << "'";
+       else
+          sql_strm << "append_ld_library_path = ''";
+
+       found = true;
+   }
+
+@q ******* (7) @>
+
+   if (!globus_site_options.append_path.empty())
+   {
+       if (found)
+       {
+          sql_strm << " and ";
+       }
+
+       if (set_or_unset == 0)
+          sql_strm << "append_path = '" 
+                   << globus_site_options.append_path << "'";
+       else
+          sql_strm << "append_path = ''";
+
+       found = true;
+   }
+
+@q ******* (7) @>
+
+   if (!globus_site_options.optdbcli_path.empty())
+   {
+       if (found)
+       {
+          sql_strm << " and ";
+       }
+
+       if (set_or_unset == 0)
+          sql_strm << "optdbcli_path = '" 
+                   << globus_site_options.optdbcli_path << "'";
+       else
+          sql_strm << "optdbcli_path = ''";
+
+       found = true;
+   }
+
+@q ******* (7) @>
+
+   if (globus_site_options.enabled > 0)
+   {
+       if (found && set_or_unset == 0)
+       {
+          sql_strm << " and ";
+       }
+
+       if (set_or_unset == 0)
+          sql_strm << "enabled = 1"; 
+
+       found = true;
+   }
+   else if (globus_site_options.enabled < 0)
+   {
+       if (found && set_or_unset == 0)
+       {
+          sql_strm << " and ";
+       }
+
+       if (set_or_unset == 0)
+          sql_strm << "enabled = 0"; 
+
+       found = true;
+   }
+
+@q ******* (7) @>
+
+   if (found == false)
+   {
+       lock_cerr_mutex(); 
+       cerr << "[Thread " << thread_ctr << "]:  "
+            << "ERROR!  In `Scan_Parse_Parameter_Type::edit_globus_site':"
+            << endl
+            << "No options set.  Not editing Globus site `" << globus_site << "'."
+            << endl
+            << "Exiting function unsuccessfully with return value 1."
+            << endl;
+        unlock_cerr_mutex(); 
+
+        temp_strm << "SERVER FAILED TO EDIT GLOBUS_SITE <" << globus_site << "> 4";
+
+        response.command = temp_strm.str();
+
+        if (DEBUG) 
+        { 
+            lock_cerr_mutex(); 
+            cerr << "`response.command' == " << response.command
+                 << endl;
+            unlock_cerr_mutex(); 
+
+        } /* |if (DEBUG)| */
+                  
+        pthread_mutex_lock(&response_deque_mutex);
+        response_deque.push_back(response);
+        pthread_mutex_unlock(&response_deque_mutex);
+
+        globus_site_options.clear();
+
+        return 1; 
+
+   }  /* |if (found == false)|  */
+
+
+@q ******* (7) @>
+   if (DEBUG)
+   {
+       lock_cerr_mutex();
+       cerr << "sql_strm.str() == " << sql_strm.str() << endl;
+       unlock_cerr_mutex();
+
+   }  /* |if (DEBUG)|  */
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::edit_globus_site| definition@>=
+
+   temp_strm.str("");
+
+   temp_strm << prefix << sql_strm.str() << " and globus_site_id = "
+             << globus_site_id;
+
+   string save_sql_str = sql_strm.str();
+  
+   sql_strm.str("");
+
+   sql_strm << temp_strm.str();
+
+   temp_strm.str("");
+
+   if (DEBUG)
+   {
+       lock_cerr_mutex(); 
+       cerr << "sql_strm.str() == " << sql_strm.str() << endl;
+       unlock_cerr_mutex();
+
+   }  /* |if (DEBUG)|  */ 
+
+   status = submit_mysql_query(sql_strm.str(), result, &row_ctr, &field_ctr);
+
+   if (status != 0)
+   {
+       lock_cerr_mutex();
+       cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+            << "ERROR!  In `Scan_Parse_Parameter_Type::edit_globus_site':"
+            << endl 
+            << "`submit_mysql_query' failed, returning " << status 
+            << endl
+            << "Exiting function unsuccessfully with return value 1."
+            << endl;
+       unlock_cerr_mutex(); 
+
+       if (result)
+          mysql_free_result(result);
+
+       temp_strm << "SERVER FAILED TO EDIT GLOBUS_SITE <" << globus_site << "> 1";
+
+       response.command = temp_strm.str();
+
+       if (DEBUG) 
+       { 
+           lock_cerr_mutex(); 
+           cerr << "`response.command' == " << response.command
+                << endl;
+           unlock_cerr_mutex(); 
+
+       } /* |if (DEBUG)| */
+                 
+       pthread_mutex_lock(&response_deque_mutex);
+       response_deque.push_back(response);
+       pthread_mutex_unlock(&response_deque_mutex);
+
+       globus_site_options.clear();
+
+       return 1; 
+
+   } /* |if (status != 0)| */
+
+   else if (DEBUG)
+   {
+       lock_cerr_mutex();
+       cerr << "[Thread " << thread_ctr << "]:  "
+            << "In `Scan_Parse_Parameter_Type::edit_globus_site':"
+            << endl 
+            << "`submit_mysql_query' succeeded."
+            << endl
+            << "`row_ctr' == " << row_ctr
+            << endl;
+       unlock_cerr_mutex(); 
+
+   }  /* |else if (DEBUG)|  */ 
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::edit_globus_site| definition@>=
+
+   if (row_ctr > 0)
+   {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "WARNING!  In `Scan_Parse_Parameter_Type::edit_globus_site':"
+             << endl
+             << "Options specified do not cause any change to database entry for Globus site "
+             << "`" << globus_site << "'.  Not updating."
+             << endl 
+             << "Exiting function successfully with return value 2."
+             << endl;
+         unlock_cerr_mutex(); 
+
+         temp_strm << "SERVER FAILED TO EDIT GLOBUS_SITE <" << globus_site << "> 5";
+
+         response.command = temp_strm.str();
+
+         if (DEBUG) 
+         { 
+             lock_cerr_mutex(); 
+             cerr << "`response.command' == " << response.command
+                  << endl;
+             unlock_cerr_mutex(); 
+
+         } /* |if (DEBUG)| */
+                   
+         pthread_mutex_lock(&response_deque_mutex);
+         response_deque.push_back(response);
+         pthread_mutex_unlock(&response_deque_mutex);
+
+         mysql_free_result(result);
+
+         globus_site_options.clear();
+
+         return 2; 
+
+   }  /* |if (row_ctr > 0)|  */
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::edit_globus_site| definition@>=
+
+   mysql_free_result(result);
+   result = 0;
+
+   string::size_type s;
+
+   while ((s = save_sql_str.find(" and ")) != string::npos)
+   {
+       save_sql_str.replace(s, 5, ", ");
+   }
+
+   if (DEBUG)
+   {
+       lock_cerr_mutex();
+       cerr << "save_sql_str == " << save_sql_str << endl;
+       unlock_cerr_mutex(); 
+
+   }  /* |if (DEBUG)|  */ 
+
+   sql_strm.str("");
+
+   sql_strm << "update Globus_Sites set " << save_sql_str 
+            << ", last_modified = utc_timestamp() where globus_site_id = "
+            << globus_site_id;
+
+   if (DEBUG)
+   {
+       lock_cerr_mutex(); 
+       cerr << "sql_strm.str() == " << sql_strm.str() << endl;
+       unlock_cerr_mutex(); 
+
+   }  /* |if (DEBUG)|  */ 
+
+   long affected_rows = 0L;
+
+   status = submit_mysql_query(sql_strm.str(), result, 0, 0, &affected_rows);
+
+   if (status != 0)
+   {
+       lock_cerr_mutex();
+       cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+            << "ERROR!  In `Scan_Parse_Parameter_Type::edit_globus_site':"
+            << endl 
+            << "`submit_mysql_query' failed, returning " << status 
+            << endl
+            << "Exiting function unsuccessfully with return value 1."
+            << endl;
+       unlock_cerr_mutex(); 
+
+       if (result)
+          mysql_free_result(result);
+
+       temp_strm << "SERVER FAILED TO EDIT GLOBUS_SITE <" << globus_site << "> 1";
+
+       response.command = temp_strm.str();
+
+       if (DEBUG) 
+       { 
+           lock_cerr_mutex(); 
+           cerr << "`response.command' == " << response.command
+                << endl;
+           unlock_cerr_mutex(); 
+
+       } /* |if (DEBUG)| */
+                 
+       pthread_mutex_lock(&response_deque_mutex);
+       response_deque.push_back(response);
+       pthread_mutex_unlock(&response_deque_mutex);
+
+       globus_site_options.clear();
+
+       return 1; 
+
+   } /* |if (status != 0)| */
+
+
+   else if (affected_rows == 0)
+   {
+       lock_cerr_mutex();
+       cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+            << "ERROR!  In `Scan_Parse_Parameter_Type::edit_globus_site':"
+            << endl 
+            << "`affected_rows' == 0.  `Scan_Parse_Parameter_Type::submit_mysql_query' "
+            << "failed to update database table entry for Globus site `" << globus_site << "'."
+            << endl
+            << "Exiting function unsuccessfully with return value 1."
+            << endl;
+       unlock_cerr_mutex(); 
+
+       mysql_free_result(result);
+
+       temp_strm << "SERVER FAILED TO EDIT GLOBUS_SITE <" << globus_site << "> 1";
+
+       response.command = temp_strm.str();
+
+       if (DEBUG) 
+       { 
+           lock_cerr_mutex(); 
+           cerr << "`response.command' == " << response.command
+                << endl;
+           unlock_cerr_mutex(); 
+
+       } /* |if (DEBUG)| */
+                 
+       pthread_mutex_lock(&response_deque_mutex);
+       response_deque.push_back(response);
+       pthread_mutex_unlock(&response_deque_mutex);
+
+       globus_site_options.clear();
+
+       return 1; 
+
+   } /* |if (status != 0)| */
+
+   else if (DEBUG)
+   {
+       lock_cerr_mutex();
+       cerr << "[Thread " << thread_ctr << "]:  "
+            << "In `Scan_Parse_Parameter_Type::edit_globus_site':"
+            << endl 
+            << "`submit_mysql_query' succeeded."
+            << endl
+            << "`affected_rows' == " << affected_rows
+            << endl;
+       unlock_cerr_mutex(); 
+
+   }  /* |else if (DEBUG)|  */ 
+
+   mysql_free_result(result);
+   result = 0;
+   sql_strm.str("");
+
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::edit_globus_site| definition@>=
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::edit_globus_site| definition@>=
+
+    globus_site_options.clear();
+
+    temp_strm << "SERVER EDITED GLOBUS_SITE <" << globus_site << "> SUCCESSFULLY";
+
+    response.command = temp_strm.str();
+
+    pthread_mutex_lock(&response_deque_mutex);
+    response_deque.push_back(response);
+    pthread_mutex_unlock(&response_deque_mutex);
+
+    if (DEBUG) 
+    { 
+       lock_cerr_mutex(); 
+       cerr << "[Thread " << thread_ctr << "]:  "
+            << "`response.command' == " << response.command
+            << endl 
+            << "Exiting `Scan_Parse_Parameter_Type::edit_globus_site' successfully "
+            << "with return value 0."
+            << endl;
+       unlock_cerr_mutex(); 
+
+    } /* |if (DEBUG)| */
+
+    return 0;
+
+@q ****** (6) @>
+
+}  /* End of |Scan_Parse_Parameter_Type::edit_globus_site| definition  */
+
+#endif /* |HAVE_LIBMYSQLCLIENT|  */
+
+@q **** (4) Edit Globus site administrator.  @>
+
+@ Edit Globus site administrator.
+\initials{LDF 2012.05.02.}
+
+\LOG
+\initials{LDF 2012.05.02.}
+Added this function.
+\ENDLOG
+
+\vskip\baselineskip
+\halign{#:\quad&#\hfil\cr
+%
+{\bf Error codes returned to the client}\span\cr
+\noalign{\vskip.5\baselineskip}
+0&No data for user |curr_user_id| in \.{Privileges} database table\cr
+%
+1&MySQL error\cr
+%
+2&user |curr_user_id| not allowed to perform action (add or delete) for Globus site 
+|globus_site|\cr
+%
+3&No data for user |admin_user_id| in \.{Users} database table\cr
+%
+4&If adding, user |admin_user_id| is already admin of for Globus site 
+|globus_site|.\cr
+\omit&If deleting, user |admin_user_id| is not admin\cr
+}
+
+@q ***** (5) Definition  @>
+
+@<|Scan_Parse_Parameter_Type::edit_globus_site_admin| definition@>=
+
+#if HAVE_LIBMYSQLCLIENT
+int
+Scan_Parse_Parameter_Type::edit_globus_site_admin(string globus_site,
+                                                  int admin_user_id, 
+                                                  int action)
+{
+@q ****** (6) @>
+
+    bool DEBUG = false;  /* |true|  */
+    set_debug_level(DEBUG);
+
+    int status = 0;
+
+    MYSQL_RES *result          = 0;
+    unsigned int row_ctr       = 0;
+    unsigned int field_ctr     = 0;
+   
+    MYSQL_ROW curr_row;
+
+    stringstream sql_strm;
+
+    stringstream temp_strm;
+
+    Response_Type response;
+
+    response.type = Response_Type::COMMAND_ONLY_TYPE;
+
+    unsigned int curr_user_id = (effective_user_id > 0) ? effective_user_id : user_id;
+    
+    if (DEBUG) 
+    { 
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "Entering `Scan_Parse_Parameter_Type::edit_globus_site_admin'."
+             << endl;
+
+        cerr << "`globus_site' == " << globus_site << endl
+             << "`admin_user_id' == " << admin_user_id << endl
+             << "`action' == " << action << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */ 
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::edit_globus_site_admin| definition@>=
+
+    if (action < 0 || action > 1)
+    {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "ERROR! In `Scan_Parse_Parameter_Type::edit_globus_site_admin':"
+             << endl 
+             << "Invalid value for argument `in action':  " << action 
+             << " (< 0 or > 1)."
+             << endl
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+        unlock_cerr_mutex(); 
+
+        return 1;
+
+    }  /* |if (action < 0 || action > 2)|  */
+   
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::edit_globus_site_admin| definition@>=
+
+   string action_str;
+   string action_str_1;
+   string action_str_2;
+
+   sql_strm << "select superuser, ";
+
+   if (action == 0)
+   {
+      sql_strm << "add_globus_site_admin ";
+
+      action_str   = "ADD";
+      action_str_1 = "ADDED";
+      action_str_2 = "add";
+
+   }
+   else if (action == 1)
+   {
+      sql_strm << "delete_globus_site_admin ";
+
+      action_str = "DELETE";
+      action_str_1 = "DELETED";
+      action_str_2 = "delete";
+
+   }
+
+   sql_strm << "from Privileges where user_id = " << curr_user_id;
+
+   if (DEBUG)
+   {
+       lock_cerr_mutex();
+       cerr << "`sql_strm.str()' == " << sql_strm.str() << endl,
+       unlock_cerr_mutex();
+
+   }  /* |if (DEBUG)|  */  
+
+   status = submit_mysql_query(sql_strm.str(), result, &row_ctr, &field_ctr);
+
+   if (status != 0)
+   {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "ERROR!  In `Scan_Parse_Parameter_Type::edit_globus_site_admin':"
+             << endl
+             << "`Scan_Parse_Parameter_Type::submit_mysql_query' failed, returning "
+             << status << ":"
+             << endl 
+             << mysql_error(mysql_ptr)
+             << endl 
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+        unlock_cerr_mutex(); 
+
+        temp_strm << "SERVER " << action_str << " ADMIN GLOBUS_SITE <" << globus_site << "> "
+                  << "USER " << admin_user_id << " FAILED 1";
+
+        response.command = temp_strm.str();
+
+        pthread_mutex_lock(&response_deque_mutex);
+        response_deque.push_back(response);
+        pthread_mutex_unlock(&response_deque_mutex);
+
+        if (result)
+            mysql_free_result(result);
+
+         return 1;
+
+
+   }  /* |if (status != 0)|   */
+
+   else if (DEBUG)
+   {
+       lock_cerr_mutex();
+       cerr << "`submit_mysql_query' succeeded."
+            << endl 
+            << "`row_ctr ==' " << row_ctr
+            << endl 
+            << "`field_ctr ==' " << field_ctr
+            << endl;
+       unlock_cerr_mutex(); 
+
+   }  /* |else if (DEBUG)|  */ 
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::edit_globus_site_admin| definition@>=
+
+    if (row_ctr == 0)
+    {
+        if (DEBUG)
+        {
+            lock_cerr_mutex();
+            cerr << "`row_ctr' == 0.  No entry found for `curr_user_id' "
+                 << "in `Privileges' table."
+                 << endl;
+            unlock_cerr_mutex(); 
+ 
+        }  /* |if (DEBUG)|  */ 
+
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "WARNING!  In `Scan_Parse_Parameter_Type::edit_globus_site_admin':"
+             << endl
+             << "`Scan_Parse_Parameter_Type::submit_mysql_query' returned 0 rows."
+             << endl 
+             << "No data for user " << curr_user_id << " in `Privileges' table."
+             << endl 
+             << "Can't " << action_str_2 << " admin for "
+             << "Globus site `" << globus_site << "'." 
+             << endl 
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+        unlock_cerr_mutex(); 
+
+        temp_strm << "SERVER " << action_str << " ADMIN GLOBUS_SITE <" << globus_site << "> "
+                  << "USER " << admin_user_id << " FAILED 0";
+
+        response.command = temp_strm.str();
+
+        pthread_mutex_lock(&response_deque_mutex);
+        response_deque.push_back(response);
+        pthread_mutex_unlock(&response_deque_mutex);
+
+        mysql_free_result(result);
+
+        return 1;
+
+    }  /* |if (row_ctr == 0)|  */
+
+@q ****** (6) @>
+
+@ There should be at most one row, so we don't bother checking 
+for more.
+\initials{LDF 2012.04.30.}
+
+@<|Scan_Parse_Parameter_Type::edit_globus_site_admin| definition@>=
+
+ 
+    if ((curr_row = mysql_fetch_row(result)) == 0)
+    {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "ERROR!  In `Scan_Parse_Parameter_Type::edit_globus_site_admin':"
+             << endl
+             << "`mysql_fetch_row' failed, returning 0:"
+             << endl 
+             << mysql_error(mysql_ptr)
+             << endl 
+             << "Can't " << action_str_2 << " admin for "
+             << "Globus site `" << globus_site << "'." 
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+         unlock_cerr_mutex(); 
+
+         temp_strm << "SERVER " << action_str << " ADMIN GLOBUS_SITE <" 
+                   << globus_site << "> "
+                   << "USER " << admin_user_id << " FAILED 1";
+
+         response.command = temp_strm.str();
+
+         pthread_mutex_lock(&response_deque_mutex);
+         response_deque.push_back(response);
+         pthread_mutex_unlock(&response_deque_mutex);
+
+         mysql_free_result(result);
+
+         return 1;
+       
+    }  /* |if ((curr_row = mysql_fetch_row(result)) == 0)|  */
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::edit_globus_site_admin| definition@>=
+
+    else if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "`mysql_fetch_row' succeeded." << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |else if (DEBUG)|  */ 
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::edit_globus_site_admin| definition@>=
+
+    if (   (curr_row[0] == 0 || strlen(curr_row[0]) == 0 || atoi(curr_row[0]) == 0)
+        && (curr_row[1] == 0 || strlen(curr_row[1]) == 0 || atoi(curr_row[1]) == 0))
+    {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "ERROR!  In `Scan_Parse_Parameter_Type::edit_globus_site_admin':"
+             << endl
+             << "User " << curr_user_id << " not allowed to "
+             << action_str_2 << " admin for "
+             << "Globus site `" << globus_site << "'." 
+             << endl
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+         unlock_cerr_mutex(); 
+
+         temp_strm << "SERVER " << action_str << " ADMIN GLOBUS_SITE <" 
+                   << globus_site << "> "
+                   << "USER " << admin_user_id << " FAILED 2";
+
+         response.command = temp_strm.str();
+
+         pthread_mutex_lock(&response_deque_mutex);
+         response_deque.push_back(response);
+         pthread_mutex_unlock(&response_deque_mutex);
+
+         mysql_free_result(result);
+
+         return 1;
+
+    }  /* |if|  */
+
+    else if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "User " << curr_user_id << " is allowed to " << action_str_2 << " admin "
+             << "for Globus site `" << globus_site << "':"
+             << endl;
+
+        if (curr_row[0] && strlen(curr_row[0]) > 0)
+            cerr << "`curr_row[0]' == " << curr_row[0] << endl;
+        else
+            cerr << "`curr_row[0]' is NULL or empty."  << endl;
+
+        if (curr_row[1] && strlen(curr_row[1]) > 0)
+            cerr << "`curr_row[1]' == " << curr_row[1] << endl;
+        else
+            cerr << "`curr_row[1]' is NULL or empty."  << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |else if (DEBUG)|  */ 
+
+
+@q ****** (6) Check |admin_user_id|.  @>
+
+@ Check |admin_user_id|.  
+\initials{LDF 2012.05.02.}
+
+@<|Scan_Parse_Parameter_Type::edit_globus_site_admin| definition@>=
+
+    mysql_free_result(result);
+    result = 0;
+    sql_strm.str("");
+
+    sql_strm << "select user_id from Users where user_id = " << admin_user_id;
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex();
+        cerr << "`sql_strm.str()' == " << sql_strm.str() << endl,
+        unlock_cerr_mutex();
+
+    }  /* |if (DEBUG)|  */  
+
+    status = submit_mysql_query(sql_strm.str(), result, &row_ctr, &field_ctr);
+
+    if (status != 0)
+    {
+         lock_cerr_mutex(); 
+         cerr << "[Thread " << thread_ctr << "]:  "
+              << "ERROR!  In `Scan_Parse_Parameter_Type::edit_globus_site_admin':"
+              << endl
+              << "`Scan_Parse_Parameter_Type::submit_mysql_query' failed, returning "
+              << status << ":"
+              << endl 
+              << mysql_error(mysql_ptr)
+              << endl 
+              << "Exiting function unsuccessfully with return value 1."
+              << endl;
+         unlock_cerr_mutex(); 
+
+         temp_strm << "SERVER " << action_str << " ADMIN GLOBUS_SITE <" << globus_site << "> "
+                   << "USER " << admin_user_id << " FAILED 1";
+
+         response.command = temp_strm.str();
+
+         pthread_mutex_lock(&response_deque_mutex);
+         response_deque.push_back(response);
+         pthread_mutex_unlock(&response_deque_mutex);
+
+         if (result)
+             mysql_free_result(result);
+
+          return 1;
+
+
+    }  /* |if (status != 0)|   */
+
+    else if (DEBUG)
+    {
+        lock_cerr_mutex();
+        cerr << "`submit_mysql_query' succeeded."
+             << endl 
+             << "`row_ctr ==' " << row_ctr
+             << endl 
+             << "`field_ctr ==' " << field_ctr
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |else if (DEBUG)|  */ 
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::edit_globus_site_admin| definition@>=
+
+    if (row_ctr == 0)
+    {
+        if (DEBUG)
+        {
+            lock_cerr_mutex();
+            cerr << "`row_ctr' == 0.  No entry found for `admin_user_id' "
+                 << "in `Users' table."
+                 << endl;
+            unlock_cerr_mutex(); 
+ 
+        }  /* |if (DEBUG)|  */ 
+
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "WARNING!  In `Scan_Parse_Parameter_Type::edit_globus_site_admin':"
+             << endl
+             << "`Scan_Parse_Parameter_Type::submit_mysql_query' returned 0 rows."
+             << endl 
+             << "No data for user " << admin_user_id << " in `Users' table."
+             << endl 
+             << "Can't " << action_str_2 << " admin for "
+             << "Globus site `" << globus_site << "'." 
+             << endl 
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+        unlock_cerr_mutex(); 
+
+        temp_strm << "SERVER " << action_str << " ADMIN GLOBUS_SITE <" << globus_site << "> "
+                  << "USER " << admin_user_id << " FAILED 3";
+
+        response.command = temp_strm.str();
+
+        pthread_mutex_lock(&response_deque_mutex);
+        response_deque.push_back(response);
+        pthread_mutex_unlock(&response_deque_mutex);
+
+        mysql_free_result(result);
+
+        return 1;
+
+    }  /* |if (row_ctr == 0)|  */
+
+    else if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "Found user " << admin_user_id << " in `Users' database table."
+             << endl;        
+        unlock_cerr_mutex(); 
+
+    }  /* |else if (DEBUG)|  */ 
+
+@q ****** (6) Check whether |admin_user_id| is admin of |globus_site|.  @>
+
+@ Check whether |admin_user_id| is admin of |globus_site|.
+\initials{LDF 2012.05.02.}
+
+@<|Scan_Parse_Parameter_Type::edit_globus_site_admin| definition@>=
+
+    mysql_free_result(result);
+    result = 0;
+    sql_strm.str("");
+
+    sql_strm << "select globus_site_id from Globus_Sites_Admins where globus_site_id "
+             << "in (select globus_site_id from Globus_Sites where hostname = "
+             << "'" << globus_site << "') and admin_id = " << admin_user_id;
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex();
+        cerr << "`sql_strm.str()' == " << sql_strm.str() << endl,
+        unlock_cerr_mutex();
+
+    }  /* |if (DEBUG)|  */  
+
+    status = submit_mysql_query(sql_strm.str(), result, &row_ctr, &field_ctr);
+
+    if (status != 0)
+    {
+         lock_cerr_mutex(); 
+         cerr << "[Thread " << thread_ctr << "]:  "
+              << "ERROR!  In `Scan_Parse_Parameter_Type::edit_globus_site_admin':"
+              << endl
+              << "`Scan_Parse_Parameter_Type::submit_mysql_query' failed, returning "
+              << status << ":"
+              << endl 
+              << mysql_error(mysql_ptr)
+              << endl 
+              << "Exiting function unsuccessfully with return value 1."
+              << endl;
+         unlock_cerr_mutex(); 
+
+         temp_strm << "SERVER " << action_str << " ADMIN GLOBUS_SITE <" << globus_site << "> "
+                   << "USER " << admin_user_id << " FAILED 1";
+
+         response.command = temp_strm.str();
+
+         pthread_mutex_lock(&response_deque_mutex);
+         response_deque.push_back(response);
+         pthread_mutex_unlock(&response_deque_mutex);
+
+         if (result)
+             mysql_free_result(result);
+
+          return 1;
+
+
+    }  /* |if (status != 0)|   */
+
+    else if (DEBUG)
+    {
+        lock_cerr_mutex();
+        cerr << "`submit_mysql_query' succeeded."
+             << endl 
+             << "`row_ctr ==' " << row_ctr
+             << endl 
+             << "`field_ctr ==' " << field_ctr
+             << endl
+             << "User " << admin_user_id << " is ";
+
+        if (row_ctr == 0)
+           cerr << "not ";
+
+        cerr << "admin of Globus site `" 
+             << globus_site << "'."
+             << endl;        
+
+        unlock_cerr_mutex(); 
+
+    }  /* |else if (DEBUG)|  */ 
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::edit_globus_site_admin| definition@>=
+
+
+    if (   (action == 0 && row_ctr != 0)
+        || (action == 1 && row_ctr == 0))
+    {
+         lock_cerr_mutex(); 
+         cerr << "[Thread " << thread_ctr << "]:  "
+              << "WARNING!  In `Scan_Parse_Parameter_Type::edit_globus_site_admin':"
+              << endl
+              << "User " << admin_user_id << " is ";
+
+          if (action == 0)
+             cerr << "already ";
+          else
+             cerr << "not ";
+
+          cerr << "admin of Globus site `" << globus_site << "'.  Not ";
+
+          if (action == 0)
+             cerr << "setting.";
+          else
+             cerr << "deleting.";
+
+          cerr << endl 
+               << "Exiting function successfully with return value 2."
+               << endl;
+         unlock_cerr_mutex(); 
+
+         temp_strm << "SERVER " << action_str << " ADMIN GLOBUS_SITE <" << globus_site << "> "
+                   << "USER " << admin_user_id << " FAILED 4";
+
+         response.command = temp_strm.str();
+
+         pthread_mutex_lock(&response_deque_mutex);
+         response_deque.push_back(response);
+         pthread_mutex_unlock(&response_deque_mutex);
+
+         mysql_free_result(result);
+
+         return 1;
+
+    }  /* |if (action == 0 && row_ctr != 0)|  */
+
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::edit_globus_site_admin| definition@>=
+
+    mysql_free_result(result);
+    result = 0;
+    sql_strm.str("");
+
+    if (action == 0)
+    {
+
+        sql_strm << "insert into Globus_Sites_Admins (globus_site_id, admin_id) values "
+                 << "((select globus_site_id from Globus_Sites where hostname = '"
+                 << globus_site << "'), " << admin_user_id << ")";
+
+    }  /* |if (action == 0)|  */
+  
+    else if (action == 1)
+    {
+        sql_strm << "delete from Globus_Sites_Admins where globus_site_id = "
+                 << "(select globus_site_id from Globus_Sites where hostname = '"
+                 << globus_site << "') and admin_id = " << admin_user_id;
+
+    }
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "sql_strm.str() == " << sql_strm.str() << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */ 
+
+    long affected_rows = 0L;
+
+    status = submit_mysql_query(sql_strm.str(), result, 0, 0, &affected_rows);
+
+    if (status != 0)
+    {
+         lock_cerr_mutex(); 
+         cerr << "[Thread " << thread_ctr << "]:  "
+              << "ERROR!  In `Scan_Parse_Parameter_Type::edit_globus_site_admin':"
+              << endl
+              << "`Scan_Parse_Parameter_Type::submit_mysql_query' failed, returning "
+              << status << ":"
+              << endl 
+              << mysql_error(mysql_ptr)
+              << endl 
+              << "Exiting function unsuccessfully with return value 1."
+              << endl;
+         unlock_cerr_mutex(); 
+
+         temp_strm << "SERVER " << action_str << " ADMIN GLOBUS_SITE <" << globus_site << "> "
+                   << "USER " << admin_user_id << " FAILED 1";
+
+         response.command = temp_strm.str();
+
+         pthread_mutex_lock(&response_deque_mutex);
+         response_deque.push_back(response);
+         pthread_mutex_unlock(&response_deque_mutex);
+
+         if (result)
+             mysql_free_result(result);
+
+          return 1;
+
+
+    }  /* |if (status != 0)|   */
+
+    else if (DEBUG)
+    {
+        lock_cerr_mutex();
+        cerr << "`submit_mysql_query' succeeded."
+             << endl 
+             << "`affected_rows ==' " << affected_rows
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |else if (DEBUG)|  */ 
+
+    if (affected_rows == 0)
+    {
+         lock_cerr_mutex(); 
+         cerr << "[Thread " << thread_ctr << "]:  "
+              << "ERROR!  In `Scan_Parse_Parameter_Type::edit_globus_site_admin':"
+              << endl;
+
+         if (action == 0)
+             cerr << "MySQL `INSERT' ";
+         else
+             cerr << "MySQL `DELETE' ";
+
+         cerr << "command affected 0 rows."
+              << endl 
+              << "Exiting function unsuccessfully with return value 1."
+              << endl;
+         unlock_cerr_mutex(); 
+
+         temp_strm << "SERVER " << action_str << " ADMIN GLOBUS_SITE <" << globus_site << "> "
+                   << "USER " << admin_user_id << " FAILED 1";
+
+         response.command = temp_strm.str();
+
+         pthread_mutex_lock(&response_deque_mutex);
+         response_deque.push_back(response);
+         pthread_mutex_unlock(&response_deque_mutex);
+
+         if (result)
+             mysql_free_result(result);
+
+          return 1;
+
+    }  /* |if (affected_rows == 0)|  */
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::edit_globus_site_admin| definition@>=
+
+    else if (affected_rows > 1)
+    {
+         lock_cerr_mutex(); 
+         cerr << "[Thread " << thread_ctr << "]:  "
+              << "WARNING!  In `Scan_Parse_Parameter_Type::edit_globus_site_admin':"
+              << endl;
+
+         if (action == 0)
+             cerr << "MySQL `INSERT' ";
+         else
+             cerr << "MySQL `DELETE' ";
+
+         cerr << "command affected " << affected_rows << " rows (> 1)."
+              << endl 
+              << "This shouldn't happen.  Continuing."
+              << endl;
+         unlock_cerr_mutex(); 
+
+    }  /* |if (affected_rows > 1)|  */
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::edit_globus_site_admin| definition@>=
+
+    if (result)
+       mysql_free_result(result);
+
+    temp_strm << "SERVER " << action_str << " ADMIN GLOBUS_SITE <" 
+              << globus_site << "> "
+              << "USER " << admin_user_id << " SUCCEEDED";
+
+    response.command = temp_strm.str();
+
+    if (DEBUG)
+    {
+       lock_cerr_mutex(); 
+       cerr << "response.command == " << response.command << endl;
+       unlock_cerr_mutex();         
+
+    }  /* |if (DEBUG)|  */ 
+
+    pthread_mutex_lock(&response_deque_mutex);
+    response_deque.push_back(response);
+    pthread_mutex_unlock(&response_deque_mutex);
+
+    if (DEBUG) 
+    { 
+       lock_cerr_mutex(); 
+       cerr << "[Thread " << thread_ctr << "]:  "
+            << "Exiting `Scan_Parse_Parameter_Type::edit_globus_site_admin' successfully "
+            << "with return value 0."
+            << endl;
+       unlock_cerr_mutex(); 
+
+    } /* |if (DEBUG)| */
+
+    return 0;
+
+@q ****** (6) @>
+
+}  /* End of |Scan_Parse_Parameter_Type::edit_globus_site_admin| definition  */
+
+#endif /* |HAVE_LIBMYSQLCLIENT|  */
+
+@q **** (4) @>
+@
+@<Garbage@>=
+
+@q **** (4) @>
+
+@q *** (3) Putting `spptgsfn.web.web' together.  @>
+
+@ Putting {\tt spptgsfn.web\PERIOD web} together.
+
+@q **** (4) This is what's compiled.  @>
+@ This is what's compiled.
+@c
+@<Include files@>@;@/
+using namespace std;
+@<|Scan_Parse_Parameter_Type::add_globus_site| definition@>@;@/
+@<|Scan_Parse_Parameter_Type::show_globus_sites| definition@>@;@/
+@<|Scan_Parse_Parameter_Type::delete_globus_sites| definition@>@;@/
+@<|Scan_Parse_Parameter_Type::mark_globus_site| definition@>@;@/
+@<|Scan_Parse_Parameter_Type::enable_globus_site| definition@>@;@/
+@<|Scan_Parse_Parameter_Type::check_privileges| definition@>@;@/
+@<|Scan_Parse_Parameter_Type::edit_globus_site| definition@>@;@/
+@<|Scan_Parse_Parameter_Type::edit_globus_site_admin| definition@>@;@/
+
+#if 0 
+@<Garbage@>@;@/
+#endif 
+
+@q **** (4) This is what's written to the header file `spptgsfn.h'.  @>
+
+@ This is what's written to the header file \filename{spptgsfn.h}.
+
+That is, no {\CPLUSPLUS/} code is written to the header file, but it's helpful 
+for it to exist, so that this CWEB file can be handled in exactly the same 
+way as the others.
+\initials{LDF 2012.01.13.}
+
+@(spptgsfn.h@>=
+#ifndef SPPTGSFN.WEB_H
+#define SPPTGSFN.WEB_H 1
+/* Empty  */
+#endif 
+
+@q * (1) Emacs-Lisp code for use in indirect buffers  @>
+
+@q (progn (cweb-mode) (outline-minor-mode))                          @>
+
+@q * (1) Local variables for Emacs @>
+
+@q * Local variables for Emacs.@>
+@q Local Variables: @>
+@q mode:CWEB @>
+@q eval:(display-time) @>
+@q abbrev-mode:t @>
+@q eval:(read-abbrev-file) @>
+@q indent-tabs-mode:nil @>
+@q eval:(outline-minor-mode) @>
+@q fill-column:80 @>
+@q End: @>

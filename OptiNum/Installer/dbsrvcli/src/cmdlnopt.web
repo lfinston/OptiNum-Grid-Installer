@@ -1,0 +1,2938 @@
+@q cmdlnopt.web @>
+@q Created by Laurence D. Finston (LDF) Mon Sep 28 11:20:04 CEST 2009 @>
+
+@q * (1) Top @>
+
+@q * (1) Copyright and License.@>
+
+@q This file is part of the OptiNum Grid Installer @>
+@q Copyright (C) 2010, 2011, 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen @>
+
+@q The OptiNum Grid Installer is free software; you can redistribute it and/or modify @>
+@q it under the terms of the GNU General Public License as published by @>
+@q the Free Software Foundation; either version 3 of the License, or @>
+@q (at your option) any later version.  @>
+
+@q The OptiNum Grid Installer is distributed in the hope that it will be useful, @>
+@q but WITHOUT ANY WARRANTY; without even the implied warranty of @>
+@q MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the @>
+@q GNU General Public License for more details.  @>
+
+@q You should have received a copy of the GNU General Public License          @>
+@q along with the OptiNum Grid Installer; if not, write to the Free Software                    @>
+@q Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA @>
+
+@q ("@@" stands for a single at-sign in the following paragraph.) @>
+
+@q Please send bug reports to Laurence.Finston@@gwdg.de@>
+
+@q Laurence D. Finston                                                   @>
+@q Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen  @>
+@q Am Fassberg 11         					         @>
+@q 37077 Goettingen              					 @>
+@q Germany                           					 @>                                
+
+@q Laurence.Finston@@gwdg.de (@@ stands for a single "at" sign.)@>
+
+@q * (1) Command line option processing@>
+@* Command line option processing.
+
+\LOG
+\initials{LDF 2009.09.28.}
+Added this file.
+\ENDLOG
+
+@ Version control identifier.
+@<Version control identifier@>=
+static char version_control_id[] 
+   = "$Id: cmdlnopt.web 8356 2012-05-25 08:01:31Z finston $";
+  
+@q ** (2) Include files  @>
+
+@ Include files.
+
+@<Include files@>=
+#include <stdlib.h>
+#include <stdio.h>
+
+#include <getopt.h> 
+#include <limits.h> 
+
+#include <fstream>
+#include <iomanip>
+#include <ios>
+#include <iostream>
+#include <map>
+#include <string>
+#include <string.h>
+#include <time.h>
+#include <math.h>
+#include <sstream>   
+
+#include <deque>
+#include <vector>
+
+#if HAVE_CONFIG_H
+#include "config.h"
+#endif
+
+#if IS_ROCKS_GOEGRID
+#undef HAVE_LIBMYSQLCLIENT
+#endif 
+
+#include <pthread.h>
+
+#include "entries.h++"
+#include "dstngnmt.h++"
+#include "glblvrbl.h++"
+#include "glblfncs.h++"
+#include "parser.h++"
+#include "scanner.h++"
+#include "utilfncs.h++"
+
+#ifndef _XOPEN_SOURCE
+#define _XOPEN_SOURCE
+#endif 
+
+@q * (0) Command-Line Options Processing.  @>
+@ Command-Line Options Processing.  
+\initials{LDF 2009.12.01.}
+
+@q ** (2) Process Command Line Options @>
+@ Process Command Line Options.
+\initials{LDF 2009.09.28.}
+
+\LOG
+\initials{LDF 2009.09.28.}
+Added this function.
+\ENDLOG
+
+@q *** (3) Declaration  @>
+
+@<|process_command_line_options| declaration@>=
+
+int
+process_command_line_options(int argc, char* argv[]);
+
+@q *** (3) Definition  @>
+@
+@<|process_command_line_options| definition@>=
+int
+process_command_line_options(int argc, char* argv[])
+{
+
+   bool DEBUG = false;  /* |true|  */
+   set_debug_level(DEBUG);
+
+   int status = 0;
+
+@q **** (4) @>
+   int option_ctr;
+   int digit_optind = 0;
+
+@q *** (3) Index constants.@>
+@ Index constants.
+
+\LOG
+\initials{LDF 2009.10.07.}
+Added |const unsigned short SAVE_TEMP_FILES_INDEX|.
+
+\initials{LDF 2009.12.09.}
+Added |const unsigned short SLEEP_INDEX|.
+
+\initials{LDF 2010.02.09.}
+Added the following |const unsigned short| variables:\hfil\break 
+|DISTINGUISHED_NAME_INDEX|\hfil\break 
+|DN_INDEX|\hfil\break 
+|PACKAGE_NAME_INDEX|\hfil\break 
+|PACKAGE_VERSION_INDEX|\hfil\break 
+|RESOLVE_DEPENDENCIES_INDEX|\hfil\break 
+|NO_RESOLVE_DEPENDENCIES_INDEX|\hfil\break 
+|NO_READ_INPUT_INDEX|\hfil\break 
+|INSTALL_INDEX|\hfil\break 
+|NO_INSTALL_INDEX|\hfil\break 
+|FETCH_INDEX|\hfil\break 
+
+\initials{LDF 2010.03.19.}
+Added the |const unsigned short| variable |ENVIRONMENT_SEND_INDEX|.
+
+\initials{LDF 2010.04.16.}
+Added the |const unsigned short| variables |PORT_AUTH_INDEX| 
+and |PORT_NON_AUTH_INDEX|.
+
+\initials{LDF 2010.04.21.}
+Added the |const unsigned short| variable |GRID_MAPFILE_INDEX|.
+
+\initials{LDF 2010.05.21.}
+Added the |const unsigned short| variables |SHOW_USER_ENTRIES_INDEX|
+and |SHOW_PUBLIC_ENTRIES_INDEX|.
+
+\initials{LDF 2010.06.11.}
+Added the |const unsigned short| variables |LOG_FILENAME_INDEX| 
+and |ERR_LOG_FILENAME_INDEX|.
+
+\initials{LDF 2010.06.30.}
+Changed |USER_NAME_INDEX| TO |EFFECTIVE-USER-DN_INDEX| and
+\.{user-name} to \.{effective-user-dn}.  Removed |USER_NAME_INDEX| and \.{username}.
+
+\initials{LDF 2010.07.01.}
+Removed the code for the option \.{effective-user-dn}.  
+It didn't work, because if it's used, a command for setting the effective user 
+must be sent to the server before the input is read.  The input may come either from a file
+or from standard input.  However, the command contained fewer characters than |MAX_BUFFER|, 
+so the server ``thinks'' the client is finished.  On the other hand, it would not 
+be straightforward to put the command onto the front of the the character array |buffer| 
+and try to fill it up from the input file or the standard input.  Now, the command for setting the 
+effective user must either appear in the input file or it must be passed to \.{optdbcli} 
+from the standard input in such a way that it precedes any other commands.  \.{echo} and \.{cat} 
+are used in the web application to do this, and ``\<space>\.{END}'' is additionally 
+placed after the contents of the input file.
+
+\initials{LDF 2010.07.21.}
+Added |const unsigned short DOWNLOAD_FAIL_CONTINUE_INDEX|
+and |const unsigned short INSTALL_FAIL_CONTINUE_INDEX|.
+
+\initials{LDF 2010.09.08.}
+Added |const unsigned short REINSTALL_INDEX|.
+
+\initials{LDF 2011.04.13.}
+Added |const unsigned short SCRINSTL_PATH_INDEX|.
+
+\initials{LDF 2011.04.15.}
+Added |const unsigned short INSTALL_DIRECTORY_INDEX|.
+
+\initials{LDF 2011.04.29.}
+Removed |const unsigned short SCRINSTL_PATH_INDEX|.
+
+\initials{LDF 2011.05.25.}
+Added |const unsigned short PROXY_CERT_INDEX|.
+
+\initials{LDF 2011.08.10.}
+Added |const unsigned short NO_LINKS_INDEX|.
+
+\initials{LDF 2011.09.26.}
+Added |const unsigned short TRANSFER_PROXY_CERT_INDEX|.
+
+\initials{LDF 2011.12.22.}
+Added |const unsigned short SESSION_ID_INDEX|.
+
+\initials{LDF 2012.01.10.}
+Added |const unsigned short HELP_INDEX|.
+
+\initials{LDF 2012.01.12.}
+Added |const unsigned short TRACE_INDEX|.
+
+\initials{LDF 2012.02.03.}
+Added the |const unsigned short| variables |PREREQUISITES_REINSTALL_INDEX| and
+|NO_PREREQUISITES_REINSTALL_INDEX|.
+
+\initials{LDF 2012.02.08.}
+Added the |const unsigned short| variables |CREATE_LINKS_INDEX| 
+and |LINK_DIRECTORY_INDEX|.
+
+\initials{LDF 2012.02.27.}
+Removed the |const unsigned short| variables |DISTINGUISHED_NAME_INDEX|,
+|DN_INDEX|, |NO_READ_INPUT_INDEX|, |AUTHENTICATED_CONNECTION_INDEX| and
+|NON_AUTHENTICATED_CONNECTION_INDEX|.
+
+\initials{LDF 2012.02.27.}
+Removed the |const unsigned short| variables |SHOW_USER_ENTRIES_INDEX|,
+|SHOW_PUBLIC_ENTRIES_INDEX|, |TRANSFER_PROXY_CERT_INDEX| 
+and |NO_DATABASE_UPDATE_INDEX|.
+Added |VERSION_INDEX|.
+
+\initials{LDF 2012.03.16.}
+Deleted the |const unsigned short| variable |ENVIRONMENT_SEND_INDEX|.
+
+\initials{LDF 2012.03.19.}
+Added |const unsigned short GLOBUS_SITE_INDEX|.
+
+\initials{LDF 2012.05.15.}
+Removed |const unsigned short PROXY_CERT_INDEX|.
+\ENDLOG
+
+@<|process_command_line_options| definition@>=
+
+  const unsigned short BISON_TRACE_INDEX                  =   0;
+  const unsigned short PARSER_TRACE_INDEX                 =   1;
+  const unsigned short FLEX_TRACE_INDEX                   =   2; 
+  const unsigned short SCANNER_TRACE_INDEX                =   3;
+  const unsigned short INPUT_FILENAME_INDEX               =   4;
+  const unsigned short OUTPUT_FILENAME_INDEX              =   5;
+  const unsigned short SAVE_TEMP_FILES_INDEX              =   6;
+  const unsigned short CERT_FILENAME_INDEX                =   7;
+  const unsigned short KEY_FILENAME_INDEX                 =   8;
+  const unsigned short CA_FILENAME_INDEX                  =   9;
+  const unsigned short CRL_FILENAME_INDEX                 =  10;
+  const unsigned short CERT_FORMAT_INDEX                  =  11;
+  const unsigned short KEY_ENCRYPT_INDEX                  =  12;
+  const unsigned short PROXY_CREDENTIAL_INDEX             =  13;
+  const unsigned short SLEEP_INDEX                        =  14;
+  const unsigned short PACKAGE_NAME_INDEX                 =  15;
+  const unsigned short PACKAGE_VERSION_INDEX              =  16;
+  const unsigned short RESOLVE_DEPENDENCIES_INDEX         =  17;
+  const unsigned short NO_RESOLVE_DEPENDENCIES_INDEX      =  18;   
+  const unsigned short INSTALL_INDEX                      =  19;
+  const unsigned short NO_INSTALL_INDEX                   =  20;
+  const unsigned short FETCH_INDEX                        =  21;
+  const unsigned short PORT_AUTH_INDEX                    =  22;
+  const unsigned short PORT_NON_AUTH_INDEX                =  23;
+  const unsigned short GRID_MAPFILE_INDEX                 =  24;
+  const unsigned short LOG_FILENAME_INDEX                 =  25;
+  const unsigned short ERR_LOG_FILENAME_INDEX             =  26;
+  const unsigned short DOWNLOAD_FAIL_CONTINUE_INDEX       =  27;
+  const unsigned short INSTALL_FAIL_CONTINUE_INDEX        =  28;
+  const unsigned short REINSTALL_INDEX                    =  29;
+  const unsigned short INSTALL_DIRECTORY_INDEX            =  30;
+  const unsigned short NO_LINKS_INDEX                     =  31;
+  const unsigned short CREATE_LINKS_INDEX                 =  32;
+  const unsigned short LINK_DIRECTORY_INDEX               =  33;
+  const unsigned short SESSION_ID_INDEX                   =  34;
+  const unsigned short HELP_INDEX                         =  35;
+  const unsigned short TRACE_INDEX                        =  36;
+  const unsigned short PREREQUISITES_REINSTALL_INDEX      =  37;
+  const unsigned short NO_PREREQUISITES_REINSTALL_INDEX   =  38;
+  const unsigned short VERSION_INDEX                      =  39;
+  const unsigned short GLOBUS_SITE_INDEX                  =  40;
+
+@q *** (3) Option struct.@>
+@ Option struct.
+
+\LOG
+\initials{LDF 2009.10.07.}
+Added the option \.{save-temp-files}.
+
+\initials{LDF 2010.06.11.}
+Added the options \.{log-filename} and \.{error-log-filename}.
+
+\initials{LDF 2011.05.25.}
+Added the option \.{proxy-certificate}.
+
+\initials{LDF 2011.08.10.}
+Added the option \.{no-links}.
+
+\initials{LDF 2011.09.26.}
+Added the option \.{transfer-proxy-certificate}.
+
+\initials{LDF 2011.12.22.}
+Added the option \.{session-id}.
+
+\initials{LDF 2012.01.10.}
+Added the option \.{help}.
+
+\initials{LDF 2012.01.12.}
+Added the option \.{trace}.
+
+\initials{LDF 2012.02.03.}
+Added the options
+\.{prerequisites-reinstall} and \.{no-prerequisites-reinstall}.
+
+\initials{LDF 2012.02.08.}
+Added the options \.{create-links} and \.{link-directory}.
+
+\initials{LDF 2012.02.27.}
+Removed the options \.{distinguished-name} and \.{dn}.
+Removed the options \.{transfer-proxy-credential} and \.{transfer-proxy-certificate}.
+
+\initials{LDF 2012.05.15.}
+\.{bison-trace} and \.{parser-trace} now take optional arguments.
+\ENDLOG
+
+@<|process_command_line_options| definition@>=
+
+  static struct option long_options[] = {
+    {"bison-trace",  2, 0, 0},
+    {"parser-trace",  2, 0, 0},
+    {"flex-trace",  0, 0, 0},
+    {"scanner-trace",  0, 0, 0},
+    {"input-filename",  1, 0, 0},
+    {"output-filename",  1, 0, 0},
+    {"save-temp-files",  0, 0, 0},
+    {"cert-filename", 1, 0, 0},
+    {"key-filename", 1, 0, 0},
+    {"ca-filename", 1, 0, 0},
+    {"crl-filename", 1, 0, 0},
+    {"cert-format", 1, 0, 0},
+    {"key-encrypt", 2, 0, 0},
+    {"proxy-credential", 1, 0, 0},
+    {"sleep", 1, 0, 0},
+    {"package-name", 1, 0, 0},            
+    {"package-version", 2, 0, 0},         
+    {"resolve-dependencies", 0, 0, 0},    
+    {"no-resolve-dependencies", 0, 0, 0},     
+    {"install", 0, 0, 0},     
+    {"no-install", 0, 0, 0},     
+    {"fetch", 0, 0, 0},     
+    {"port-auth", 1, 0, 0},     
+    {"port-non-auth", 1, 0, 0},     
+    {"grid-mapfile", 1, 0, 0},
+    {"log-filename", 1, 0, 0},
+    {"error-log-filename", 1, 0, 0},
+    {"download-fail-continue", 0, 0, 0},
+    {"install-fail-continue", 0, 0, 0},
+    {"reinstall", 0, 0, 0},
+    {"install-directory", 1, 0, 0},
+    {"no-links", 0, 0, 0},
+    {"create-links", 0, 0, 0},
+    {"link-directory", 1, 0, 0},
+    {"session-id", 1, 0, 0},
+    {"help", 0, 0, 0},
+    {"trace", 2, 0, 0},
+    {"prerequisites-reinstall", 0, 0, 0},
+    {"no-prerequisites-reinstall", 0, 0, 0},
+    {"version", 0, 0, 0},
+    {"globus-site", 1, 0, 0},
+    {0, 0, 0, 0}
+  };
+
+  int option_index = 0;
+
+  int this_option_optind = optind ? optind : 1;
+
+@q *** (3) Loop for handling options.@>
+@ Loop for handling options.
+
+@^!! TODO@> !! TODO:  Add code for writing options to log file.
+\initials{LDF 2008.08.26.}
+
+@<|process_command_line_options| definition@>=
+
+  while (1) 
+  {
+
+@q **** (4) @>
+
+    option_ctr = getopt_long_only (argc,  
+                                   argv, "",
+                                   long_options, 
+                                   &option_index);
+    if (DEBUG)
+    {
+        lock_cerr_mutex();
+        cerr << "[Initial Thread] option_ctr == " << option_ctr << endl
+             << "option_index == " << option_index << endl;
+        unlock_cerr_mutex();
+
+        if (optarg)
+        {
+          lock_cerr_mutex();
+          cerr << "optarg == " << optarg << endl;
+          unlock_cerr_mutex();
+
+        }  /* |if (optarg)|  */
+
+    }  /* |if (DEBUG)|  */
+
+@q **** (4) @>
+
+    if (option_ctr == -1)
+      {
+        if (DEBUG)
+        {
+           lock_cerr_mutex();
+           cerr << "[Initial Thread] No more option arguments." << endl;
+           unlock_cerr_mutex();
+        }
+        break;
+      }
+
+@q **** (4) Option.  @>
+@ Option.  
+\initials{LDF 2008.09.09.}
+
+@<|process_command_line_options| definition@>=
+
+    else if (option_ctr == 0)
+    {
+
+@q ***** (5) @>
+
+      if (DEBUG)
+        {
+          lock_cerr_mutex();
+          cerr << "[Initial Thread] option " << long_options[option_index].name;
+
+          if (optarg)
+          {
+            cerr << " with arg " << optarg;
+          }
+
+          cerr << endl;
+          unlock_cerr_mutex();
+        }
+
+@q ***** (5) input-filename.  @>
+@ \.{input-filename}.
+\initials{LDF 2009.09.28.}
+
+\LOG
+\initials{LDF 2009.09.28.}
+Added this section.
+\ENDLOG
+
+@<|process_command_line_options| definition@>=
+
+        if (option_index == INPUT_FILENAME_INDEX)        
+        {
+
+@q ****** (6) @>
+
+            if (DEBUG) 
+            {
+               lock_cerr_mutex();
+               cerr << "[Initial Thread] `option_index' "
+                    << "== `INPUT_FILENAME_INDEX'" 
+                    << endl;
+ 
+               if (DEBUG && optarg)
+                  cerr << "optarg == " << optarg << endl;
+               unlock_cerr_mutex();
+            }
+
+            input_filename = optarg;
+ 
+@q ****** (6) @>
+
+
+        } /* |if (option_index == INPUT_FILENAME_INDEX)|  */
+
+@q ***** (5) output-filename.@>
+
+@ \.{output-filename}.
+\initials{LDF 2009.09.28.}
+
+\LOG
+\initials{LDF 2009.09.28.}
+Added this section.
+
+\initials{LDF 2009.12.18.}
+Now setting |output_filename| if |is_client| is |true|.
+
+\initials{LDF 2010.02.03.}
+Now opening |output_file_strm|.
+\ENDLOG
+
+@<|process_command_line_options| definition@>=
+
+        else if (option_index == OUTPUT_FILENAME_INDEX)
+        {
+
+@q ****** (6) @>
+
+            if (DEBUG) 
+            {
+               lock_cerr_mutex();
+               cerr << "[Initial Thread] `option_index' == "
+                    << "`OUTPUT_FILENAME_INDEX'" 
+                    << endl;
+ 
+               if (DEBUG && optarg)
+                  cerr << "optarg == " << optarg << endl;
+               unlock_cerr_mutex();
+            }
+
+            output_filename = optarg;
+
+            output_file_strm.open(output_filename.c_str());
+
+
+@q ****** (6) @>
+
+        } /* |else if (option_index == OUTPUT_FILENAME_INDEX)|  */
+
+@q ***** (5) bison-trace or parser-trace.@>
+@ \.{bison-trace} or \.{parser-trace}.
+\initials{LDF Undated.}
+
+\setbox0=\hbox{$\le 0$}
+\vskip.5\baselineskip
+\noindent
+Optional arguments:
+\vskip.5\baselineskip
+\halign{\hbox to \wd0{\hss#}:\quad&#\hfil\cr
+\omit\hbox{None:\quad}&Debugging output automatically generated by Bison\cr
+\hbox{$\le 0$}&No debugging output\cr
+1&Programmed debugging output from actions only\cr
+\hbox{$>1$}&Automatically generated and programmed debugging output\cr
+\omit\hbox{Invalid (non-integer) argument:\quad}&No debugging output\cr
+}
+\noindent
+\initials{LDF 2012.05.15.}
+
+\LOG
+\initials{LDF 2012.05.15.}
+Added code for |PARSER_TRACE_INDEX| and for the optional integer argument.
+\ENDLOG
+
+@<|process_command_line_options| definition@>=
+
+        else if (option_index == BISON_TRACE_INDEX || option_index == PARSER_TRACE_INDEX)
+        {
+       
+            if (DEBUG) 
+            {
+                lock_cerr_mutex();   
+                cerr << "[Initial Thread] `option_index' == `BISON_TRACE_INDEX' or " 
+                     << "`PARSER_TRACE_INDEX'."
+                     << endl;
+                unlock_cerr_mutex();
+            }
+
+            if (optarg == 0 || (strlen(optarg) > 0 && atoi(optarg) > 1))
+            {
+                yydebug = 1;
+                zzdebug = 1;
+            }
+
+            if (optarg && strlen(optarg) > 0 && atoi(optarg) >= 1)
+                parser_trace = true;
+            
+
+        } /* |else if (   option_index == BISON_TRACE_INDEX 
+                       || option_index == PARSER_TRACE_INDEX)|  */
+
+@q ***** (5) flex-trace.@>
+@ \.{flex-trace}.
+
+@<|process_command_line_options| definition@>=
+
+        else if (option_index == FLEX_TRACE_INDEX || option_index == SCANNER_TRACE_INDEX)
+        {
+       
+            if (DEBUG) 
+            {
+                lock_cerr_mutex();   
+                cerr << "[Initial Thread] `option_index' == `FLEX_TRACE_INDEX' or "
+                     << "`SCANNER_TRACE_INDEX'."
+                     << endl
+                     << "Setting `scanner_trace' to `true'." 
+                     << endl;
+                unlock_cerr_mutex();
+            }
+
+            scanner_trace = true;
+
+        } /* |else if (   option_index == FLEX_TRACE_INDEX 
+                       || option_index == SCANNER_TRACE_INDEX)|  */
+
+@q ***** (5) save-temp-files.@>
+@ \.{save-temp-files}.
+\initials{LDF 2009.10.07.}
+
+\LOG
+\initials{LDF 2009.10.07.}
+Added this section.
+\ENDLOG
+
+
+@<|process_command_line_options| definition@>=
+
+        else if (option_index == SAVE_TEMP_FILES_INDEX)
+        {
+       
+            if (DEBUG) 
+            {
+                lock_cerr_mutex();   
+                cerr << "[Initial Thread] `option_index' == `SAVE_TEMP_FILES_INDEX'" 
+                     << endl;
+                unlock_cerr_mutex();
+            }
+
+            save_temp_files = true;
+
+        } /* |else if (option_index == SAVE_TEMP_FILES_INDEX)|  */
+
+@q ***** (5) cert-filename.  @>
+@ \.{cert-filename}.
+\initials{LDF 2009.12.01.}
+
+\LOG
+\initials{LDF 2009.12.01.}
+Added this section.
+\ENDLOG
+
+@<|process_command_line_options| definition@>=
+
+        else if (option_index == CERT_FILENAME_INDEX)        
+        {
+
+@q ****** (6) @>
+
+             if (DEBUG) 
+            {
+               lock_cerr_mutex();
+               cerr << "[Initial Thread] `option_index' "
+                    << "== `CERT_FILENAME_INDEX'" 
+                    << endl;
+ 
+               if (DEBUG && optarg)
+                  cerr << "optarg == " << optarg << endl;
+               unlock_cerr_mutex();
+            }
+
+            if (optarg) 
+            {
+               cert_filenames.push_back(optarg);
+            }
+
+@q ****** (6) @>
+
+@ This code won't be reached, because the missing argument will cause 
+|option_index| to have the value |'?'| (ambiguous match).
+\initials{LDF 2009.12.01.}
+
+@<|process_command_line_options| definition@>=
+
+            else
+            {
+               lock_cerr_mutex();
+               cerr << "[Initial Thread] WARNING!  In `process_command_line_options':"
+                    << endl 
+                    << "Option `--cert-filenames' requires an argument."
+                    << endl 
+                    << "Continuing."
+                    << endl;
+               unlock_cerr_mutex(); 
+            }
+ 
+@q ****** (6) @>
+
+
+        } /* |else if (option_index == CERT_FILENAME_INDEX)|  */
+
+@q ***** (5) key-filename.  @>
+@ \.{key-filename}.
+\initials{LDF 2009.12.01.}
+
+\LOG
+\initials{LDF 2009.12.01.}
+Added this section.
+\ENDLOG
+
+@<|process_command_line_options| definition@>=
+
+        else if (option_index == KEY_FILENAME_INDEX)        
+        {
+
+@q ****** (6) @>
+
+            if (DEBUG) 
+            {
+               lock_cerr_mutex();
+               cerr << "[Initial Thread] `option_index' "
+                    << "== `KEY_FILENAME_INDEX'" 
+                    << endl;
+ 
+               if (DEBUG && optarg)
+                  cerr << "optarg == " << optarg << endl;
+               unlock_cerr_mutex();
+            }
+
+
+            if (optarg) 
+            {
+               key_filenames.push_back(optarg);
+            }
+
+@q ****** (6) @>
+
+@ This code won't be reached, because the missing argument will cause 
+|option_index| to have the value |'?'| (ambiguous match).
+\initials{LDF 2009.12.01.}
+
+@<|process_command_line_options| definition@>=
+
+            else
+            {
+               lock_cerr_mutex();
+               cerr << "[Initial Thread] WARNING!  In `process_command_line_options':"
+                    << endl 
+                    << "Option `--key-filenames' requires an argument."
+                    << endl 
+                    << "Continuing."
+                    << endl;
+               unlock_cerr_mutex(); 
+            }
+ 
+@q ****** (6) @>
+
+
+        } /* |else if (option_index == KEY_FILENAME_INDEX)|  */
+
+@q ***** (5) ca-filename.  @>
+@ \.{ca-filename}.
+\initials{LDF 2009.12.01.}
+
+\LOG
+\initials{LDF 2009.12.01.}
+Added this section.
+
+\initials{LDF 2011.06.30.}
+No longer allowing this option to be used for \.{optdbcli}.
+
+\initials{LDF 2011.10.19.}
+Now allowing this option to be used for \.{optdbcli} again.
+I don't remember why I disallowed it before.
+\ENDLOG
+
+@<|process_command_line_options| definition@>=
+
+        else if (option_index == CA_FILENAME_INDEX)        
+        {
+
+@q ****** (6) @>
+
+            if (DEBUG) 
+            {
+               lock_cerr_mutex();
+               cerr << "[Initial Thread] `option_index' "
+                    << "== `CA_FILENAME_INDEX'" 
+                    << endl;
+ 
+               if (DEBUG && optarg)
+                  cerr << "optarg == " << optarg << endl;
+               unlock_cerr_mutex();
+            }
+
+            ca_filenames.push_back(optarg);
+
+
+#if 0 
+            if (is_server)
+            {
+ 
+                if (optarg) 
+                {
+                   ca_filenames.push_back(optarg);
+                }
+
+@q ******* (7) @>
+
+@ This code won't be reached, because the missing argument will cause 
+|option_index| to have the value |'?'| (ambiguous match).
+\initials{LDF 2009.12.01.}
+
+@<|process_command_line_options| definition@>=
+
+                else
+                {
+                   lock_cerr_mutex();
+                   cerr << "[Initial Thread] WARNING!  In `process_command_line_options':"
+                        << endl 
+                        << "Option `--ca-filenames' requires an argument."
+                        << endl 
+                        << "Continuing."
+                        << endl;
+                   unlock_cerr_mutex(); 
+                }   
+
+@q ******* (7) @>
+
+            }  /* |if (is_server)|  */
+
+@q ****** (6) @>
+
+            else /* |is_client|  */
+            {
+               lock_cerr_mutex();
+               cerr << "WARNING!  In `process_command_line_options':"
+                    << endl 
+                    << "`--ca-filename' option is not permitted for `optdbcli'." 
+                    << endl
+                    << "Ignoring and continuing."
+                    << endl;
+               unlock_cerr_mutex(); 
+ 
+            } /* |else| (|is_client|)  */
+
+@q ****** (6) @>
+
+#endif 
+
+        } /* |else if (option_index == CA_FILENAME_INDEX)|  */
+
+@q ***** (5) crl-filename.  @>
+@ \.{crl-filename}.
+\initials{LDF 2009.12.01.}
+
+\LOG
+\initials{LDF 2009.12.01.}
+Added this section.
+\ENDLOG
+
+@<|process_command_line_options| definition@>=
+
+        else if (option_index == CRL_FILENAME_INDEX)        
+        {
+
+@q ****** (6) @>
+
+            if (DEBUG) 
+            {
+               lock_cerr_mutex();
+               cerr << "[Initial Thread] `option_index' "
+                    << "== `CRL_FILENAME_INDEX'" 
+                    << endl;
+ 
+               if (DEBUG && optarg)
+                  cerr << "optarg == " << optarg << endl;
+               unlock_cerr_mutex();
+            }
+
+ 
+@q ****** (6) @>
+
+
+        } /* |else if (option_index == CRL_FILENAME_INDEX)|  */
+
+@q ***** (5) cert-format.  @>
+@ \.{cert-format}.
+\initials{LDF 2009.12.01.}
+
+\LOG
+\initials{LDF 2009.12.01.}
+Added this section.
+\ENDLOG
+
+@<|process_command_line_options| definition@>=
+
+        else if (option_index == CERT_FORMAT_INDEX)        
+        {
+
+@q ****** (6) @>
+
+            if (DEBUG) 
+            {
+               lock_cerr_mutex();
+               cerr << "[Initial Thread] `option_index' "
+                    << "== `CERT_FORMAT_INDEX'" 
+                    << endl;
+ 
+               if (DEBUG && optarg)
+                  cerr << "optarg == " << optarg << endl;
+               unlock_cerr_mutex();
+            }
+
+ 
+@q ****** (6) @>
+
+
+        } /* |else if (option_index == CERT_FORMAT_INDEX)|  */
+
+
+@q ***** (5) key-encrypt.  @>
+@ \.{key-encrypt}.
+\initials{LDF 2009.12.01.}
+
+\LOG
+\initials{LDF 2009.12.01.}
+Added this section.
+\ENDLOG
+
+@<|process_command_line_options| definition@>=
+
+        else if (option_index == KEY_ENCRYPT_INDEX)        
+        {
+
+@q ****** (6) @>
+
+            if (DEBUG) 
+            {
+               lock_cerr_mutex();
+               cerr << "[Initial Thread] `option_index' "
+                    << "== `KEY_ENCRYPT_INDEX'" 
+                    << endl;
+               if(optarg)
+                  cerr << "optarg == " << optarg << endl;
+               else
+                  cerr << "No argument." << endl;
+
+               unlock_cerr_mutex();
+            }
+
+ 
+@q ****** (6) @>
+
+
+        } /* |else if (option_index == KEY_ENCRYPT_INDEX)|  */
+
+@q ***** (5) proxy-credential.@>
+@ \.{proxy-credential}.
+\initials{LDF 2011.05.25.}
+
+\LOG
+\initials{LDF 2011.05.25.}
+Added this section.
+
+\initials{LDF 2012.05.15.}
+Removed code for option \.{proxy-certificate}.
+\ENDLOG
+
+@<|process_command_line_options| definition@>=
+
+        else if (option_index == PROXY_CREDENTIAL_INDEX)
+        {
+
+@q ****** (6) @>
+
+            if (DEBUG) 
+            {
+               lock_cerr_mutex();
+               cerr << "[Initial Thread] `option_index' "
+                    << "== `PROXY_CREDENTIAL_INDEX'." 
+                    << endl;
+               if(optarg)
+                  cerr << "optarg == " << optarg << endl;
+               else
+                  cerr << "No argument." << endl;
+
+               unlock_cerr_mutex();
+            }
+
+            proxy_cred_filename = optarg;
+
+            if (DEBUG) 
+               cerr << "`proxy_cred_filename' == " 
+                    << proxy_cred_filename << endl;
+@q ****** (6) @>
+
+        } /* |else if (   option_index == PROXY_CREDENTIAL_INDEX)|  */
+
+@q ***** (5) sleep.  @>
+@ \.{sleep}.
+\initials{LDF 2009.12.01.}
+
+\LOG
+\initials{LDF 2009.12.01.}
+Added this section.
+\ENDLOG
+
+@<|process_command_line_options| definition@>=
+
+        else if (option_index == SLEEP_INDEX)        
+        {
+
+@q ****** (6) @>
+
+            if (DEBUG) 
+            {
+               lock_cerr_mutex();
+               cerr << "[Initial Thread] `option_index' "
+                    << "== `SLEEP_INDEX'" 
+                    << endl;
+   
+               if (optarg)
+                  cerr << "optarg == " << optarg << endl;
+                else 
+                  cerr << "No argument." << endl;
+               unlock_cerr_mutex();
+            }
+
+            status = sscanf(optarg, "%d", &sleep_value);
+
+            if (status < 0)
+            {
+               lock_cerr_mutex(); 
+               cerr << "[Initial Thread] WARNING!  In `process_command_line_options':"
+                    << endl 
+                    << "Invalid `sleep' argument:  " << optarg
+                    << endl 
+                    << "Setting `sleep_value' to 0 and continuing."
+                    << endl;
+               unlock_cerr_mutex(); 
+ 
+               sleep_value = 0;
+
+            }  /* |if (status < 0)|  */
+
+            else if (DEBUG)
+            {
+
+                lock_cerr_mutex(); 
+                cerr << "[Initial Thread] In `process_command_line_options':"
+                     << endl 
+                     << "`sleep_value' == " << sleep_value << "."
+                     << endl;
+                unlock_cerr_mutex(); 
+            }
+
+ @q ****** (6) @>
+
+        } /* |else if (option_index == SLEEP_INDEX)|  */
+
+@q ***** (5) package-name.  @>
+@ \.{package-name}.
+\initials{LDF 2010.02.09.}
+
+\LOG
+\initials{LDF 2010.02.09.}
+Added this section.
+
+\initials{LDF 2010.05.27.}
+Removed code for placing angle braces around |temp_str|.  This wasn't exactly a bug,
+but it caused there to be unneeded double-quote marks in the input to |yylex|, which 
+the latter discarded.
+\ENDLOG
+
+@<|process_command_line_options| definition@>=
+
+        else if (option_index == PACKAGE_NAME_INDEX)        
+        {
+
+@q ****** (6) @>
+
+            if (DEBUG) 
+            {
+               lock_cerr_mutex();
+               cerr << "[Initial Thread] `option_index' "
+                    << "== `PACKAGE_NAME_INDEX'" 
+                    << endl;
+ 
+               if (DEBUG && optarg)
+                  cerr << "optarg == " << optarg << endl;
+               unlock_cerr_mutex();
+            }
+
+            string temp_str;
+ 
+            if (optarg) 
+            {
+
+               temp_str = optarg;
+ 
+               if (DEBUG)
+               {
+                  lock_cerr_mutex(); 
+                  cerr << "[Initial Thread] In `process_command_line_options':  "
+                       << "`temp_str' == "
+                       << temp_str
+                       << endl;
+                  unlock_cerr_mutex(); 
+
+               }  /* |if (DEBUG)|   */
+
+               package_names.push_back(temp_str);
+
+            }  /* |if (optarg)| */
+
+@q ****** (6) @>
+
+@ This code won't be reached, because the missing argument will cause 
+|option_index| to have the value |'?'| (ambiguous match).
+\initials{LDF 2009.12.01.}
+
+@<|process_command_line_options| definition@>=
+
+            else
+            {
+               lock_cerr_mutex();
+               cerr << "[Initial Thread] WARNING!  In `process_command_line_options':"
+                    << endl 
+                    << "Option `--package-name' requires an argument."
+                    << endl 
+                    << "Continuing."
+                    << endl;
+               unlock_cerr_mutex(); 
+            }
+ 
+@q ****** (6) @>
+
+        } /* |else if (option_index == PACKAGE_NAME_INDEX)|  */
+
+@q ***** (5) package-version.  @>
+@ \.{package-version}.
+\initials{LDF 2010.02.09.}
+
+\LOG
+\initials{LDF 2010.02.09.}
+Added this section.
+\ENDLOG
+
+@<|process_command_line_options| definition@>=
+
+        else if (option_index == PACKAGE_VERSION_INDEX)        
+        {
+
+@q ****** (6) @>
+
+            if (DEBUG) 
+            {
+               lock_cerr_mutex();
+               cerr << "[Initial Thread] `option_index' "
+                    << "== `PACKAGE_VERSION_INDEX'" 
+                    << endl;
+ 
+               if (DEBUG && optarg)
+                  cerr << "optarg == " << optarg << endl;
+               unlock_cerr_mutex();
+            }
+
+ 
+            if (optarg) 
+               package_versions.push_back(optarg);
+            else 
+               package_versions.push_back("");
+
+@q ****** (6) @>
+
+        } /* |else if (option_index == PACKAGE_VERSION_INDEX)|  */
+
+@q ***** (5) resolve-dependencies.  @>
+@ \.{resolve-dependencies}.
+\initials{LDF 2010.02.09.}
+
+\LOG
+\initials{LDF 2010.02.09.}
+Added this section.
+\ENDLOG
+
+@<|process_command_line_options| definition@>=
+
+        else if (option_index == RESOLVE_DEPENDENCIES_INDEX)        
+        {
+
+@q ****** (6) @>
+
+            if (DEBUG) 
+            {
+               lock_cerr_mutex();
+               cerr << "[Initial Thread] `option_index' "
+                    << "== `RESOLVE_DEPENDENCIES_INDEX'" 
+                    << endl;
+               unlock_cerr_mutex();
+
+            } /* |if (DEBUG)|  */
+
+            resolve_dependencies = true;
+
+@q ****** (6) @>
+
+        } /* |else if (option_index == RESOLVE_DEPENDENCIES_INDEX)|  */
+
+@q ***** (5) no-resolve-dependencies.  @>
+@ \.{no-resolve-dependencies}.
+\initials{LDF 2010.02.09.}
+
+\LOG
+\initials{LDF 2010.02.09.}
+Added this section.
+\ENDLOG
+
+@<|process_command_line_options| definition@>=
+
+        else if (option_index == NO_RESOLVE_DEPENDENCIES_INDEX)        
+        {
+
+@q ****** (6) @>
+
+            if (DEBUG) 
+            {
+               lock_cerr_mutex();
+               cerr << "[Initial Thread] `option_index' "
+                    << "== `NO_RESOLVE_DEPENDENCIES_INDEX'" 
+                    << endl;
+               unlock_cerr_mutex();
+
+            } /* |if (DEBUG)|  */
+
+            resolve_dependencies = false;
+
+@q ****** (6) @>
+
+        } /* |else if (option_index == NO_RESOLVE_DEPENDENCIES_INDEX)|  */
+
+@q ***** (5) install.  @>
+@ \.{install}.
+\initials{LDF 2010.02.09.}
+
+\LOG
+\initials{LDF 2010.02.09.}
+Added this section.
+\ENDLOG
+
+@<|process_command_line_options| definition@>=
+
+        else if (option_index == INSTALL_INDEX)        
+        {
+
+@q ****** (6) @>
+
+            if (DEBUG) 
+            {
+               lock_cerr_mutex();
+               cerr << "[Initial Thread] `option_index' "
+                    << "== `INSTALL_INDEX'" 
+                    << endl;
+               unlock_cerr_mutex();
+
+            } /* |if (DEBUG)|  */
+          
+            if (is_client)
+            {
+                install = true;
+
+                if (prerequisites_reinstall_value == 0)
+                   prerequisites_reinstall_value = -1;
+            }
+           
+
+@q ****** (6) @>
+
+        } /* |else if (option_index == INSTALL_INDEX)|  */
+
+@q ***** (5) no-install.  @>
+@ \.{no-install}.
+\initials{LDF 2010.02.09.}
+
+\LOG
+\initials{LDF 2010.02.09.}
+Added this section.
+\ENDLOG
+
+@<|process_command_line_options| definition@>=
+
+        else if (option_index == NO_INSTALL_INDEX)        
+        {
+
+@q ****** (6) @>
+
+            if (DEBUG) 
+            {
+               lock_cerr_mutex();
+               cerr << "[Initial Thread] `option_index' "
+                    << "== `NO_INSTALL_INDEX'" 
+                    << endl;
+               unlock_cerr_mutex();
+
+            } /* |if (DEBUG)|  */
+
+            if (is_client)
+            {
+                install = false;
+            }
+
+@q ****** (6) @>
+
+        } /* |else if (option_index == NO_INSTALL_INDEX)|  */
+
+@q ***** (5) fetch.  @>
+@ \.{fetch}.
+\initials{LDF 2010.02.09.}
+
+\LOG
+\initials{LDF 2010.02.09.}
+Added this section.
+\ENDLOG
+
+@<|process_command_line_options| definition@>=
+
+        else if (option_index == FETCH_INDEX)        
+        {
+
+@q ****** (6) @>
+
+            if (DEBUG) 
+            {
+               lock_cerr_mutex();
+               cerr << "[Initial Thread] `option_index' "
+                    << "== `FETCH_INDEX'" 
+                    << endl;
+               unlock_cerr_mutex();
+
+            } /* |if (DEBUG)|  */
+
+            fetch = true;
+
+@q ****** (6) @>
+
+        } /* |else if (option_index == FETCH_INDEX)|  */
+
+@q ***** (5) port-auth.  @>
+@ \.{port-auth}.
+\initials{LDF 2010.04.16.}
+
+\LOG
+\initials{LDF 2010.04.16.}
+Added this section.
+
+\initials{LDF 2010.04.27.}
+Added error handling.
+\ENDLOG
+
+@<|process_command_line_options| definition@>=
+
+        else if (option_index == PORT_AUTH_INDEX)        
+        {
+
+@q ****** (6) @>
+
+            if (DEBUG) 
+            {
+               lock_cerr_mutex();
+               cerr << "[Initial Thread] `option_index' "
+                    << "== `PORT_AUTH_INDEX'" 
+                    << endl;
+               unlock_cerr_mutex();
+
+            } /* |if (DEBUG)|  */
+
+
+            port_str_auth = optarg;
+
+            string::size_type s = port_str_auth.find_first_not_of("0123456789");
+
+            if (s == string::npos)
+               status = sscanf(port_str_auth.c_str(), "%d", &port_num_auth);
+            else        
+               status == EOF;
+
+            if (status == 0 || status == EOF)
+            {
+               lock_cerr_mutex(); 
+               cerr << "[Initial Thread] WARNING!  In `process_command_line_options':"
+                    << endl 
+                    << "Failed to convert \"" << port_str_auth << "\" to an integer."
+                    << endl 
+                    << "Setting "
+                    << "`port_str_auth' to " << DEFAULT_PORT_STR_AUTH 
+                    << " (`DEFAULT_PORT_STR_AUTH')," 
+                    << endl 
+                    << "`port_num_auth' to " << DEFAULT_PORT_NUM_AUTH 
+                    << " (`DEFAULT_PORT_NUM_AUTH')," 
+                    << endl 
+                    << "`port_str_non_auth' to " << DEFAULT_PORT_STR_NON_AUTH 
+                    << " (`DEFAULT_PORT_STR_NON_AUTH')," 
+                    << endl 
+                    << "and `port_num_non_auth' to " << DEFAULT_PORT_NUM_NON_AUTH 
+                    << " (`DEFAULT_PORT_NUM_NON_AUTH')." 
+                    << endl;
+               unlock_cerr_mutex();  
+
+               port_str_auth      = DEFAULT_PORT_STR_AUTH;
+               port_str_non_auth  = DEFAULT_PORT_STR_NON_AUTH;
+
+               port_num_auth      = DEFAULT_PORT_NUM_AUTH;
+               port_num_non_auth  = DEFAULT_PORT_NUM_NON_AUTH;
+   
+            } /* if (status == 0 || status == EOF) */
+
+            if (DEBUG) 
+            {
+               lock_cerr_mutex();
+               cerr << "[Initial Thread] `port_str_auth' == port_str_auth"
+                    << endl
+                    << "`port_num_auth' == "  << port_num_auth
+                    << endl;
+               unlock_cerr_mutex();
+
+            } /* |if (DEBUG)|  */
+
+@q ****** (6) @>
+
+        } /* |else if (option_index == PORT_AUTH_INDEX)|  */
+
+@q ***** (5) port-non-auth.  @>
+@ \.{port-non-auth}.
+\initials{LDF 2010.04.16.}
+
+\LOG
+\initials{LDF 2010.04.16.}
+Added this section.
+
+\initials{LDF 2010.04.27.}
+Added error handling.
+\ENDLOG
+
+@<|process_command_line_options| definition@>=
+
+        else if (option_index == PORT_NON_AUTH_INDEX)        
+        {
+
+@q ****** (6) @>
+
+            if (DEBUG) 
+            {
+               lock_cerr_mutex();
+               cerr << "[Initial Thread] `option_index' "
+                    << "== `PORT_NON_AUTH_INDEX'" 
+                    << endl;
+               unlock_cerr_mutex();
+
+            } /* |if (DEBUG)|  */
+
+            port_str_non_auth = optarg;
+
+            string::size_type s = port_str_auth.find_first_not_of("0123456789");
+
+            if (s == string::npos)
+               status = sscanf(port_str_non_auth.c_str(), "%d", &port_num_non_auth);
+            else        
+               status == EOF;
+
+            if (status == 0 || status == EOF)
+            {
+               lock_cerr_mutex(); 
+               cerr << "[Initial Thread] WARNING!  In `process_command_line_options':"
+                    << endl 
+                    << "Failed to convert \"" << port_str_non_auth << "\" to an integer."
+                    << endl 
+                    << "Setting "
+                    << "`port_str_auth' to " << DEFAULT_PORT_STR_AUTH 
+                    << " (`DEFAULT_PORT_STR_AUTH')," 
+                    << endl 
+                    << "`port_num_auth' to " << DEFAULT_PORT_NUM_AUTH 
+                    << " (`DEFAULT_PORT_NUM_AUTH')," 
+                    << endl 
+                    << "`port_str_non_auth' to " << DEFAULT_PORT_STR_NON_AUTH 
+                    << " (`DEFAULT_PORT_STR_NON_AUTH')," 
+                    << endl 
+                    << "and `port_num_non_auth' to " << DEFAULT_PORT_NUM_NON_AUTH 
+                    << " (`DEFAULT_PORT_NUM_NON_AUTH')." 
+                    << endl;
+               unlock_cerr_mutex();  
+
+               port_str_auth      = DEFAULT_PORT_STR_AUTH;
+               port_str_non_auth  = DEFAULT_PORT_STR_NON_AUTH;
+
+               port_num_auth      = DEFAULT_PORT_NUM_AUTH;
+               port_num_non_auth  = DEFAULT_PORT_NUM_NON_AUTH;
+   
+            } /* if (status == 0 || status == EOF) */
+
+            if (DEBUG) 
+            {
+               lock_cerr_mutex();
+               cerr << "[Initial Thread] In `process_command_line_options':"
+                    << endl
+                    << "`port_num_non_auth' == " << port_num_non_auth
+                    << endl;
+               unlock_cerr_mutex();
+
+            } /* |if (DEBUG)|  */
+
+
+@q ****** (6) @>
+
+        } /* |else if (option_index == PORT_NON_AUTH_INDEX)|  */
+
+@q ***** (5) grid-mapfile.  @>
+@ \.{grid-mapfile}.
+\initials{LDF 2010.04.21.}
+
+\LOG
+\initials{LDF 2010.04.21.}
+Added this section.
+
+\initials{LDF 2011.07.21.}
+@:BUG FIX@> BUG FIX:  Disabled changing |grid_mapfile_filename| if |is_client|.  
+It is permitted for the server program \.{optdbsrv}.
+
+\initials{LDF 2011.07.22.}
+Added conditionally compiled code for enabling or disabling changing 
+|grid_mapfile_filename| when |is_client|:  
+On \.{optinum-srv.gwdg.de}, \.{rocks-goegrid.gwdg.de}
+\.{optinum.de}, \.{faui36a.informatik.uni-erlangen.de} and 
+\.{faui3cluster.informatik.uni-erlangen.de}, it's disabled. 
+On all other hosts, it is permitted.
+\ENDLOG
+
+@<|process_command_line_options| definition@>=
+
+        else if (option_index == GRID_MAPFILE_INDEX)        
+        {
+
+@q ****** (6) @>
+
+            if (DEBUG) 
+            {
+               lock_cerr_mutex();
+               cerr << "[Initial Thread] `option_index' "
+                    << "== `GRID_MAPFILE_INDEX'" 
+                    << endl;
+               unlock_cerr_mutex();
+
+            } /* |if (DEBUG)|  */
+
+#if IS_OPTINUM_SRV | IS_ROCKS_GOEGRID | IS_OPTINUM_DE | IS_FAUI36A | IS_FAUI3CLUSTER
+
+            if (is_server)
+            {
+               grid_mapfile_filename = optarg;
+
+               if (DEBUG) 
+               {
+                  lock_cerr_mutex();
+                  cerr << "[Initial Thread] In `process_command_line_options':"
+                       << endl
+                       << "`grid_mapfile_filename' == " << grid_mapfile_filename
+                       << endl;
+                  unlock_cerr_mutex();
+
+               } /* |if (DEBUG)|  */
+
+            }  /* |if (is_server)|  */
+
+            else
+               cerr << "WARNING!  In `process_command_line_options':"
+                    << endl
+                    << "The `--grid-mapfile' option is disabled for `optdbcli'.  "
+                    << "Cannot change grid-mapfile" << endl << "(`" 
+                    << grid_mapfile_filename << "')."
+                    << endl
+                    << "Continuing."
+                    << endl;
+#else
+
+            grid_mapfile_filename = optarg;
+
+            if (DEBUG) 
+            {
+               lock_cerr_mutex();
+               cerr << "[Initial Thread] In `process_command_line_options':"
+                    << endl
+                    << "`grid_mapfile_filename' == " << grid_mapfile_filename
+                    << endl;
+               unlock_cerr_mutex();
+
+            } /* |if (DEBUG)|  */
+
+#endif 
+
+        } /* |else if (option_index == GRID_MAPFILE_INDEX)|  */
+
+@q ***** (5) log-filename.  @>
+@ \.{log-filename}.
+\initials{LDF 2010.06.11.}
+
+\LOG
+\initials{LDF 2010.06.11.}
+Added this section.
+\ENDLOG
+
+@<|process_command_line_options| definition@>=
+
+        else if (option_index == LOG_FILENAME_INDEX)
+        {
+
+@q ****** (6) @>
+
+            if (DEBUG) 
+            {
+               lock_cerr_mutex();
+               cerr << "[Initial Thread] `option_index' "
+                    << "== `LOG_FILENAME_INDEX'." 
+                    << endl;
+               unlock_cerr_mutex();
+
+            } /* |if (DEBUG)|  */
+
+            log_filename = optarg;
+
+@q ****** (6) @>
+
+        } /* |else if (option_index == LOG_FILENAME_INDEX)|  */
+
+
+@q ***** (5) error-log-filename.  @>
+@ \.{error-log-filename}.
+\initials{LDF 2010.06.11.}
+
+\LOG
+\initials{LDF 2010.06.11.}
+Added this section.
+\ENDLOG
+
+@<|process_command_line_options| definition@>=
+
+        else if (option_index == ERR_LOG_FILENAME_INDEX)
+        {
+
+@q ****** (6) @>
+
+            if (DEBUG) 
+            {
+               lock_cerr_mutex();
+               cerr << "[Initial Thread] `option_index' "
+                    << "== `ERR_LOG_FILENAME_INDEX'." 
+                    << endl;
+               unlock_cerr_mutex();
+
+            } /* |if (DEBUG)|  */
+
+            err_log_filename = optarg;
+
+@q ****** (6) @>
+
+        } /* |else if (option_index == ERR_LOG_FILENAME_INDEX)|  */
+
+@q ***** (5) download-fail-continue.  @>
+@ \.{download-fail-continue}.
+\initials{LDF 2010.07.21.}
+
+\LOG
+\initials{LDF 2010.07.21.}
+Added this section.
+\ENDLOG
+
+@<|process_command_line_options| definition@>=
+
+        else if (option_index == DOWNLOAD_FAIL_CONTINUE_INDEX)
+        {
+
+@q ****** (6) @>
+
+            if (DEBUG) 
+            {
+               lock_cerr_mutex();
+               cerr << "[Initial Thread] `option_index' "
+                    << "== `DOWNLOAD_FAIL_CONTINUE_INDEX'." 
+                    << endl;
+               unlock_cerr_mutex();
+
+            } /* |if (DEBUG)|  */
+
+            download_fail_continue = true;
+
+@q ****** (6) @>
+
+        } /* |else if (option_index == DOWNLOAD_FAIL_CONTINUE_INDEX)|  */
+
+@q ***** (5) install-fail-continue.  @>
+@ \.{install-fail-continue}.
+\initials{LDF 2010.07.21.}
+
+\LOG
+\initials{LDF 2010.07.21.}
+Added this section.
+\ENDLOG
+
+@<|process_command_line_options| definition@>=
+
+        else if (option_index == INSTALL_FAIL_CONTINUE_INDEX)
+        {
+
+@q ****** (6) @>
+
+            if (DEBUG) 
+            {
+               lock_cerr_mutex();
+               cerr << "[Initial Thread] `option_index' "
+                    << "== `INSTALL_FAIL_CONTINUE_INDEX'." 
+                    << endl;
+               unlock_cerr_mutex();
+
+            } /* |if (DEBUG)|  */
+
+            install_fail_continue = true;
+
+@q ****** (6) @>
+
+        } /* |else if (option_index == INSTALL_FAIL_CONTINUE_INDEX)|  */
+
+@q ***** (5) reinstall.  @>
+@ \.{reinstall}.
+\initials{LDF 2010.09.08.}
+
+Using the \.{--reinstall} option sets |install = true|, so 
+if \.{--reinstall} is used, \.{--install} doesn't need to be.
+
+\LOG
+\initials{LDF 2010.09.08.}
+Added this section.
+\ENDLOG
+
+@<|process_command_line_options| definition@>=
+
+        else if (option_index == REINSTALL_INDEX)
+        {
+
+@q ****** (6) @>
+
+            if (DEBUG) 
+            {
+               lock_cerr_mutex();
+               cerr << "[Initial Thread] `option_index' "
+                    << "== `REINSTALL_INDEX'." 
+                    << endl;
+               unlock_cerr_mutex();
+
+            } /* |if (DEBUG)|  */
+
+            if (is_client)
+            {
+                install = true;
+
+                reinstall_flag = true;
+
+                if (prerequisites_reinstall_value == 0)
+                   prerequisites_reinstall_value = 1;
+            }
+
+@q ****** (6) @>
+
+        } /* |else if (option_index == REINSTALL_INDEX)|  */
+
+@q ***** (5) install-directory.  @>
+@ \.{install-directory}.
+\initials{LDF 2011.04.15.}
+
+Used by client only.  Currently, it's only used for encrypted entries.
+\initials{LDF 2011.04.15.}
+
+\LOG
+\initials{LDF 2011.04.15.}
+Added this section.
+\ENDLOG
+
+@<|process_command_line_options| definition@>=
+
+        else if (option_index == INSTALL_DIRECTORY_INDEX)        
+        {
+
+@q ****** (6) @>
+
+            if (DEBUG) 
+            {
+               lock_cerr_mutex();
+               cerr << "[Initial Thread] `option_index' == `INSTALL_DIRECTORY_INDEX'."
+                    << endl;
+ 
+               if (DEBUG && optarg)
+                  cerr << "optarg == " << optarg << endl;
+               unlock_cerr_mutex();
+            }
+ 
+            install_directory = optarg;
+
+            if (DEBUG)
+            {
+               lock_cerr_mutex(); 
+               cerr << "[Initial Thread] In `process_command_line_options':  "
+                    << "`install_directory' == "
+                    << install_directory
+                    << endl;
+               unlock_cerr_mutex(); 
+
+            }  /* |if (DEBUG)|   */
+
+@q ****** (6) @>
+
+        } /* |else if (option_index == INSTALL_DIRECTORY_INDEX)|  */
+
+@q ***** (5) no-links.  @>
+@ \.{no-links}.
+\initials{LDF 2011.08.10.}
+
+Used by client only. 
+\initials{LDF 2011.08.10.}
+
+\LOG
+\initials{LDF 2011.08.10.}
+Added this section.
+\ENDLOG
+
+@<|process_command_line_options| definition@>=
+
+        else if (option_index == NO_LINKS_INDEX)        
+        {
+
+@q ****** (6) @>
+
+            if (DEBUG) 
+            {
+               lock_cerr_mutex();
+               cerr << "[Initial Thread] `option_index' == `NO_LINKS_INDEX'."
+                    << endl;
+               unlock_cerr_mutex();
+            }
+ 
+            create_links_value = -1;
+
+@q ****** (6) @>
+
+        } /* |else if (option_index == NO_LINKS_INDEX)|  */
+
+@q ***** (5) create-links.  @>
+@ \.{create-links}.
+\initials{LDF 2012.02.08.}
+
+Used by client only. 
+\initials{LDF 2012.02.08.}
+
+\LOG
+\initials{LDF 2012.02.08.}
+Added this section.
+\ENDLOG
+
+@<|process_command_line_options| definition@>=
+
+        else if (option_index == CREATE_LINKS_INDEX)        
+        {
+
+@q ****** (6) @>
+
+            if (DEBUG) 
+            {
+               lock_cerr_mutex();
+               cerr << "[Initial Thread] `option_index' == `CREATE_LINKS_INDEX'."
+                    << endl;
+               unlock_cerr_mutex();
+            }
+ 
+            create_links_value = 1;
+
+@q ****** (6) @>
+
+        } /* |else if (option_index == CREATE_LINKS_INDEX)|  */
+
+
+
+@q ***** (5) link-directory.  @>
+@ \.{link-directory}.
+\initials{LDF 2012.02.08.}
+
+Used by client only. 
+\initials{LDF 2012.02.08.}
+
+\LOG
+\initials{LDF 2012.02.08.}
+Added this section.
+
+\initials{LDF 2012.03.27.}
+Now setting |create_links_value = 1| if |create_links_value == 0|.
+This ensures that links will be created, unless the \.{--no-links} option 
+appeared previously in the command line.
+\ENDLOG
+
+@<|process_command_line_options| definition@>=
+
+        else if (option_index == LINK_DIRECTORY_INDEX)        
+        {
+
+@q ****** (6) @>
+
+            if (DEBUG) 
+            {
+               lock_cerr_mutex();
+               cerr << "[Initial Thread] `option_index' == `LINK_DIRECTORY_INDEX'."
+                    << endl;
+               unlock_cerr_mutex();
+            }
+
+            if (optarg)
+               link_directory = optarg;
+
+
+            if (DEBUG) 
+               cerr << "`link_directory' == " 
+                    << link_directory << endl;
+
+            if (create_links_value == 0)
+               create_links_value = 1;
+ 
+@q ****** (6) @>
+
+        } /* |else if (option_index == LINK_DIRECTORY_INDEX)|  */
+
+@q ***** (5) session-id.  @>
+@ \.{session-id}.
+\initials{LDF 2011.12.22.}
+
+|session_id| is only set by means of a command-line option for the client.
+\initials{LDF 2011.12.22.}
+
+\LOG
+\initials{LDF 2011.12.22.}
+Added this section.
+\ENDLOG
+
+@<|process_command_line_options| definition@>=
+
+        else if (option_index == SESSION_ID_INDEX)        
+        {
+
+@q ****** (6) @>
+
+
+#if 1 /* 0 */
+bool save_DEBUG = DEBUG;
+DEBUG = false; /* |true|  */
+#endif 
+
+            if (DEBUG) 
+            {
+               lock_cerr_mutex();
+               cerr << "[Initial Thread] `option_index' "
+                    << "== `SESSION_ID_INDEX'" 
+                    << endl;
+               unlock_cerr_mutex();
+            }
+
+            if (is_client)
+            {
+               session_id = optarg;
+
+               if (DEBUG) 
+                  cerr << "`session_id' == " << session_id
+                       << endl;
+            }
+
+#if 1 /* 0 */
+DEBUG = save_DEBUG; 
+#endif 
+
+
+@q ****** (6) @>
+
+        } /* |else if (option_index == SESSION_ID_INDEX)|  */
+
+@q ***** (5) help.  @>
+@ \.{help}.
+\initials{LDF 2012.01.10.}
+
+\LOG
+\initials{LDF 2012.01.10.}
+Added this section.
+\ENDLOG
+
+@<|process_command_line_options| definition@>=
+
+        else if (option_index == HELP_INDEX)        
+        {
+
+@q ****** (6) @>
+
+
+            if (DEBUG) 
+            {
+               lock_cerr_mutex();
+               cerr << "[Initial Thread] `option_index' "
+                    << "== `HELP_INDEX'" 
+                    << endl;
+               unlock_cerr_mutex();
+            }
+
+            /* !! TODO: LDF 2012.01.10.  Add explanatory text.  Also, add code for the options I've
+               added since 2012.01.10.  */
+
+@q ****** (6) @>
+
+            if (is_client)
+            {
+                cout << "Usage:  optdbcli [OPTION] ..." 
+                     << endl
+                     << "--bison-trace " << endl
+                     << "--flex-trace " << endl
+                     << "--input-filename " << endl
+                     << "--output-filename " << endl
+                     << "--save-temp-files " << endl
+                     << "--cert-filename " << endl
+                     << "--key-filename " << endl
+                     << "--ca-filename " << endl
+                     << "--crl-filename " << endl
+                     << "--cert-format " << endl
+                     << "--key-encrypt " << endl
+                     << "--proxy-credential " << endl
+                     << "--sleep " << endl
+                     << "--package-name " << endl
+                     << "--package-version " << endl
+                     << "--resolve-dependencies " << endl
+                     << "--no-resolve-dependencies " << endl
+                     << "--install " << endl
+                     << "--no-install " << endl
+                     << "--fetch " << endl
+                     << "--port-auth " << endl
+                     << "--port-non-auth " << endl
+                     << "--grid-mapfile " << endl
+                     << "--log-filename " << endl
+                     << "--error-log-filename " << endl
+                     << "--download-fail-continue " << endl
+                     << "--install-fail-continue " << endl
+                     << "--reinstall " << endl
+                     << "--install-directory " << endl
+                     << "--no-links " << endl
+                     << "--session-id " << endl
+                     << "--help " << endl
+                     << "--trace " << endl 
+                     << "--prerequisites-reinstall" << endl 
+                     << "--no-prerequisites-reinstall" << endl 
+                     << "--globus-site" << endl 
+                     << endl;
+
+            }  /* |if (is_client)|  */
+
+@q ****** (6) @>
+
+            else if (is_server)
+            {
+                cout << "Usage:  optdbsrv [OPTION] ..." 
+                     << endl
+                     << "--bison-trace " << endl
+                     << "--flex-trace " << endl
+                     << "--save-temp-files " << endl
+                     << "--ca-filename " << endl
+                     << "--crl-filename " << endl
+                     << "--sleep " << endl
+                     << "--port-auth " << endl
+                     << "--port-non-auth " << endl
+                     << "--grid-mapfile " << endl
+                     << "--log-filename " << endl
+                     << "--error-log-filename " << endl
+                     << "--help " << endl
+                     << "--trace " << endl 
+                     << endl;
+
+            }  /* |else (is_server)|  */
+
+@q ****** (6) @>
+@ @:TODO@> !! TODO:  Add |atexit| for destroying mutexes, closing 
+output files, etc.
+\initials{LDF 2012.01.10.}
+
+@<|process_command_line_options| definition@>=
+
+            exit(0);
+
+        } /* |else if (option_index == HELP_INDEX)|  */
+
+@q ***** (5) trace.  @>
+@ \.{trace}.
+\initials{LDF 2012.01.12.}
+
+\LOG
+\initials{LDF 2012.01.12.}
+Added this section.
+\ENDLOG
+
+@<|process_command_line_options| definition@>=
+
+        else if (option_index == TRACE_INDEX)        
+        {
+
+@q ****** (6) @>
+
+            if (DEBUG) 
+            {
+               lock_cerr_mutex();
+               cerr << "[Initial Thread] `option_index' "
+                    << "== `TRACE_INDEX'" 
+                    << endl;
+
+               if(optarg)
+                  cerr << "optarg == " << optarg << endl;
+               else
+                  cerr << "No argument." << endl;
+
+               unlock_cerr_mutex();
+            }
+ 
+            bool invalid_arg = false;
+
+
+            if (optarg)
+            {
+
+                if (!(isdigit(optarg[0]) || optarg[0] == '-'))
+                  invalid_arg = true;
+
+                else
+                {
+                    for (int i = 1; i < strlen(optarg); ++i)
+                    {
+                        if (!isdigit(optarg[i]))
+                        {
+                            invalid_arg = true;
+                            break;
+                        }
+                        
+                    }  /* |for|  */
+
+                }  /* |else|  */
+
+            }  /* |if|  */
+
+
+            if (optarg && !invalid_arg)
+            {
+                errno = 0;
+                trace_value = strtol(optarg, 0, 10);
+
+
+            }
+
+            if (optarg && (invalid_arg || errno != 0 || trace_value == LONG_MAX  
+                || trace_value == LONG_MIN))
+            {
+
+            
+
+                lock_cerr_mutex(); 
+                cerr << "WARNING!  In `process_command_line_options':"
+                     << endl
+                     << "Invalid argument to `trace' option:  " << optarg
+                     << endl;
+
+
+                if (errno != 0)
+                {
+                    cerr << "errno == " << errno << endl;
+                    perror("strtol error");
+                }
+
+                cerr << "Setting `trace_value' to 0 and continuing."
+                     << endl;
+                unlock_cerr_mutex(); 
+
+                trace_value = 0;
+            
+            }  /* |if|  */
+
+
+            if (!optarg)
+                trace_value = 1;
+
+            if (DEBUG)
+            {
+                lock_cerr_mutex(); 
+                cerr << "trace_value == " << trace_value << endl;
+                unlock_cerr_mutex(); 
+
+            }  /* |if (DEBUG)|  */ 
+               
+        }  /* |else if (option_index == TRACE_INDEX)|  */
+
+@q ***** (5) prerequisites-reinstall.  @>
+@ \.{prerequisites-reinstall}.
+\initials{LDF 2012.02.03.}
+
+\LOG
+\initials{LDF 2012.02.03.}
+Added this section.
+\ENDLOG
+
+@<|process_command_line_options| definition@>=
+
+        else if (option_index == PREREQUISITES_REINSTALL_INDEX)        
+        {
+
+@q ****** (6) @>
+
+            if (DEBUG) 
+            {
+               lock_cerr_mutex();
+               cerr << "[Initial Thread] `option_index' "
+                    << "== `PREREQUISITES_REINSTALL_INDEX'" 
+                    << endl;
+               unlock_cerr_mutex();
+            }
+            if (is_client)
+               prerequisites_reinstall_value = 1;
+
+        }  /* |else if (option_index == PREREQUISITES_REINSTALL_INDEX)|  */
+
+@q ***** (5) no-prerequisites-reinstall.  @>
+@ \.{no-prerequisites-reinstall}.
+\initials{LDF 2012.02.03.}
+
+\LOG
+\initials{LDF 2012.02.03.}
+Added this section.
+\ENDLOG
+
+@<|process_command_line_options| definition@>=
+
+        else if (option_index == NO_PREREQUISITES_REINSTALL_INDEX)        
+        {
+
+@q ****** (6) @>
+
+            if (DEBUG) 
+            {
+               lock_cerr_mutex();
+               cerr << "[Initial Thread] `option_index' "
+                    << "== `NO_PREREQUISITES_REINSTALL_INDEX'" 
+                    << endl;
+               unlock_cerr_mutex();
+            }
+            if (is_client)
+               prerequisites_reinstall_value = -1;
+
+        }  /* |else if (option_index == NO_PREREQUISITES_REINSTALL_INDEX)|  */
+
+
+@q ***** (5) version.  @>
+@ \.{version}.
+\initials{LDF 2012.02.27.}
+
+\LOG
+\initials{LDF 2012.02.27.}
+Added this section.
+\ENDLOG
+
+@<|process_command_line_options| definition@>=
+
+        else if (option_index == VERSION_INDEX)        
+        {
+
+@q ****** (6) @>
+
+            if (DEBUG) 
+            {
+               lock_cerr_mutex();
+               cerr << "[Initial Thread] `option_index' "
+                    << "== `VERSION_INDEX'" 
+                    << endl;
+               unlock_cerr_mutex();
+            }
+
+            if (is_server)
+               cout << "optdbsrv 1.0"
+                    << endl
+                    << "OptiNum Grid Installer Server"
+                    << endl;
+            else
+               cout << "optdbcli 1.0"
+                    << endl
+                    << "OptiNum Grid Installer Client"
+                    << endl;
+
+            cout << "Author:  Laurence D. Finston"
+                 << endl 
+                 << "Copyright (C) 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH "
+                 << "Goettingen"
+                 << endl;
+
+            exit(0);
+
+        }  /* |else if (option_index == VERSION_INDEX)|  */
+
+@q ***** (5) globus-site.  @>
+@ \.{globus-site}.
+\initials{LDF 2012.03.19.}
+
+\LOG
+\initials{LDF 2012.03.19.}
+Added this section.
+\ENDLOG
+
+@<|process_command_line_options| definition@>=
+
+        else if (option_index == GLOBUS_SITE_INDEX)        
+        {
+
+@q ****** (6) @>
+
+            if (DEBUG) 
+            {
+               lock_cerr_mutex();
+               cerr << "[Initial Thread] `option_index' "
+                    << "== `GLOBUS_SITE_INDEX'" 
+                    << endl;
+               unlock_cerr_mutex();
+            }
+
+            if (is_client)
+               globus_site = optarg;
+
+
+        }  /* |else if (option_index == GLOBUS_SITE_INDEX)|  */
+
+
+@q ***** (5) Invalid option_index value.@>
+@ Invalid {\tt option\_index} value.
+
+@<|process_command_line_options| definition@>=
+
+        else 
+          {
+            lock_cerr_mutex();
+            cerr << "[Initial Thread] WARNING!  In `process_command_line_options':"
+                 << endl 
+                 << "`option_index' has invalid value: "
+                 << option_index << endl
+                 << "Will try to continue." 
+                 << endl;
+            unlock_cerr_mutex();
+
+          }
+
+@q ***** (5) @>
+
+      }  /* |else if (option_ctr == 0)|  */
+
+@q **** (4) Ambiguous option.@>
+@ Ambiguous option.
+\initials{LDF Date unknown.}
+
+@^!! TODO@> !! TODO: 
+\initials{LDF 2008.09.15.}  
+Fix asterisk comments.  
+Possibly try grepping for one day at a time to reduce the amount of code.
+Maybe put it into a file.
+
+@<|process_command_line_options| definition@>=
+
+    else if (option_ctr == '?')
+    {
+
+        lock_cerr_mutex();
+        cerr << "[Initial Thread] WARNING! In `process_command_line_options':"
+             << endl
+             << "`getopt_long_only' returned ambiguous match.  "
+             << "Breaking."
+             << endl;
+        unlock_cerr_mutex();
+
+        break;
+
+    }  /* |else if (option_ctr == '?')|  */
+
+@q **** (4) Invalid option.@>
+@ Invalid option.
+
+@<|process_command_line_options| definition@>=
+
+    else
+    {
+        if (DEBUG) 
+        {
+           lock_cerr_mutex();
+
+           cerr << "[Initial Thread] `getopt_long_only' returned invalid option."
+                << endl;
+           unlock_cerr_mutex();
+        }
+    }
+
+@q **** (4) End of while loop.@>
+@ End of while loop.
+
+@<|process_command_line_options| definition@>=
+
+
+    if (DEBUG) 
+    {
+       lock_cerr_mutex();
+       cerr << "[Initial Thread] End of option processing" << endl;
+       unlock_cerr_mutex();
+    }
+
+
+@q **** (4) @>
+
+    } /* |while|  */
+  
+@q *** (3) Non-option command line arguments.  @>
+@ Non-option command line arguments.  
+\initials{LDF 2008.08.12.}
+
+\LOG
+\initials{LDF 2010.02.10.}
+Changed this code.  Non-option arguments now require 
+more complicated handling.
+\ENDLOG 
+
+@<|process_command_line_options| definition@>=
+        
+@q **** (4) @>
+
+  if (optind < argc)
+  {
+    if (DEBUG)
+    {
+       lock_cerr_mutex(); 
+       cerr << "[Initial Thread] non-option ARGV-elements: ";
+       unlock_cerr_mutex();
+    
+       int j = optind;
+
+       for (int i = 0; j < argc;  ++i, ++j)
+       {
+
+              lock_cerr_mutex();
+              cerr << "[Initial Thread] argv[" << j << "] == " << argv[j] << endl
+                   << "strlen(argv[j]) == " << strlen(argv[j]) << endl;
+              unlock_cerr_mutex();
+
+       }  /* |for| */ 
+
+    }  /* |if (DEBUG)|  */ 
+    
+  } /* |if (optind < argc)|  */
+
+
+@q ****** (6) Client version.  @>
+
+@ Client version.
+\initials{LDF 2010.02.12.}
+
+@<|process_command_line_options| definition@>=
+   
+   if (is_client && optind < argc)
+   {
+
+@q ******* (7) First non-option argument (required):  Server IP Address.  @>
+
+@ Client:  First non-option argument (required):  Server IP Address.
+\initials{LDF 2010.02.26.}
+
+\LOG
+\initials{LDF 2010.02.26.}
+Added this section.
+\ENDLOG
+
+@<|process_command_line_options| definition@>=
+
+     server_ip_address = argv[optind++];
+
+@q ******* (7) Client:  Second non-option argument (optional):  Input filename.  @>
+
+@ Client:  Second non-option argument (optional):  Input filename.
+\initials{LDF 2010.02.26.}
+
+\LOG
+\initials{LDF 2010.02.26.}
+Added this section.
+\ENDLOG
+
+@<|process_command_line_options| definition@>=
+
+     if (optind < argc)
+        input_filename = argv[optind++];
+
+@q ******* (7) Client:  Third non-option argument (optional):  Server Port.  @>
+
+@ Client:  Third non-option argument (optional):  Server Port.
+\initials{LDF 2010.02.26.}
+
+The client can only have an authorized or a non-authorized connection to the server.  
+Therefore, |port_str_auth| and |port_str_non_auth| are set to the same |string| 
+value and |port_num_auth| and |port_num_non_auth| are also set to the same |integer| 
+value.
+\par
+If the argument can't be converted to an integer, the defaults are used.
+\initials{LDF 2010.02.26.}
+
+\LOG
+\initials{LDF 2010.02.26.}
+Added this section.
+\ENDLOG
+
+@<|process_command_line_options| definition@>=
+
+     if (optind < argc)
+     {
+
+        port_str_auth = argv[optind++]; 
+
+        string::size_type s = port_str_auth.find_first_not_of("0123456789");
+
+        if (s == string::npos)
+           status = sscanf(port_str_auth.c_str(), "%d", &port_num_auth);
+        else        
+           status == EOF;
+        
+        if (status == 0 || status == EOF)
+        {
+           lock_cerr_mutex(); 
+           cerr << "[Initial Thread] WARNING!  In `process_command_line_options':"
+                << endl 
+                << "Failed to convert \"" << port_str_auth << "\" to an integer."
+                << endl 
+                << "Setting "
+                << "`port_str_auth' to " << DEFAULT_PORT_STR_AUTH 
+                << " (`DEFAULT_PORT_STR_AUTH')," 
+                << endl 
+                << "`port_num_auth' to " << DEFAULT_PORT_NUM_AUTH 
+                << " (`DEFAULT_PORT_NUM_AUTH')," 
+                << endl 
+                << "`port_str_non_auth' to " << DEFAULT_PORT_STR_NON_AUTH 
+                << " (`DEFAULT_PORT_STR_NON_AUTH')," 
+                << endl 
+                << "and `port_num_non_auth' to " << DEFAULT_PORT_NUM_NON_AUTH 
+                << " (`DEFAULT_PORT_NUM_NON_AUTH')." 
+                << endl;
+           unlock_cerr_mutex();  
+
+           port_str_auth      = DEFAULT_PORT_STR_AUTH;
+           port_str_non_auth  = DEFAULT_PORT_STR_NON_AUTH;
+
+           port_num_auth      = DEFAULT_PORT_NUM_AUTH;
+           port_num_non_auth  = DEFAULT_PORT_NUM_NON_AUTH;
+   
+        } /* if (status == 0 || status == EOF) */
+
+        else
+        {
+             port_str_non_auth = port_str_auth;
+             port_num_non_auth = port_num_auth;
+
+        }  /* |else|  */
+
+        if (DEBUG)
+        {
+
+           lock_cerr_mutex(); 
+           cerr << "[Initial Thread] In `process_command_line_options':"
+                << endl 
+                << "`port_str_auth' == " << port_str_auth
+                << endl 
+                << "`port_str_non_auth' == " << port_str_non_auth
+                << endl 
+                << "`port_num_auth' == " << port_num_auth
+                << endl 
+                << "`port_num_non_auth' == " << port_num_non_auth
+                 << endl;
+           unlock_cerr_mutex();   
+ 
+        }  /* |if (DEBUG)|  */ 
+
+     }  /* |if (optind < argc)|  */
+
+   } /* |if (is_client && optind < argc)| */
+
+@q ****** (6) Server version.  @>
+
+@ Server version.
+\initials{LDF 2010.02.12.}
+
+@<|process_command_line_options| definition@>=
+
+   else if (is_server && optind < argc)
+   {
+
+@q ******* (7) Port for authenticated connections.  @>
+
+@ Port for authenticated connections.  
+\initials{LDF 2010.02.26.}
+
+0 or a negative number can be used as a placeholder if the default port number 
+should be used for authenticated connections but a non-default port nummer for 
+non-authenticated connections.
+\initials{LDF 2010.02.26.}
+
+\LOG
+\initials{LDF 2010.02.26.}
+Added this section.
+\ENDLOG
+
+@<|process_command_line_options| definition@>=
+
+        port_str_auth = argv[optind++]; 
+
+        string::size_type s = port_str_auth.find_first_not_of("0123456789");
+
+        if (s == string::npos)
+           status = sscanf(port_str_auth.c_str(), "%d", &port_num_auth);
+        else        
+           status == EOF;
+        
+        if (status == 0 || status == EOF)
+        {
+           lock_cerr_mutex(); 
+           cerr << "[Initial Thread] WARNING!  In `process_command_line_options':"
+                << endl 
+                << "Failed to convert \"" << port_str_auth << "\" to an integer."
+                << endl 
+                << "Setting "
+                << "`port_str_auth' to " << DEFAULT_PORT_STR_AUTH 
+                << " (`DEFAULT_PORT_STR_AUTH')" 
+                << endl 
+                << "and `port_num_auth' to " << DEFAULT_PORT_NUM_AUTH 
+                << " (`DEFAULT_PORT_NUM_AUTH')." 
+                 << endl;
+           unlock_cerr_mutex();  
+
+           port_str_auth      =   DEFAULT_PORT_STR_AUTH;
+
+           port_num_auth      = DEFAULT_PORT_NUM_AUTH;
+   
+        } /* if (status == 0 || status == EOF) */
+
+        else if (port_num_auth <= 0)
+        {
+
+@q ******** (8) @>
+
+           if (DEBUG)
+           {
+               lock_cerr_mutex(); 
+               cerr << "[Initial Thread] In `process_command_line_options':"
+                    << endl 
+                    << "`port_num_auth' <= 0:  " << port_num_auth
+                    << endl 
+                    << "This probably means it's being used as a placeholder."
+                    << "Will use default values."
+                    << endl 
+                    << "Setting "
+                    << "`port_str_auth' to " << DEFAULT_PORT_STR_AUTH 
+                    << " (`DEFAULT_PORT_STR_AUTH')" 
+                    << endl 
+                    << "and `port_num_auth' to " << DEFAULT_PORT_NUM_AUTH 
+                    << " (`DEFAULT_PORT_NUM_AUTH')." 
+                     << endl;
+               unlock_cerr_mutex();  
+
+           }  /* |if (DEBUG)|  */  
+
+@q ******** (8) @>
+
+        }  /* |else if (port_num_auth <= 0)|  */
+
+        if (DEBUG)
+        {
+
+           lock_cerr_mutex(); 
+           cerr << "[Initial Thread] In `process_command_line_options':"
+                << endl 
+                << "`port_str_auth' == " << port_str_auth
+                << endl 
+                << "`port_num_auth' == " << port_num_auth
+                << endl;
+           unlock_cerr_mutex();   
+ 
+        }  /* |if (DEBUG)|  */ 
+
+@q ******* (7) Port for non-authenticated connections.  @>
+
+@ Port for non-authenticated connections.  
+\initials{LDF 2010.02.26.}
+
+\LOG
+\initials{LDF 2010.02.26.}
+Added this section.
+\ENDLOG
+
+@<|process_command_line_options| definition@>=
+
+        port_str_non_auth = argv[optind++]; 
+
+        s = port_str_non_auth.find_first_not_of("0123456789");
+
+        if (s == string::npos)
+           status = sscanf(port_str_non_auth.c_str(), "%d", &port_num_non_auth);
+        else        
+           status == EOF;
+        
+        if (status == 0 || status == EOF)
+        {
+           lock_cerr_mutex(); 
+           cerr << "[Initial Thread] WARNING!  In `process_command_line_options':"
+                << endl 
+                << "Failed to convert \"" << port_str_non_auth << "\" to an integer."
+                << endl 
+                << "Setting "
+                << "`port_str_non_auth' to " << DEFAULT_PORT_STR_NON_AUTH 
+                << " (`DEFAULT_PORT_STR_NON_AUTH')" 
+                << endl 
+                << "and `port_num_non_auth' to " << DEFAULT_PORT_NUM_NON_AUTH 
+                << " (`DEFAULT_PORT_NUM_NON_AUTH')." 
+                 << endl;
+           unlock_cerr_mutex();  
+
+           port_str_non_auth      = DEFAULT_PORT_STR_NON_AUTH;
+
+           port_num_non_auth      = DEFAULT_PORT_NUM_NON_AUTH;
+   
+        } /* if (status == 0 || status == EOF) */
+
+        if (DEBUG)
+        {
+
+           lock_cerr_mutex(); 
+           cerr << "[Initial Thread] In `process_command_line_options':"
+                << endl 
+                << "`port_str_non_auth' == " << port_str_non_auth
+                << endl 
+                << "`port_num_non_auth' == " << port_num_non_auth
+                << endl;
+           unlock_cerr_mutex();   
+ 
+        }  /* |if (DEBUG)|  */ 
+
+@q ******* (7) @>
+
+   }  /* |else if (is_server && optind < argc)|  */
+
+@q ****** (6) @>
+@
+@<|process_command_line_options| definition@>=
+
+@q **** (4) @>
+
+   return 0;
+
+}  /* End of |process_command_line_options| definition  */
+
+
+@q ** (2) Show filename arguments for certificates, keys, CAs, and CRLs.  @>
+
+@ Show filename arguments for certificates, keys, CAs, and CRLs.  
+\initials{LDF 2009.12.01.}
+
+\LOG
+\initials{LDF 2009.12.01.}
+Added this section.
+
+\initials{LDF 2009.12.08.}
+Removed this code from the body of |main| in the server program (\filename{optdbsrv.web}) 
+and put it in this function (|show_filename_arguments|).
+\ENDLOG
+
+@q *** (3) Declaration  @>
+
+@<|show_filename_arguments| declaration@>=
+int
+show_filename_arguments(void);
+
+@q *** (3) Definition  @>
+@
+@<|show_filename_arguments| definition@>=
+int
+show_filename_arguments(void)
+{
+
+    cerr << "*** Entering `show_filename_arguments'" << endl;
+
+    int i;
+
+@q **** (4) |cert_filenames|  @>
+
+@ |cert_filenames|.
+\initials{LDF 2009.12.01.}
+
+@<|show_filename_arguments| definition@>=
+
+    cerr << "`cert_filenames.size()' == " << cert_filenames.size()
+         << endl;
+
+    if (cert_filenames.size() > 0)
+        cerr << "Showing `cert_filenames':"
+             << endl;
+
+    i = 0;
+
+    for (vector<string>::const_iterator iter = cert_filenames.begin();
+         iter != cert_filenames.end(); 
+         ++iter)
+       cerr << i++ << ".  " << *iter << endl;
+
+
+@q **** (4) |key_filenames|  @>
+
+@ |key_filenames|.
+\initials{LDF 2009.12.01.}
+
+@<|show_filename_arguments| definition@>=
+
+    cerr << "`key_filenames.size()' == " << key_filenames.size()
+         << endl;
+
+    if (key_filenames.size() > 0)
+        cerr << "Showing `key_filenames':"
+             << endl;
+
+    i = 0;
+
+    for (vector<string>::const_iterator iter = key_filenames.begin();
+         iter != key_filenames.end(); 
+         ++iter)
+       cerr << i++ << ".  " << *iter << endl;
+
+
+@q **** (4) |ca_filenames|  @>
+
+@ |ca_filenames|.
+\initials{LDF 2009.12.01.}
+
+@<|show_filename_arguments| definition@>=
+
+    cerr << "`ca_filenames.size()' == " << ca_filenames.size()
+         << endl;
+
+    if (ca_filenames.size() > 0)
+        cerr << "Showing `ca_filenames':"
+             << endl;
+
+    i = 0;
+
+    for (vector<string>::const_iterator iter = ca_filenames.begin();
+         iter != ca_filenames.end(); 
+         ++iter)
+       cerr << i++ << ".  " << *iter << endl;
+
+
+@q **** (4) |crl_filenames|  @>
+
+@ |crl_filenames|.
+\initials{LDF 2009.12.08.}
+
+\LOG
+\initials{LDF 2009.12.08.}
+Added this section.
+\ENDLOG
+
+@<|show_filename_arguments| definition@>=
+
+    cerr << "`crl_filenames.size()' == " << crl_filenames.size()
+         << endl;
+
+    if (crl_filenames.size() > 0)
+        cerr << "Showing `crl_filenames':"
+             << endl;
+
+    i = 0;
+
+    for (vector<string>::const_iterator iter = crl_filenames.begin();
+         iter != crl_filenames.end(); 
+         ++iter)
+       cerr << i++ << ".  " << *iter << endl;
+
+@q ***** (5) @>
+
+    cerr << "*** Exiting `show_filename_arguments'" << endl;
+
+}   /* End of |show_filename_arguments| definition   */ 
+
+@q *** (3) @>
+
+
+@q ** (2) Putting ``Command-line option processing'' together.@>
+
+@ Putting ``Command-line option processing'' together.
+
+\LOG
+\initials{LDF 2010.02.03.}
+Now declaring |extern int zzdebug|.
+\ENDLOG
+
+@c
+@<Include files@>@;@/
+using namespace std;
+@<Version control identifier@>@;@/
+extern int yydebug;
+extern int zzdebug;
+@<|process_command_line_options| declaration@>@;@/
+@<|show_filename_arguments| declaration@>@;@/
+@<|process_command_line_options| definition@>@;
+@<|show_filename_arguments| definition@>@;@/
+
+@
+@(cmdlnopt.h@>=
+@<|process_command_line_options| declaration@>@;@/
+@<|show_filename_arguments| declaration@>@;@/
+
+@q (progn (cweb-mode) (outline-minor-mode))                                @>
+
+@q * (1) Local variables for Emacs @>
+
+@q * Local variables for Emacs.@>
+@q Local Variables: @>
+@q mode:CWEB @>
+@q eval:(display-time) @>
+@q abbrev-mode:t @>
+@q eval:(read-abbrev-file) @>
+@q indent-tabs-mode:nil @>
+@q eval:(outline-minor-mode) @>
+@q fill-column:80 @>
+@q End: @>

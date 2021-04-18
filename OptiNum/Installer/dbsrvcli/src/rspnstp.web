@@ -1,0 +1,701 @@
+@q rspnstp.web  @>
+@q Created by Laurence D. Finston (LDF) Fri Mar  5 13:50:33 CET 2010 @>
+
+@q * (1) Top @>
+
+@q * (1) Copyright and License.@>
+
+@q This file is part of the OptiNum Grid Installer @>
+@q Copyright (C) 2010, 2011, 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen @>
+
+@q The OptiNum Grid Installer is free software; you can redistribute it and/or modify @>
+@q it under the terms of the GNU General Public License as published by @>
+@q the Free Software Foundation; either version 3 of the License, or @>
+@q (at your option) any later version.  @>
+
+@q The OptiNum Grid Installer is distributed in the hope that it will be useful, @>
+@q but WITHOUT ANY WARRANTY; without even the implied warranty of @>
+@q MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the @>
+@q GNU General Public License for more details.  @>
+
+@q You should have received a copy of the GNU General Public License          @>
+@q along with the OptiNum Grid Installer; if not, write to the Free Software                    @>
+@q Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA @>
+
+@q ("@@" stands for a single at-sign in the following paragraph.) @>
+
+@q Please send bug reports to Laurence.Finston@@gwdg.de@>
+
+@q Laurence D. Finston                                                   @>
+@q Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen  @>
+@q Am Fassberg 11         					         @>
+@q 37077 Goettingen              					 @>
+@q Germany                           					 @>                                
+
+@q Laurence.Finston@@gwdg.de (@@ stands for a single "at" sign.)@>
+
+@q ** (2)  rspnstp.web  @>
+@* {\bf class Response\_Type}.
+
+@q ** (2) Include files  @>
+
+@ Include files.
+
+@<Include files@>=
+#include <stdlib.h>  /* Standard Library for C  */
+#include <stdio.h>
+
+#if 0 
+#include <errno.h>
+#endif 
+
+#include <fstream> /* Standard Template Library (STL) for C++  */
+#include <iomanip>
+#include <ios>
+#include <iostream>
+
+#include <map>
+#include <set>
+
+#include <string>
+
+#if 0 
+#include <time.h>
+#include <math.h>
+#endif 
+
+#include <sstream>  
+
+#include <vector>
+
+#if 0 
+#include <deque>
+#endif 
+
+#include <pthread.h>  /* POSIX threads  */
+
+#if 0 /* 1 */            /* Headers needed for the GNU database manager (GDBM).
+                            Currently not used.  */
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <gdbm.h>
+
+#endif 
+
+#include <gcrypt.h> /* for |gcry_control| */
+#include <gnutls/gnutls.h>
+
+#if HAVE_CONFIG_H
+#include <config.h>
+#endif 
+
+#if IS_ROCKS_GOEGRID
+#undef HAVE_LIBMYSQLCLIENT
+#endif 
+
+#if HAVE_LIBMYSQLCLIENT
+#include <mysql.h>
+#endif 
+
+#include "entries.h++"  /* Headers generated from CWEB files belonging to this package  */
+#include "dstngnmt.h++"
+#include "glblvrbl.h++"  
+#include "glblfncs.h++"
+
+@q ** (2) |class Response_Type|. @>
+@ {\bf class Response\_Type}.
+\initials{LDF 2010.01.12.}
+
+\LOG
+\initials{LDF 2010.01.12.}
+Added this type declaration.
+
+\initials{LDF 2010.01.21.}
+Changed |struct Response_Type| to |Response_Type|.
+
+\initials{LDF 2010.02.02.}
+Added the |static const int| data members |FETCH_DOWNLOAD_URL_TYPE|
+and |DOWNLOAD_URL_TYPE|.
+
+\initials{LDF 2010.02.11.}
+Added the |static const int| data member |DISTINGUISHED_NAME_TYPE| and the 
+normal data member |string distinguished_name|.
+
+\initials{LDF 2010.03.04.}
+Added the |static const int| data member |FETCH_PREREQUISITES_TYPE|.
+
+\initials{LDF 2010.03.04.}
+Changed |string entry| to |string entry_name|.
+
+\initials{LDF 2010.03.05.}
+Added |int install_order|.
+
+\initials{LDF 2010.03.19.}
+Added |static const int SEND_ENVIRONMENT_SHELLSCRIPT_TYPE|.
+
+\initials{LDF 2010.03.26.}
+Added the |static const int| data members |DOWNLOAD_COMMAND_TYPE|
+and |FETCH_DOWNLOAD_COMMAND_TYPE|.
+
+\initials{LDF 2010.03.26.}
+Replaced |FETCH_DOWNLOAD_URL_TYPE| and |FETCH_DOWNLOAD_COMMAND_TYPE| with 
+|FETCH_DOWNLOAD_INFO_TYPE|.
+Removed |DOWNLOAD_URL_TYPE| and |DOWNLOAD_COMMAND_TYPE|.
+
+\initials{LDF 2010.05.21.}
+Added |static const int SHOW_ENTRIES_TYPE|.
+
+\initials{LDF 2010.05.21.}
+Added the data members
+|bool entries_all|,
+|bool entries_single|,
+|bool entries_public|, 
+|bool entries_user|
+and   
+|int entries_ctr|
+
+\initials{LDF 2010.09.08.}
+Added the data member |bool entries_with_prerequisites|.
+
+\initials{LDF 2010.09.23.}
+Added |int output_format| and the static integer constants
+|OUTPUT_FORMAT_PLAIN_TEXT|, |OUTPUT_FORMAT_HTML| and 
+|OUTPUT_FORMAT_TEX|.
+
+\initials{LDF 2010.10.08.}
+Added |bool entries_with_installation_script|.
+
+\initials{LDF 2010.10.27.}
+Added |static const int SHOW_CERTIFICATES_TYPE|.
+
+\initials{LDF 2010.10.27.}
+Added |bool certificate_user| and |bool certificates_all|.
+
+\initials{LDF 2011.02.10.}
+Added |static const int DOWNLOAD_URL_ENCRYPTED_TYPE|.
+
+\initials{LDF 2011.03.30.}
+Added |static const int DOWNLOAD_COMMAND_ENCRYPTED_TYPE|.
+
+\initials{LDF 2011.04.20.}
+Added |static const int INSTALLATION_SCRIPT_ENCRYPTED_TYPE|.
+
+
+\initials{LDF 2011.05.06.}
+Added |static const int FETCH_AUTHORIZATION_TYPE|
+and |static const int AUTHORIZATION_TYPE|.
+
+\initials{LDF 2011.09.26.}
+Added |static const int PROXY_CERTIFICATE_TYPE|.
+
+\initials{LDF 2011.10.04.}
+Added |static const int REMOTE_INSTALL_TYPE|.
+
+\initials{LDF 2011.10.14.}
+Added |string local_stdout_filename|, |string local_stderr_filename|,
+|string remote_stdout_filename| and |string remote_stderr_filename|.
+
+\initials{LDF 2011.10.31.}
+Added |static const int DOWNLOAD_URL_TYPE| and 
+|static const int DOWNLOAD_COMMAND_TYPE|.
+
+\initials{LDF 2011.11.03.}
+Added |static const int SECRET_KEY_TYPE|,
+|static const int PUBLIC_KEY_TYPE|
+and
+|static const int KEY_PAIR_TYPE|.
+
+\initials{LDF 2011.11.10.}
+Added |static const int FETCH_KEY_PAIR_TYPE|.
+
+\initials{LDF 2011.11.21.}
+Added |static const int DISTRIBUTE_KEY_PAIR_TYPE|.
+
+\initials{LDF 2011.11.21.}
+Added |set<string> globus_site_set| for use when distributing key pairs.  
+@:TODO@> !! TODO:  Might also be useful for ``remote installation''.
+
+\initials{LDF 2011.12.12.}
+Added |string local_filename_1|.
+
+\initials{LDF 2011.12.19.}
+Added the static integer constant |OUTPUT_FORMAT_JAVASCRIPT|.
+
+\initials{LDF 2011.12.25.}
+Added |map<int, int> show_level_map|.
+
+\initials{LDF 2012.02.09.}
+Changed |Response_Type| from a |struct| to a |class|.  Added |friend| declarations.
+Made all of the data members |private| except for the |static| constants.  
+The member functions are all |private|.
+@:TODO@> !! TODO:  Add functions for accessing data members and see if I can get rid 
+of some of the |friend| declarations.
+
+\initials{LDF 2012.03.19.}
+Added |static const int FETCH_ENVIRONMENT_SHELLSCRIPT_TYPE|.
+
+\initials{LDF 2012.03.20.}
+Added |static const int RETURN_ENVIRONMENT_SHELLSCRIPT_TYPE| 
+and |string globus_site|.
+
+\initials{LDF 2012.03.22.}
+Added |static const int SHOW_ENVIRONMENT_SHELLSCRIPTS_TYPE|,
+and |unsigned int show_environment_shellscript_options|.
+
+\initials{LDF 2012.04.13.}
+Added |static const int SHOW_GLOBUS_SITES_TYPE|.
+
+\initials{LDF 2012.05.07.}
+Added |static const int SHOW_PRIVILEGES_TYPE|.
+
+\initials{LDF 2012.05.07.}
+Added |bool privileges_user| and |bool privileges_all|.
+
+\initials{LDF 2012.05.15.}
+Changed |static const int PROXY_CERTIFICATE_TYPE| to |PROXY_CREDENTIAL_TYPE|.
+
+\initials{LDF 2012.05.21.}
+Added |bool entries_with_dependents|.
+\ENDLOG
+
+@q *** (3) Declaration  @>
+
+@<|class Response_Type| declaration@>=
+
+class Response_Type
+{
+   friend int client_connect_auth(void);
+   friend int client_connect_non_auth(void);
+
+   friend int yyparse(void*);  /* This declaration works for |zzparse|, too.  
+                                  \initials{LDF 2012.02.09.}
+                               */
+
+   friend class Scan_Parse_Parameter_Type;
+
+   friend int exchange_data_with_server(Scan_Parse_Parameter_Type& param);
+   friend int exchange_data_with_client(Scan_Parse_Parameter_Type*);
+
+   friend void* connect_func(void*);
+   friend void* connect_func_non_auth(void*);
+
+   friend int remote_install_rule_func(Scan_Parse_Parameter_Type*, 
+                                       int, string, string, string, 
+                                       string, string, int, int, string);
+
+   friend void* remote_install_func(void*);
+
+   friend void* sub_distribute_key_pair(void*);
+
+   string local_filename;
+   string local_filename_1;
+
+   string remote_filename;
+   string entry_name;
+   string version;
+   int entry_id;
+   
+   string local_stdout_filename;
+   string local_stderr_filename;
+
+   string remote_stdout_filename;
+   string remote_stderr_filename;
+
+   string distinguished_name_str;
+
+   int type;
+
+   int install_order;
+
+   string command;
+
+   bool entries_all;
+   bool entries_single;
+   bool entries_public;
+   bool entries_user;
+   bool entries_with_prerequisites;
+   bool entries_with_dependents;
+   bool entries_with_installation_script;
+
+   bool certificate_user;
+   bool certificates_all;
+
+   bool privileges_user;
+   bool privileges_all;
+
+   int output_format;
+
+   int entries_ctr;
+
+   string globus_site;  
+
+   set<string> globus_site_set;  /* For use when distributing key pairs.  
+                                    Might also be useful for ``remote installation''.
+                                    \initials{LDF 2011.11.21.}
+                                  */
+
+   map<int, int> show_level_map;
+
+   unsigned int show_environment_shellscript_options;
+
+   public:
+
+   static const int NULL_RESPONSE_TYPE;
+   static const int INSTALLATION_SCRIPT_TYPE;
+   static const int INSTALLATION_SCRIPT_ENCRYPTED_TYPE;
+   static const int COMMAND_ONLY_TYPE;
+   static const int FETCH_INSTALLATION_SCRIPT_TYPE;
+   static const int FETCH_DOWNLOAD_INFO_TYPE;
+   static const int FETCH_AUTHORIZATION_TYPE;
+   static const int FETCH_PREREQUISITES_TYPE;
+
+   static const int FETCH_ENVIRONMENT_SHELLSCRIPT_TYPE;
+   static const int SEND_ENVIRONMENT_SHELLSCRIPT_TYPE;
+   static const int RETURN_ENVIRONMENT_SHELLSCRIPT_TYPE;
+
+   static const int VALIDATE_DISTINGUISHED_NAME_TYPE;
+
+   static const int SHOW_ENTRIES_TYPE;
+   static const int SHOW_CERTIFICATES_TYPE;
+   static const int SHOW_ENVIRONMENT_SHELLSCRIPTS_TYPE;
+   static const int SHOW_GLOBUS_SITES_TYPE;
+   static const int SHOW_PRIVILEGES_TYPE;
+
+
+   static const int DOWNLOAD_URL_TYPE;
+   static const int DOWNLOAD_COMMAND_TYPE;
+   static const int DOWNLOAD_URL_ENCRYPTED_TYPE;
+   static const int DOWNLOAD_COMMAND_ENCRYPTED_TYPE;
+
+   static const int AUTHORIZATION_TYPE;
+
+   static const int OUTPUT_FORMAT_PLAIN_TEXT;
+   static const int OUTPUT_FORMAT_HTML;
+   static const int OUTPUT_FORMAT_TEX;
+   static const int OUTPUT_FORMAT_JAVASCRIPT;
+
+   static const int PROXY_CREDENTIAL_TYPE;
+
+   static const int REMOTE_INSTALL_TYPE;
+
+   static const int SECRET_KEY_TYPE;
+   static const int PUBLIC_KEY_TYPE;
+   static const int KEY_PAIR_TYPE;
+   static const int FETCH_KEY_PAIR_TYPE;
+   static const int DISTRIBUTE_KEY_PAIR_TYPE;
+
+   private:
+
+   @<|Response_Type| function declarations@>@;
+
+};
+
+@q *** (3) Initialize |static| constant |Response_Type| member variables.  @>
+
+@ Initialize {\bf static} constant {\bf Response\_Type} member variables.  
+\initials{LDF 2010.01.12.}
+
+\LOG
+\initials{LDF 2010.01.12.}
+Added this section.
+\ENDLOG
+
+@<Initialize |static| constant |Response_Type| member variables@>=
+
+   const int Response_Type::NULL_RESPONSE_TYPE                  =  0;  
+   const int Response_Type::INSTALLATION_SCRIPT_TYPE            =  1;
+   const int Response_Type::INSTALLATION_SCRIPT_ENCRYPTED_TYPE  =  2; 
+   const int Response_Type::COMMAND_ONLY_TYPE                   =  3;  
+   const int Response_Type::FETCH_INSTALLATION_SCRIPT_TYPE      =  4;
+   const int Response_Type::FETCH_DOWNLOAD_INFO_TYPE            =  5;
+   const int Response_Type::FETCH_AUTHORIZATION_TYPE            =  6;
+   const int Response_Type::FETCH_PREREQUISITES_TYPE            =  7;
+   const int Response_Type::FETCH_ENVIRONMENT_SHELLSCRIPT_TYPE  =  8;
+   const int Response_Type::SEND_ENVIRONMENT_SHELLSCRIPT_TYPE   =  9;
+   const int Response_Type::RETURN_ENVIRONMENT_SHELLSCRIPT_TYPE = 10;
+   const int Response_Type::VALIDATE_DISTINGUISHED_NAME_TYPE    = 11;
+   const int Response_Type::SHOW_ENTRIES_TYPE                   = 12;
+   const int Response_Type::SHOW_CERTIFICATES_TYPE              = 13;
+   const int Response_Type::SHOW_ENVIRONMENT_SHELLSCRIPTS_TYPE  = 14;
+   const int Response_Type::SHOW_GLOBUS_SITES_TYPE              = 15;
+   const int Response_Type::SHOW_PRIVILEGES_TYPE                = 16;
+
+   const int Response_Type::DOWNLOAD_URL_TYPE                   = 17;
+   const int Response_Type::DOWNLOAD_COMMAND_TYPE               = 18;
+   const int Response_Type::DOWNLOAD_URL_ENCRYPTED_TYPE         = 19;
+   const int Response_Type::DOWNLOAD_COMMAND_ENCRYPTED_TYPE     = 20;
+   const int Response_Type::AUTHORIZATION_TYPE                  = 21;
+   const int Response_Type::PROXY_CREDENTIAL_TYPE              = 22;
+   const int Response_Type::REMOTE_INSTALL_TYPE                 = 23;
+   const int Response_Type::SECRET_KEY_TYPE                     = 24;
+   const int Response_Type::PUBLIC_KEY_TYPE                     = 25;
+   const int Response_Type::KEY_PAIR_TYPE                       = 26;
+   const int Response_Type::FETCH_KEY_PAIR_TYPE                 = 27;
+   const int Response_Type::DISTRIBUTE_KEY_PAIR_TYPE            = 28;
+
+   const int Response_Type::OUTPUT_FORMAT_PLAIN_TEXT            =  0;
+   const int Response_Type::OUTPUT_FORMAT_HTML                  =  1;
+   const int Response_Type::OUTPUT_FORMAT_TEX                   =  2;
+   const int Response_Type::OUTPUT_FORMAT_JAVASCRIPT            =  3;
+
+                         
+@q *** (3) Response_Type functions.  @>
+@  {\bf Response\_Type\_Functions}.
+\initials{LDF 2010.01.12.}
+
+\LOG
+\initials{LDF 2010.01.12.}
+Added this section.
+\ENDLOG
+
+@q **** (4) Default constructor.  @>
+@ Default constructor.
+\initials{LDF 2010.01.12.}
+
+\LOG
+\initials{LDF 2010.01.12.}
+Added this function.
+\ENDLOG
+
+@q ***** (5) Declaration  @>
+
+@<|Response_Type| function declarations@>=
+Response_Type(void);
+
+@q ***** (5) Definition  @>
+@
+@<|Response_Type| function definitions@>=
+
+Response_Type::Response_Type(void)
+{
+
+   entry_id               = -1;
+   install_order          =  0;
+   type                   = NULL_RESPONSE_TYPE;
+
+   entries_all                      = false;    
+   entries_single                   = false;
+   entries_public                   = false;
+   entries_user                     = false;
+   entries_with_prerequisites       = false;
+   entries_with_dependents          = false;
+   entries_with_installation_script = false;
+
+   certificate_user                 = false;
+   certificates_all                 = false;
+
+
+   output_format  = 0;
+
+   entries_ctr    = 0;
+
+}
+
+@q **** (4) Show.  @>
+@ Show.
+\initials{LDF 2010.01.19.}
+
+\LOG
+\initials{LDF 2010.01.19.}
+Added this function.
+\ENDLOG
+
+@q ***** (5) Declaration  @>
+
+@<|Response_Type| function declarations@>=
+int
+show(string s = "");
+
+@q ***** (5) Definition  @>
+@
+@<|Response_Type| function definitions@>=
+int
+Response_Type::show(string s)
+{
+
+   if (s.size() == 0)
+      s = "Response_Type:";
+
+   cerr << s << endl
+        << "`command' == " << command
+        << endl 
+        << "`entry_id' == " << entry_id
+        << endl
+        << "`local_filename' == " << local_filename
+        << endl 
+        << "`local_filename_1' == " << local_filename_1
+        << endl 
+        << "`remote_filename' == " << remote_filename
+        << endl 
+        << "`local_stdout_filename' == " << local_stdout_filename
+        << endl 
+        << "`local_stderr_filename' == " << local_stderr_filename
+        << endl 
+        << "`remote_stdout_filename' == " << remote_stdout_filename
+        << endl 
+        << "`remote_stderr_filename' == " << remote_stderr_filename
+        << endl 
+        << "`entry_name' == " << entry_name
+        << endl 
+        << "`version' == " << version
+        << endl
+        << "`distinguished_name_str' == " << distinguished_name_str
+        << endl
+        << "`install_order' == " << install_order
+        << endl
+        << "`entries_all' == " << entries_all
+        << endl
+        << "`entries_single' == " << entries_single
+        << endl
+        << "`entries_public' == " << entries_public
+        << endl
+        << "`entries_user' == " << entries_user
+        << endl
+        << "`entries_with_prerequisites' == " << entries_with_prerequisites
+        << endl 
+        << "`entries_with_dependents' == " << entries_with_dependents
+        << endl 
+        << "`entries_with_installation_script' == " << entries_with_installation_script
+        << endl 
+        << "`entries_ctr' == " << entries_ctr
+        << endl 
+        << "`output_format' == " << output_format
+        << endl
+        << "`certificate_user' == " << certificate_user
+        << endl 
+        << "`certificates_all' == " << certificates_all
+        << endl;
+
+   if (type == NULL_RESPONSE_TYPE)
+      cerr << "`type' == `NULL_RESPONSE_TYPE'";
+   else if (type == INSTALLATION_SCRIPT_TYPE)
+      cerr << "`type' == `INSTALLATION_SCRIPT_TYPE'";
+   else if (type == INSTALLATION_SCRIPT_ENCRYPTED_TYPE)
+      cerr << "`type' == `INSTALLATION_SCRIPT_ENCRYPTED_TYPE'";
+   else if (type == COMMAND_ONLY_TYPE)
+      cerr << "`type' == `COMMAND_ONLY_TYPE'";
+   else if (type == FETCH_INSTALLATION_SCRIPT_TYPE)
+      cerr << "`type' == `FETCH_INSTALLATION_SCRIPT_TYPE'";
+   else if (type == FETCH_DOWNLOAD_INFO_TYPE)
+      cerr << "`type' == `FETCH_DOWNLOAD_INFO_TYPE'";
+   else if (type == FETCH_AUTHORIZATION_TYPE)
+      cerr << "`type' == `FETCH_AUTHORIZATION_TYPE'";
+   else if (type == FETCH_PREREQUISITES_TYPE)
+      cerr << "`type' == `FETCH_PREREQUISITES_TYPE'";
+   else if (type == FETCH_ENVIRONMENT_SHELLSCRIPT_TYPE)
+      cerr << "`type' == `FETCH_ENVIRONMENT_SHELLSCRIPT_TYPE'";
+   else if (type == SEND_ENVIRONMENT_SHELLSCRIPT_TYPE)
+      cerr << "`type' == `SEND_ENVIRONMENT_SHELLSCRIPT_TYPE'";
+   else if (type == RETURN_ENVIRONMENT_SHELLSCRIPT_TYPE)
+      cerr << "`type' == `RETURN_ENVIRONMENT_SHELLSCRIPT_TYPE'";
+   else if (type == VALIDATE_DISTINGUISHED_NAME_TYPE)
+      cerr << "`type' == `VALIDATE_DISTINGUISHED_NAME_TYPE'";
+   else if (type == SHOW_ENTRIES_TYPE)
+      cerr << "`type' == `SHOW_ENTRIES_TYPE'";
+   else if (type == SHOW_CERTIFICATES_TYPE)
+      cerr << "`type' == `SHOW_CERTIFICATES_TYPE'";
+   else if (type == SHOW_ENVIRONMENT_SHELLSCRIPTS_TYPE)
+      cerr << "`type' == `SHOW_ENVIRONMENT_SHELLSCRIPTS_TYPE'";
+   else if (type == SHOW_GLOBUS_SITES_TYPE)
+      cerr << "`type' == `SHOW_GLOBUS_SITES_TYPE'";
+   else if (type == SHOW_PRIVILEGES_TYPE)
+      cerr << "`type' == `SHOW_PRIVILEGES_TYPE'";
+   else if (type == DOWNLOAD_URL_TYPE)
+      cerr << "`type' == `DOWNLOAD_URL_TYPE'";
+   else if (type == DOWNLOAD_COMMAND_TYPE)
+      cerr << "`type' == `DOWNLOAD_COMMAND_TYPE'";
+   else if (type == DOWNLOAD_URL_ENCRYPTED_TYPE)
+      cerr << "`type' == `DOWNLOAD_URL_ENCRYPTED_TYPE'";
+   else if (type == DOWNLOAD_COMMAND_ENCRYPTED_TYPE)
+      cerr << "`type' == `DOWNLOAD_COMMAND_ENCRYPTED_TYPE'";
+   else if (type == AUTHORIZATION_TYPE)
+      cerr << "`type' == `AUTHORIZATION_TYPE'";
+   else if (type == PROXY_CREDENTIAL_TYPE)
+      cerr << "`type' == `PROXY_CREDENTIAL_TYPE'";
+   else if (type == REMOTE_INSTALL_TYPE)
+      cerr << "`type' == `REMOTE_INSTALL_TYPE'";
+   else if (type == SECRET_KEY_TYPE)
+      cerr << "`type' == `SECRET_KEY_TYPE'";
+   else if (type == PUBLIC_KEY_TYPE)
+      cerr << "`type' == `PUBLIC_KEY_TYPE'";
+   else if (type == KEY_PAIR_TYPE)
+      cerr << "`type' == `KEY_PAIR_TYPE'";
+   else if (type == FETCH_KEY_PAIR_TYPE)
+      cerr << "`type' == `FETCH_KEY_PAIR_TYPE'";
+   else if (type == DISTRIBUTE_KEY_PAIR_TYPE)
+      cerr << "`type' == `DISTRIBUTE_KEY_PAIR_TYPE'";
+   else
+       cerr << "`type' == " << type;
+
+   cerr << endl
+        << "`globus_site' == " << globus_site << endl;
+
+   if (globus_site_set.size() == 0)
+       cerr << "`globus_site_set' is empty." << endl;
+   else
+   {
+        cerr << "`globus_site_set.size()' == " << globus_site_set.size() << endl
+             << "Showing `globus_site_set':" << endl;
+
+        for (set<string>::const_iterator iter = globus_site_set.begin();
+             iter != globus_site_set.end();
+             ++iter)
+        {
+             cerr << *iter << endl;
+        }
+    }
+
+   cerr << "show_level_map.size() == " << show_level_map.size()
+        << endl
+        << "show_environment_shellscript_options == " << show_environment_shellscript_options
+        << endl;
+
+
+} /* |Response_Type::show|  */
+
+
+@q **** (4) @>
+
+@q *** (3) Putting `rspnstp.web' together.  @>
+
+@ Putting {\tt rspnstp\PERIOD web} together.
+
+@q **** (4) This is what's compiled.  @>
+@ This is what's compiled.
+@c
+@<Include files@>@;@/
+using namespace std;
+class Scan_Parse_Parameter_Type;
+@<|class Response_Type| declaration@>@;@/
+@<Initialize |static| constant |Response_Type| member variables@>@;@/
+@<|Response_Type| function definitions@>@;@/
+
+@q **** (4) This is what's written to the header file `rspnstp.h'.  @>
+
+@ This is what's written to the header file \filename{rspnstp.h}.
+@
+@(rspnstp.h@>=
+#ifndef RSPNSTP_H
+#define RSPNSTP_H 1
+using namespace std;
+class Scan_Parse_Parameter_Type;
+@<|class Response_Type| declaration@>@;@/
+#endif 
+
+@q * (1) Emacs-Lisp code for use in indirect buffers  @>
+
+@q (progn (cweb-mode) (outline-minor-mode))                          @>
+
+@q * (1) Local variables for Emacs @>
+
+@q * Local variables for Emacs.@>
+@q Local Variables: @>
+@q mode:CWEB @>
+@q eval:(display-time) @>
+@q abbrev-mode:t @>
+@q eval:(read-abbrev-file) @>
+@q indent-tabs-mode:nil @>
+@q eval:(outline-minor-mode) @>
+@q fill-column:80 @>
+@q End: @>

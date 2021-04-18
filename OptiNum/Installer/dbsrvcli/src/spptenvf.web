@@ -1,0 +1,3356 @@
+@q spptenvf.web  @>
+@q Created by Laurence D. Finston (LDF) Mo 19. Mär 13:21:58 CET 2012 @>
+
+@q * (1) Top @>
+
+@q * (1) Copyright and License.@>
+
+@q This file is part of the OptiNum Grid Installer @>
+@q Copyright (C) 2010, 2011, 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen @>
+
+@q The OptiNum Grid Installer is free software; you can redistribute it and/or modify @>
+@q it under the terms of the GNU General Public License as published by @>
+@q the Free Software Foundation; either version 3 of the License, or @>
+@q (at your option) any later version.  @>
+
+@q The OptiNum Grid Installer is distributed in the hope that it will be useful, @>
+@q but WITHOUT ANY WARRANTY; without even the implied warranty of @>
+@q MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the @>
+@q GNU General Public License for more details.  @>
+
+@q You should have received a copy of the GNU General Public License          @>
+@q along with the OptiNum Grid Installer; if not, write to the Free Software                    @>
+@q Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA @>
+
+@q ("@@" stands for a single at-sign in the following paragraph.) @>
+
+@q Please send bug reports to Laurence.Finston@@gwdg.de@>
+
+@q Laurence D. Finston                                                   @>
+@q Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen  @>
+@q Am Fassberg 11         					         @>
+@q 37077 Goettingen              					 @>
+@q Germany                           					 @>                                
+
+@q Laurence.Finston@@gwdg.de (@@ stands for a single "at" sign.)@>
+
+@q ** (2)  spptenvf.web @>
+@ {\bf Scan\_Parse\_Parameter\_Type} functions for environments.
+
+\LOG
+\initials{LDF 2012.03.19.}
+Created this file.  It contains the definitions of |Scan_Parse_Parameter_Type| 
+member functions for use with environments.
+\ENDLOG 
+
+@q ** (2) Include files  @>
+
+@ Include files.
+
+@<Include files@>=
+#include <stdlib.h>  /* Standard Library for C  */
+#include <stdio.h>
+#include <errno.h>
+#include <unistd.h>
+#include <limits.h>
+
+#include <algorithm> /* Standard Template Library (STL) for C++  */
+#include <fstream> 
+#include <iomanip>
+#include <ios>
+#include <iostream>
+#include <map>
+#include <string>
+#include <time.h>
+#include <math.h>
+#include <sstream>  
+
+#include <set>
+#include <vector>
+#include <deque>
+
+
+#include <pthread.h>  /* POSIX threads  */
+
+#include <gcrypt.h> /* for |gcry_control| */
+#include <gnutls/gnutls.h>
+
+#if HAVE_CONFIG_H
+#include <config.h>
+#endif 
+
+#if IS_ROCKS_GOEGRID
+#undef HAVE_LIBMYSQLCLIENT
+#endif 
+
+#if HAVE_LIBMYSQLCLIENT
+#include <mysql.h>
+#endif 
+
+#include "entries.h++"  /* Headers generated from CWEB files belonging to this package  */
+#include "dstngnmt.h++"
+
+#include "glblvrbl.h++"  
+#include "glblfncs.h++"
+#include "utilfncs.h++"
+#include "parser.h++"    
+#include "scanner.h++"
+#include "x509cert.h++"
+#include "rspnstp.h++"
+#include "thrdfncs.h++"
+#include "sssndttp.h++"
+#include "glsinftp.h++"
+#include "scprpmtp.h++"
+
+@q **** (4) Store environment.  @>
+
+@ Store environment.
+\initials{LDF 2012.03.16.}
+
+\LOG
+\initials{LDF 2012.03.16.}
+Added this function.
+
+\initials{LDF 2012.03.19.}
+Moved this function definition from \filename{scprpmtp.web} to this file 
+(\filename{spptenvf.web}).
+
+\initials{LDF 2012.03.19.}
+Finished this function.
+\ENDLOG
+
+@q ***** (5) Definition  @>
+@
+@<|Scan_Parse_Parameter_Type::store_environment_shellscript| definition@>=
+
+#if HAVE_LIBMYSQLCLIENT
+int
+Scan_Parse_Parameter_Type::store_environment_shellscript(void)
+{
+@q ****** (6) @>
+
+    bool DEBUG = false;  /* |true|  */ 
+
+    stringstream sql_strm;
+
+    sql_strm.str("");
+
+    int status;
+
+    MYSQL_RES *result;
+    MYSQL_ROW curr_row;
+
+    unsigned int row_ctr = 0;
+    unsigned int field_ctr = 0;
+
+    int curr_user_id = (effective_user_id > 0) ? effective_user_id : user_id;
+
+    long curr_environment_shellscript_id;
+
+    Response_Type response;
+    response.type = Response_Type::COMMAND_ONLY_TYPE;
+
+    stringstream temp_strm;
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "Entering `Scan_Parse_Parameter_Type::store_environment_shellscript'."
+             << endl 
+             << "environment_strm.str() == "
+             << endl 
+             << environment_strm.str()
+             << endl 
+             << "`environment_globus_site' == " << environment_globus_site
+             << endl
+             << "`environment_admin_flag' == " << environment_admin_flag
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */ 
+
+
+@q ****** (6) Get highest |environment_shellscript_id|.  @>
+
+@ Get highest |environment_shellscript_id|.  
+\initials{LDF 2012.03.16.}
+
+@<|Scan_Parse_Parameter_Type::store_environment_shellscript| definition@>=
+
+    sql_strm << "select environment_shellscript_id from Environment_Shellscripts "
+             << "order by environment_shellscript_id desc limit 1";
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex();
+        cerr << "sql_strm.str() == " << sql_strm.str() << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */ 
+
+
+    status = submit_mysql_query(sql_strm.str(),
+                                result, 
+                                &row_ctr, 
+                                &field_ctr);
+
+    if (status)
+    {
+        lock_cerr_mutex(); 
+        cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+             << "ERROR!  In `Scan_Parse_Parameter_Type::store_environment_shellscript':"
+             << endl 
+             << "`Scan_Parse_Parameter_Type::submit_mysql_query' failed, returning " 
+             << status << "."
+             << endl
+             << mysql_error(mysql_ptr)
+             << endl 
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+        unlock_cerr_mutex(); 
+
+       if (result) 
+          mysql_free_result(result);
+
+       return 1;
+
+
+    }  /* |if (status)|  */
+
+    else if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "In `Scan_Parse_Parameter_Type::store_environment_shellscript':"
+             << endl 
+             << "`Scan_Parse_Parameter_Type::submit_mysql_query' succeeded."
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */
+
+@q ****** (6) @>
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "In `Scan_Parse_Parameter_Type::store_environment_shellscript':"
+             << endl 
+             << "row_ctr == " << row_ctr 
+             << endl
+             << "field_ctr == " << field_ctr 
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */
+
+@q ****** (6) No rows.  This shouldn't happen.  @>    
+@ No rows.  This shouldn't happen.  There should always be a null row.
+\initials{LDF 2012.03.16.}
+
+@<|Scan_Parse_Parameter_Type::store_environment_shellscript| definition@>=
+
+    if (row_ctr == 0)
+    {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "ERROR!  In `Scan_Parse_Parameter_Type::store_environment_shellscript':"
+             << endl 
+             << "row_ctr == " << row_ctr 
+             << endl
+             << "This shouldn't happen;  there should always at least be a NULL row."
+             << endl
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+        unlock_cerr_mutex(); 
+      
+        mysql_free_result(result);
+
+        return 1;
+
+    }  /* |if (row_ctr == 0)|.  */
+
+@q ****** (6) |row_ctr > 0|.  @>
+
+@ |row_ctr > 0|.
+\initials{LDF 2012.03.16.}
+
+@<|Scan_Parse_Parameter_Type::store_environment_shellscript| definition@>=
+
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "In `Scan_Parse_Parameter_Type::store_environment_shellscript':"
+             << endl 
+             << "row_ctr == " << row_ctr << ".  "
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */
+
+@q ****** (6) @>
+
+    curr_row = mysql_fetch_row(result);
+
+    if (curr_row == 0)
+    {
+       lock_cerr_mutex(); 
+       cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+            << "ERROR!  In `Scan_Parse_Parameter_Type::store_environment_shellscript':"
+            << endl 
+            << "`mysql_fetch_row' failed:"
+            << endl
+            << mysql_error(mysql_ptr)
+            << endl 
+            << "Exiting function unsuccessfully with return value 1."
+            << endl;
+       unlock_cerr_mutex(); 
+
+       mysql_free_result(result);
+
+       return 1;
+
+    }  /* |if (curr_row == 0)|  */
+
+@q ****** (6) @>
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "In `Scan_Parse_Parameter_Type::store_environment_shellscript':"
+             << endl;
+        if (curr_row[0])
+           cerr << "`curr_row[0]' == " << curr_row[0]
+                << endl;
+        else
+           cerr << "`curr_row[0]' is NULL." << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */
+
+@q ****** (6) @>
+
+    if (curr_row[0] == 0 || strlen(curr_row[0]) == 0)
+    {
+       lock_cerr_mutex(); 
+       cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+            << "ERROR!  In `Scan_Parse_Parameter_Type::store_environment_shellscript':"
+            << endl 
+            << "`curr_row[0]' == NULL or `strlen(curr_row[0])' == 0."
+            << endl
+            << "Can't set `environment_shellscript_id'."
+            << endl 
+            << "Exiting function unsuccessfully with return value 1."
+            << endl;
+       unlock_cerr_mutex(); 
+
+       mysql_free_result(result);
+
+       return 1;
+
+    }
+
+@q ****** (6) @>
+
+    curr_environment_shellscript_id = strtol(curr_row[0], 0, 0);
+
+    if (curr_environment_shellscript_id == LONG_MIN || curr_environment_shellscript_id == LONG_MAX)
+    {
+       lock_cerr_mutex(); 
+       cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+            << "ERROR!  In `Scan_Parse_Parameter_Type::store_environment_shellscript':"
+            << endl 
+            << "`strtol' failed, returning ";
+
+
+       if (curr_environment_shellscript_id == LONG_MIN)
+           cerr << "`LONG_MIN'." << endl;
+       else 
+           cerr << "`LONG_MAX'." << endl;
+
+       perror("strtol error");
+
+       cerr << "Exiting function unsuccessfully with return value 1."
+            << endl;
+       unlock_cerr_mutex(); 
+
+       mysql_free_result(result);
+
+       return 1;
+
+    }  /* |if|  */
+
+@q ******* (7) @>
+
+    mysql_free_result(result);
+    result = 0;
+
+    ++curr_environment_shellscript_id;
+
+    if (DEBUG)
+    {
+
+       lock_cerr_mutex(); 
+       cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+            << "In `Scan_Parse_Parameter_Type::store_environment_shellscript':"
+            << endl 
+            << "`curr_environment_shellscript_id' == " << curr_environment_shellscript_id
+            << endl;
+       unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */ 
+
+@q ****** (6) Check whether a row already exists or not. @>
+
+@ Check whether a row already exists or not.
+\initials{LDF 2012.03.19.}
+
+@<|Scan_Parse_Parameter_Type::store_environment_shellscript| definition@>=
+
+    bool replace = false;
+
+    sql_strm.str("");
+
+    sql_strm << "select environment_shellscript_id from Environment_Shellscripts "
+             << "where user_id = " 
+             << curr_user_id << " and globus_site_id = " 
+             << "(select globus_site_id from Globus_Sites where hostname = '"
+             << environment_globus_site << "')";
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "In `Scan_Parse_Parameter_Type::store_environment_shellscript':"
+             << endl
+             << "`sql_strm.str()' == " << sql_strm.str()
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */ 
+    
+    status = submit_mysql_query(sql_strm.str(),
+                                result, 
+                                &row_ctr, 
+                                &field_ctr);
+
+    if (status)
+    {
+        lock_cerr_mutex(); 
+        cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+             << "ERROR!  In `Scan_Parse_Parameter_Type::store_environment_shellscript':"
+             << endl 
+             << "`Scan_Parse_Parameter_Type::submit_mysql_query' failed, returning " 
+             << status << "."
+             << endl
+             << mysql_error(mysql_ptr)
+             << endl 
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+        unlock_cerr_mutex(); 
+
+       if (result) 
+          mysql_free_result(result);
+
+       return 1;
+
+
+    }  /* |if (status)|  */
+
+    else if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "In `Scan_Parse_Parameter_Type::store_environment_shellscript':"
+             << endl 
+             << "`Scan_Parse_Parameter_Type::submit_mysql_query' succeeded."
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */
+
+@q ****** (6) @>
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "In `Scan_Parse_Parameter_Type::store_environment_shellscript':"
+             << endl 
+             << "row_ctr == " << row_ctr 
+             << endl
+             << "field_ctr == " << field_ctr 
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */
+
+@q ****** (6) No rows.  Will add.  @>    
+@ No rows.  Will add.  
+\initials{LDF 2012.03.19.}
+
+@<|Scan_Parse_Parameter_Type::store_environment_shellscript| definition@>=
+
+    if (row_ctr == 0)
+    {
+        if (DEBUG)
+        {
+            lock_cerr_mutex(); 
+            cerr << "[Thread " << thread_ctr << "]:  "
+                 << "In `Scan_Parse_Parameter_Type::store_environment_shellscript':"
+                 << endl 
+                 << "row_ctr == 0.  Will add row." 
+                 << endl;
+            unlock_cerr_mutex(); 
+      
+
+        }  /* |if (DEBUG)|  */ 
+
+    }  /* |if (row_ctr == 0)|.  */
+
+@q ****** (6) |row_ctr > 0|.  @>
+
+@ |row_ctr > 0|.
+\initials{LDF 2012.03.19.}
+
+@<|Scan_Parse_Parameter_Type::store_environment_shellscript| definition@>=
+
+    else /* |row_ctr > 0|  */
+    {
+        if (DEBUG)
+        {
+            lock_cerr_mutex(); 
+            cerr << "[Thread " << thread_ctr << "]:  "
+                 << "In `Scan_Parse_Parameter_Type::store_environment_shellscript':"
+                 << endl 
+                 << "row_ctr == " << row_ctr << ".  Will replace"
+                 << endl;
+            unlock_cerr_mutex(); 
+
+        }  /* |if (DEBUG)|  */
+
+        replace = true;
+
+    }  /* |else| (|row_ctr > 0|)  */
+
+@q ****** (6) @>
+
+    if (result)
+       mysql_free_result(result);
+
+    result = 0;
+
+
+@q ****** (6) Check size of shellscript.  @>
+
+@ Check size of shellscript.
+\initials{LDF 2012.03.19.}
+
+The maximum size of the shellscript is 
+$1 \rm{\ megabyte} \equiv 2^{20} \rm{\ bytes} \equiv 1,048,576 \rm{\ bytes}$.\hfil\break
+|buffer_size 
+@t$\equiv 2\rm{\ megabyte} + 1 \equiv 2^{21} + 1 \rm{\ bytes} \equiv 22097153 + 1 \rm{\ bytes}$@>|,
+because it is passed as an argument to |mysql_real_escape_string|.  In the worst case,
+every character will have to be escaped and there will need to be an 
+additional NULL byte at the end.  This should be the case, anyway, but 
+there's no harm in providing for it specially, except that the extra byte 
+might theoretically throw the alignment off.  However, I think this may be something 
+the compiler and/or the run-time system may take care of.  That is, I think it probably 
+has no effect.  @:TODO@> !! TODO:  Maybe check this, sometime (not urgent).
+\initials{LDF 2012.03.23.}
+
+@<|Scan_Parse_Parameter_Type::store_environment_shellscript| definition@>=
+
+    unsigned int buffer_size = 2097153;   /* $2^{21} + 1$  */
+
+    char buffer[buffer_size];
+
+    if (2 * environment_strm.str().size() + 1 > buffer_size)
+    {
+        lock_cerr_mutex(); 
+        cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+             << "ERROR!  In `Scan_Parse_Parameter_Type::store_environment_shellscript':"
+             << endl 
+             << "`environment_strm.str().size()' == " << environment_strm.str().size()
+             << endl 
+             << "Shellscript too long.  Maximum size is " << (buffer_size / 2 - 1)
+             << endl 
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+       unlock_cerr_mutex(); 
+
+       return 1;
+
+    }  /* |if (status < environment_strm.str().size())|  */
+
+    else if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+             << "In `Scan_Parse_Parameter_Type::store_environment_shellscript':"
+             << endl 
+             << "`environment_strm.str().size()' == " << environment_strm.str().size()
+             << endl
+             << "Shellscript not too long.  Maximum size is " << (buffer_size / 2 - 1)
+             << endl;
+       unlock_cerr_mutex(); 
+
+    }  /* |else if (DEBUG)|  */ 
+
+@q ****** (6) Escape string for insertion into database.  @>
+
+@ Escape string for insertion into database.
+\initials{LDF 2012.03.19.}
+
+@<|Scan_Parse_Parameter_Type::store_environment_shellscript| definition@>=
+
+    status = mysql_real_escape_string(mysql_ptr,  
+                                      buffer, 
+                                      environment_strm.str().c_str(),
+                                      environment_strm.str().size());
+
+    if (status < environment_strm.str().size())
+    {
+        lock_cerr_mutex(); 
+        cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+             << "ERROR!  In `Scan_Parse_Parameter_Type::store_environment_shellscript':"
+             << endl 
+             << "`mysql_real_escape_string' failed, returning " << status << "."
+             << endl 
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+       unlock_cerr_mutex(); 
+
+       return 1;
+
+    }  /* |if (status < environment_strm.str().size())|  */
+
+    else if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+             << "In `Scan_Parse_Parameter_Type::store_environment_shellscript':"
+             << endl 
+             << "`mysql_real_escape_string' succeeded, returning " << status << "."
+             << endl;
+       unlock_cerr_mutex(); 
+
+    }  /* |else if (DEBUG)|  */ 
+
+
+@q ****** (6) If |environment_admin_flag == true|, check whether current user @>
+@q ****** (6) is eligible to act as administrator.                            @>
+
+@ If |environment_admin_flag == true|, check whether current user is eligible to act 
+as administrator for Globus site |environment_globus_site|.  
+\initials{LDF 2012.03.23.}
+
+\LOG
+\initials{LDF 2012.03.23.}
+Added this section.
+\ENDLOG
+
+@<|Scan_Parse_Parameter_Type::store_environment_shellscript| definition@>=
+
+    if (environment_admin_flag)
+    {
+@q ******* (7) @>
+
+        status = check_globus_site_admin(curr_user_id, environment_globus_site);
+
+        if (status != 0)
+        {
+@q ******** (8) @>
+
+            if (status == 3)
+            {
+                lock_cerr_mutex(); 
+                cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+                     << "WARNING!  In `Scan_Parse_Parameter_Type::store_environment_shellscript':"
+                     << endl 
+                     << "`check_globus_site_admin' failed, returning 3:"
+                     << endl 
+                     << "Database access error in `check_globus_site_admin'."
+                     << endl
+                     << "Not setting `admin' flag for environment shellscript."
+                     << endl
+                     << "Continuing."
+                     << endl;
+                unlock_cerr_mutex(); 
+             
+
+            }  /* |if (status == 3)|  */
+
+@q ******** (8) @>
+
+            environment_admin_flag = false;
+
+            temp_strm.str("");
+
+            temp_strm << "SERVER ENVIRONMENT SHELLSCRIPT USER NOT "
+                      << "ADMIN FOR GLOBUS_SITE <"
+                      << environment_globus_site << ">";
+
+            if (DEBUG)
+            {
+                lock_cerr_mutex(); 
+                cerr << "temp_strm.str() == " << temp_strm.str() << endl;
+                unlock_cerr_mutex(); 
+
+            }  /* |if (DEBUG)|  */ 
+ 
+
+            response.command = temp_strm.str();
+
+            pthread_mutex_lock(&response_deque_mutex);
+            response_deque.push_back(response);
+            pthread_mutex_unlock(&response_deque_mutex);
+
+            temp_strm.str("");
+            response.command = "";
+
+@q ******** (8) @>
+
+        }  /* |if (status != 0)|  */
+
+@q ******* (7) @>
+
+        else if (DEBUG)
+        {
+            lock_cerr_mutex(); 
+            cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+                 << "In `Scan_Parse_Parameter_Type::store_environment_shellscript':"
+                 << endl 
+                 << "`check_globus_site_admin' succeeded, returning 0."
+                 << endl;
+            unlock_cerr_mutex(); 
+
+        }  /* |else if (DEBUG)|  */ 
+     
+@q ******* (7) @>
+   
+    }  /* |if (environment_admin_flag)|  */
+
+    else if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+             << "In `Scan_Parse_Parameter_Type::store_environment_shellscript':"
+             << endl 
+             << "`environment_admin_flag' == `false'.  "
+             << "Not calling `check_globus_site_admin'."
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |else if (DEBUG)|  */ 
+
+@q ****** (6) Insert row.  @>
+
+@ Insert row.  
+\initials{LDF 2012.03.19.}
+
+@<|Scan_Parse_Parameter_Type::store_environment_shellscript| definition@>=
+
+    sql_strm.str("");
+
+    sql_strm << "replace into Environment_Shellscripts (environment_shellscript_id, "
+             << "user_id, globus_site_id, shellscript, admin) "
+             << "values "
+             << "(" << curr_environment_shellscript_id << ", " << curr_user_id << ", "
+             << "(select globus_site_id from Globus_Sites where hostname = '"
+             << environment_globus_site << "'), '" << buffer << "', "
+             << environment_admin_flag << ")";
+
+    if (DEBUG)
+    {
+       lock_cerr_mutex(); 
+       cerr << "[Thread " << thread_ctr << "]:  "
+            << "In `Scan_Parse_Parameter_Type::store_environment_shellscript':"
+            << endl 
+            << "sql_strm.str() == " << sql_strm.str()
+            << endl;
+       unlock_cerr_mutex(); 
+
+
+    }  /* |if (DEBUG)|  */ 
+
+
+
+    status = submit_mysql_query(sql_strm.str(),
+                                result, 
+                                0, 
+                                0);
+
+    mysql_free_result(result);
+
+    if (status)
+    {
+        lock_cerr_mutex(); 
+        cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+             << "ERROR!  In `Scan_Parse_Parameter_Type::store_environment_shellscript':"
+             << endl 
+             << "`Scan_Parse_Parameter_Type::submit_mysql_query' failed, returning " 
+             << status << "."
+             << endl
+             << mysql_error(mysql_ptr)
+             << endl 
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+        unlock_cerr_mutex(); 
+
+       temp_strm << "SERVER STORE ENVIRONMENT SHELLSCRIPT GLOBUS_SITE <"
+                 << environment_globus_site << "> FAILED";
+ 
+
+       response.command = temp_strm.str();
+
+       pthread_mutex_lock(&response_deque_mutex);
+       response_deque.push_back(response);
+       pthread_mutex_unlock(&response_deque_mutex);
+
+       return 1;
+
+
+    }  /* |if (status)|  */
+
+    else if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "In `Scan_Parse_Parameter_Type::store_environment_shellscript':"
+             << endl 
+             << "`Scan_Parse_Parameter_Type::submit_mysql_query' succeeded."
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */
+
+    temp_strm << "SERVER STORE ENVIRONMENT SHELLSCRIPT GLOBUS_SITE <"
+              << environment_globus_site << "> SUCCEEDED";
+ 
+
+    response.command = temp_strm.str();
+
+    pthread_mutex_lock(&response_deque_mutex);
+    response_deque.push_back(response);
+    pthread_mutex_unlock(&response_deque_mutex);
+
+
+@q ****** (6) Exit successfully.  @>
+
+@ Exit successfully.  
+\initials{LDF 2012.03.16.}
+
+@<|Scan_Parse_Parameter_Type::store_environment_shellscript| definition@>=
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "Exiting `Scan_Parse_Parameter_Type::store_environment_shellscript' "
+             << "successfully with exit status 0."
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */ 
+
+    return 0;
+
+}  /* End of |store_environment_shellscript| definition  */
+
+#endif /* |HAVE_LIBMYSQLCLIENT|  */
+
+@q **** (4) Fetch environment.  @>
+
+@ Fetch environment.
+\initials{LDF 2012.03.19.}
+
+\LOG
+\initials{LDF 2012.03.19.}
+Added this function.
+\ENDLOG
+
+@q ***** (5) Definition  @>
+@
+@<|Scan_Parse_Parameter_Type::fetch_environment_shellscripts| definition@>=
+
+#if HAVE_LIBMYSQLCLIENT
+int
+Scan_Parse_Parameter_Type::fetch_environment_shellscripts(Response_Type &response)
+{
+@q ****** (6) @>
+
+    bool DEBUG = false;  /* |true|  */ 
+
+    stringstream sql_strm;
+    stringstream temp_strm;
+
+    sql_strm.str("");
+
+    int status;
+
+    MYSQL_RES *result;
+    MYSQL_ROW curr_row;
+
+    unsigned int row_ctr = 0;
+    unsigned int field_ctr = 0;
+
+    int curr_user_id = (effective_user_id > 0) ? effective_user_id : user_id;
+
+    int curr_environment_shellscript_id;
+
+    Response_Type new_response;
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "Entering `Scan_Parse_Parameter_Type::fetch_environment_shellscripts'."
+             << endl
+             << "response.globus_site == " << response.globus_site
+             << endl
+             << "`curr_user_id' == " << curr_user_id
+             << endl;
+         unlock_cerr_mutex(); 
+
+
+    }  /* |if (DEBUG)|  */ 
+
+    if (response.globus_site.empty())
+    {
+        lock_cerr_mutex(); 
+        cerr << "ERROR! In `Scan_Parse_Parameter_Type::fetch_environment_shellscripts':"
+             << endl
+             << "`response.globus_site' is empty.  Can't fetch environment."
+             << endl 
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+        unlock_cerr_mutex(); 
+
+        new_response.type = Response_Type::COMMAND_ONLY_TYPE;
+        temp_strm.str("");
+
+        temp_strm << "SERVER FETCH ENVIRONMENT SHELLSCRIPTS GLOBUS_SITE <NULL> " 
+                  << "FAILED 3";
+
+        new_response.command = temp_strm.str();
+
+        pthread_mutex_lock(&response_deque_mutex);
+        response_deque.push_front(new_response);
+        pthread_mutex_unlock(&response_deque_mutex);
+
+        return 1;
+
+
+    }  /* |if (response.globus_site.empty())|  */
+
+@q ****** (6) @>
+@
+\LOG
+\initials{LDF 2012.03.26.}
+Now sorting rows by |environment_shellscript_id| descending.  Since the responses
+are pushed onto the front of |response_deque|, this ensures that they are sent to
+the client in \it{ascending\/} order.
+
+\initials{LDF 2012.03.26.}
+Added |"disabled = 0"| to the query , so that disabled environment shellscripts 
+are not retrieved from the database table.
+
+\initials{LDF 2012.05.23.}
+Now sorting by |admin| {\it ascending\/} in addition to |environment_shellscript_id| 
+{\it descending}.  This ensures that shellscripts stored by admins are executed first.
+\ENDLOG 
+
+@<|Scan_Parse_Parameter_Type::fetch_environment_shellscripts| definition@>=
+
+    sql_strm << "select distinct shellscript from Environment_Shellscripts "
+             << "where globus_site_id = "
+             << "(select globus_site_id from Globus_Sites where hostname = '"
+             << response.globus_site << "') and disabled = 0 "
+             << "and (user_id = " << curr_user_id 
+             << " or admin = 1) order by admin, environment_shellscript_id desc";
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "In `Scan_Parse_Parameter_Type::fetch_environment_shellscripts':"
+             << endl
+             << "`sql_strm.str()' == " << sql_strm.str()
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */ 
+
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::fetch_environment_shellscripts| definition@>=
+
+    status = submit_mysql_query(sql_strm.str(), result, &row_ctr, &field_ctr);
+  
+    if (status)
+    {
+        lock_cerr_mutex(); 
+        cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+             << "ERROR!  In `Scan_Parse_Parameter_Type::fetch_environment_shellscripts':"
+             << endl 
+             << "`Scan_Parse_Parameter_Type::submit_mysql_query' failed, returning " 
+             << status << "."
+             << endl
+             << mysql_error(mysql_ptr)
+             << endl 
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+        unlock_cerr_mutex(); 
+
+       if (result) 
+          mysql_free_result(result);
+
+       new_response.type = Response_Type::COMMAND_ONLY_TYPE;
+       temp_strm.str("");
+
+        temp_strm << "SERVER FETCH ENVIRONMENT SHELLSCRIPTS GLOBUS_SITE <" 
+                 << response.globus_site << "> FAILED 0";
+
+       new_response.command = temp_strm.str();
+
+       pthread_mutex_lock(&response_deque_mutex);
+       response_deque.push_front(new_response);
+       pthread_mutex_unlock(&response_deque_mutex);
+
+       return 1;
+
+    }  /* |if (status)|  */
+
+    else if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "In `Scan_Parse_Parameter_Type::fetch_environment_shellscripts':"
+             << endl 
+             << "`Scan_Parse_Parameter_Type::submit_mysql_query' succeeded."
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */
+
+@q ****** (6) @>
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "In `Scan_Parse_Parameter_Type::fetch_environment_shellscripts':"
+             << endl 
+             << "row_ctr == " << row_ctr 
+             << endl
+             << "field_ctr == " << field_ctr 
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */
+
+@q ****** (6) No rows.  @>    
+@ No rows.
+\initials{LDF 2012.03.19.}
+
+@<|Scan_Parse_Parameter_Type::fetch_environment_shellscripts| definition@>=
+
+    if (row_ctr == 0)
+    {
+         if (DEBUG)
+         {
+             lock_cerr_mutex(); 
+             cerr << "[Thread " << thread_ctr << "]:  "
+                  << "In `Scan_Parse_Parameter_Type::fetch_environment_shellscripts':"
+                  << endl 
+                  << "row_ctr == 0.  No shellscripts for Globus site `" 
+                  << response.globus_site << "' "
+                  << "in database table `Globus_Sites'."
+                  << endl
+                  << "Not fetching environment shellscripts."
+                  << endl
+                  << "Exiting function successfully with return value 2."
+                  << endl;
+             unlock_cerr_mutex(); 
+
+         }  /* |if (DEBUG)|  */ 
+
+         mysql_free_result(result);
+
+         new_response.type = Response_Type::COMMAND_ONLY_TYPE;
+         temp_strm.str("");
+
+         temp_strm << "SERVER NO ENVIRONMENT SHELLSCRIPTS FOUND FOR GLOBUS_SITE <" 
+                   << response.globus_site << ">";
+
+         new_response.command = temp_strm.str();
+
+         pthread_mutex_lock(&response_deque_mutex);
+         response_deque.push_front(new_response);
+         pthread_mutex_unlock(&response_deque_mutex);
+
+         return 2;          
+
+    }  /* |if (row_ctr == 0)|.  */
+
+@q ****** (6) |row_ctr > 0|.  @>
+
+@ |row_ctr > 0|.
+\initials{LDF 2012.03.19.}
+
+@<|Scan_Parse_Parameter_Type::fetch_environment_shellscripts| definition@>=
+
+    else if (DEBUG)
+    {
+         lock_cerr_mutex(); 
+         cerr << "[Thread " << thread_ctr << "]:  "
+              << "In `Scan_Parse_Parameter_Type::fetch_environment_shellscripts':"
+              << endl 
+              << "row_ctr == " << row_ctr << " for Globus site `" 
+              << response.globus_site << "'."
+              << endl
+              << "At least one shellscript is present."
+              << endl;
+         unlock_cerr_mutex(); 
+      
+    }  /* |else if (DEBUG)|  */ 
+
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::fetch_environment_shellscripts| definition@>=
+
+    char temp_filename[14];
+
+    int fd;
+
+    for (int i = 0; i < row_ctr; ++i)
+    {
+
+@q ******* (7) @>
+@
+@<|Scan_Parse_Parameter_Type::fetch_environment_shellscripts| definition@>=
+
+    
+        curr_row = mysql_fetch_row(result);
+
+        if (curr_row == 0)
+        {
+           lock_cerr_mutex(); 
+           cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+                << "ERROR!  In `Scan_Parse_Parameter_Type::fetch_environment_shellscripts':"
+                << endl 
+                << "`mysql_fetch_row' failed:"
+                << endl
+                << mysql_error(mysql_ptr)
+                << endl 
+                << "Exiting function unsuccessfully with return value 1."
+                << endl;
+           unlock_cerr_mutex(); 
+
+           mysql_free_result(result);
+
+           new_response.type = Response_Type::COMMAND_ONLY_TYPE;
+           temp_strm.str("");
+
+           temp_strm << "SERVER FETCH ENVIRONMENT SHELLSCRIPTS GLOBUS_SITE <" 
+                     << response.globus_site << "> FAILED 0";
+
+           new_response.command = temp_strm.str();
+
+           pthread_mutex_lock(&response_deque_mutex);
+           response_deque.push_front(new_response);
+           pthread_mutex_unlock(&response_deque_mutex);
+
+           return 1;
+
+        }  /* |if (curr_row == 0)|  */
+
+@q ******* (7) @>
+
+        if (DEBUG)
+        {
+            lock_cerr_mutex(); 
+            cerr << "[Thread " << thread_ctr << "]:  "
+                 << "In `Scan_Parse_Parameter_Type::fetch_environment_shellscripts':"
+                 << endl;
+
+            if (curr_row[0])
+            {
+               if (strlen(curr_row[0]) == 0)
+                   cerr << "`curr_row[0]' is non-null, but empty."
+                        << endl;
+               else
+                  cerr << "`curr_row[0]' == " << curr_row[0]
+                       << endl;
+            }
+            else
+               cerr << "`curr_row[0]' is NULL." << endl;
+            unlock_cerr_mutex(); 
+
+        }  /* |if (DEBUG)|  */
+
+@q ******* (7) Shellscript is NULL or empty.  @>
+
+@ Shellscript is NULL or empty.  
+\initials{LDF 2012.03.20.}
+
+@<|Scan_Parse_Parameter_Type::fetch_environment_shellscripts| definition@>=
+
+        if (curr_row[0] == 0 || strlen(curr_row[0]) == 0)
+        {
+           lock_cerr_mutex(); 
+           cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+                << "WARNING!  In `Scan_Parse_Parameter_Type::fetch_environment_shellscripts':"
+                << endl;
+
+           if (curr_row[0] == 0)
+              cerr << "`curr_row[0]' == NULL:";
+           else
+              cerr << "`curr_row[0]' is non-null, but empty:";
+ 
+           cerr << endl
+                << "Not sending to client."
+                << endl 
+                << "Continuing."
+                << endl;
+           unlock_cerr_mutex(); 
+
+           new_response.type = Response_Type::COMMAND_ONLY_TYPE;
+           temp_strm.str("");
+
+           temp_strm << "SERVER FETCH ENVIRONMENT SHELLSCRIPTS GLOBUS_SITE <" 
+                     << response.globus_site << "> FAILED 1";
+
+           new_response.command = temp_strm.str();
+
+           pthread_mutex_lock(&response_deque_mutex);
+           response_deque.push_front(new_response);
+           pthread_mutex_unlock(&response_deque_mutex);
+
+           new_response.command = "";
+           temp_strm.str("");
+
+           continue;
+
+        }  /* |if|  */
+
+@q ******* (7) Create temporary file.  @>
+
+@ Create temporary file.
+\initials{LDF 2012.03.20.}
+
+@<|Scan_Parse_Parameter_Type::fetch_environment_shellscripts| definition@>=
+
+         strcpy(temp_filename, "/tmp/QQXXXXXX");
+
+         errno = 0;
+         fd = mkstemp(temp_filename);
+
+         if (fd == -1)
+         {
+             lock_cerr_mutex(); 
+             cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+                  << "ERROR!  In `Scan_Parse_Parameter_Type::fetch_environment_shellscripts':"
+                  << endl 
+                  << "`mkstemp' failed, returning -1:" 
+                  << endl
+                  << strerror(errno)
+                  << endl 
+                  << "Not sending environment shellscript to client."
+                  << endl 
+                  << "Exiting function unsuccessfully with return value 1."
+                  << endl;
+             unlock_cerr_mutex(); 
+
+             mysql_free_result(result);
+
+             new_response.type = Response_Type::COMMAND_ONLY_TYPE;
+             temp_strm.str("");
+
+             temp_strm << "SERVER FETCH ENVIRONMENT SHELLSCRIPTS GLOBUS_SITE <" 
+                       << response.globus_site << "> FAILED 0";
+
+             new_response.command = temp_strm.str();
+
+             pthread_mutex_lock(&response_deque_mutex);
+             response_deque.push_front(new_response);
+             pthread_mutex_unlock(&response_deque_mutex);
+
+             return 1;
+
+         }  /* |if|  */         
+
+@q ******* (7) @>
+ 
+         else if (DEBUG)
+         {
+             lock_cerr_mutex(); 
+             cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+                  << "In `Scan_Parse_Parameter_Type::fetch_environment_shellscripts':"
+                  << endl 
+                  << "`mkstemp' succeeded."
+                  << endl
+                  << "`temp_filename' == " << temp_filename
+                  << endl;
+             unlock_cerr_mutex(); 
+
+         }  /* |else if (DEBUG)|  */ 
+
+@q ******* (7) Write |curr_row[0]| to temporary file.  @>
+
+@ Write |curr_row[0]| to temporary file.  
+\initials{LDF 2012.03.20.}
+
+@<|Scan_Parse_Parameter_Type::fetch_environment_shellscripts| definition@>=
+
+         errno = 0;
+
+         status = write(fd, curr_row[0], strlen(curr_row[0]));
+
+@q ******** (8) @>
+
+         if (status == -1)
+         {
+             
+             lock_cerr_mutex(); 
+             cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+                  << "ERROR!  In `Scan_Parse_Parameter_Type::fetch_environment_shellscripts':"
+                  << endl 
+                  << "`write' failed, returning -1:" 
+                  << endl
+                  << strerror(errno)
+                  << endl 
+                  << "Not sending environment shellscript to client."
+                  << endl 
+                  << "Exiting function unsuccessfully with return value 1."
+                  << endl;
+             unlock_cerr_mutex(); 
+
+             close(fd);
+
+             mysql_free_result(result);
+
+             new_response.type = Response_Type::COMMAND_ONLY_TYPE;
+             temp_strm.str("");
+
+              temp_strm << "SERVER FETCH ENVIRONMENT SHELLSCRIPTS GLOBUS_SITE <" 
+                       << response.globus_site << "> FAILED 0";
+
+             new_response.command = temp_strm.str();
+
+             pthread_mutex_lock(&response_deque_mutex);
+             response_deque.push_front(new_response);
+             pthread_mutex_unlock(&response_deque_mutex);
+
+             return 1;
+
+         }  /* |if (status == -1)|  */
+         
+@q ******** (8) @>
+@
+@<|Scan_Parse_Parameter_Type::fetch_environment_shellscripts| definition@>=
+
+         else if (status < strlen(curr_row[0]))
+         {
+             lock_cerr_mutex(); 
+             cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+                  << "ERROR!  In `Scan_Parse_Parameter_Type::fetch_environment_shellscripts':"
+                  << endl 
+                  << "`write' failed to write `curr_row[0]' completely to "
+                  << "temporary file:"
+                  << endl
+                  << "`strlen(curr_row[0])' == " << strlen(curr_row[0])
+                  << endl 
+                  << "`status' == " << status
+                  << endl 
+                  << "Not sending environment shellscript to client."
+                  << endl 
+                  << "Will try to continue."
+                  << endl;
+             unlock_cerr_mutex(); 
+
+             close(fd);
+             fd = 0;
+
+             new_response.type = Response_Type::COMMAND_ONLY_TYPE;
+             temp_strm.str("");
+
+             temp_strm << "SERVER FETCH ENVIRONMENT SHELLSCRIPTS GLOBUS_SITE <" 
+                       << response.globus_site << "> FAILED 2";
+
+             new_response.command = temp_strm.str();
+             temp_strm.str("");
+
+             pthread_mutex_lock(&response_deque_mutex);
+             response_deque.push_front(new_response);
+             pthread_mutex_unlock(&response_deque_mutex);
+
+             new_response.command = "";
+
+             continue;
+  
+         }  /* |else if (status < strlen(curr_row[0]))|  */
+
+@q ******** (8) @>         
+
+         else if (DEBUG)
+         {
+             lock_cerr_mutex(); 
+             cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+                  << "In `Scan_Parse_Parameter_Type::fetch_environment_shellscripts':"
+                  << endl 
+                  << "`write' succeeded."
+                  << endl;
+             unlock_cerr_mutex(); 
+
+         }  /* |else if (DEBUG)|  */ 
+
+@q ******** (8) @>    
+
+         close(fd);
+         fd = 0;
+
+@q ******* (7) @>
+
+         new_response.type = Response_Type::RETURN_ENVIRONMENT_SHELLSCRIPT_TYPE;
+         new_response.local_filename = temp_filename;
+         new_response.globus_site = response.globus_site;
+
+         temp_strm.str("");
+
+         temp_strm << "SERVER SENDING ENVIRONMENT SHELLSCRIPT GLOBUS_SITE "
+                   << "<" << response.globus_site << ">";
+
+         new_response.command = temp_strm.str();
+
+        
+         pthread_mutex_lock(&response_deque_mutex);
+         response_deque.push_front(new_response);
+         pthread_mutex_unlock(&response_deque_mutex);
+
+         temp_strm.str("");
+         new_response.command = "";
+
+    }  /* |for|  */
+    
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::fetch_environment_shellscripts| definition@>=
+
+
+    mysql_free_result(result);
+    result = 0;
+
+@q ****** (6) Exit successfully.  @>
+
+@ Exit successfully.  
+\initials{LDF 2012.03.16.}
+
+@<|Scan_Parse_Parameter_Type::fetch_environment_shellscripts| definition@>=
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "Exiting `Scan_Parse_Parameter_Type::fetch_environment_shellscripts' "
+             << "successfully with exit status 0."
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */ 
+
+    return 0;
+
+}  /* End of |fetch_environment_shellscripts| definition  */
+
+#endif /* |HAVE_LIBMYSQLCLIENT|  */
+
+
+@q **** (4) Delete environment shellscripts.  @>
+
+@ Delete environment shellscripts.
+\initials{LDF 2012.03.21.}
+
+\LOG
+\initials{LDF 2012.03.21.}
+Added this function.
+\ENDLOG
+
+@q ***** (5) Definition  @>
+@
+@<|Scan_Parse_Parameter_Type::delete_environment_shellscripts| definition@>=
+
+#if HAVE_LIBMYSQLCLIENT
+int
+Scan_Parse_Parameter_Type::delete_environment_shellscripts(int id, 
+                                                           string globus_site)
+{
+@q ****** (6) @>
+
+    bool DEBUG = false;  /* |true|  */ 
+
+    Response_Type response;
+    response.type = Response_Type::COMMAND_ONLY_TYPE;
+
+    stringstream temp_strm;
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "Entering `Scan_Parse_Parameter_Type::delete_environment_shellscripts'."
+             << endl
+             << "`id' == " << id 
+             << endl
+             << "`globus_site' == " << globus_site << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */ 
+
+
+@q ****** (6) @>
+@
+\LOG
+\initials{LDF 2012.03.26.}
+Added this section.
+\ENDLOG
+@<|Scan_Parse_Parameter_Type::delete_environment_shellscripts| definition@>=
+
+    if (id > 0 && !globus_site.empty())
+    {
+        lock_cerr_mutex(); 
+        cerr << "ERROR!  In `Scan_Parse_Parameter_Type::delete_environment_shellscripts':"
+             << endl
+             << "`id' == " << id << " (> 0) and "
+             << endl
+             << "`globus_site' == `" << globus_site << "' (i.e., not empty)"
+             << endl
+             << "This is not permitted."
+             << endl 
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+        unlock_cerr_mutex(); 
+
+        temp_strm << "DELETE ENVIRONMENT SHELLSCRIPTS FAILED -2";
+
+        response.command = temp_strm.str();
+
+        pthread_mutex_lock(&response_deque_mutex);
+        response_deque.push_back(response);
+        pthread_mutex_unlock(&response_deque_mutex);
+
+        return 1;
+             
+    }  /* |if (id > 0 && !globus_site.empty())|  */
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::delete_environment_shellscripts| definition@>=
+
+    stringstream sql_strm;
+
+    sql_strm.str("");
+
+    int status;
+
+    MYSQL_RES *result;
+    MYSQL_ROW curr_row;
+
+    unsigned int row_ctr = 0;
+    unsigned int field_ctr = 0;
+
+    int curr_user_id = (effective_user_id > 0) ? effective_user_id : user_id;
+
+ @q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::delete_environment_shellscripts| definition@>=
+
+    sql_strm << "delete from Environment_Shellscripts where "
+             << "environment_shellscript_id > 0 and user_id = " 
+             << curr_user_id;
+
+    if (id > 0)
+
+       sql_strm << " and environment_shellscript_id = " << id;
+
+    else if (!globus_site.empty()) 
+    {
+        sql_strm << " and globus_site_id = (select globus_site_id from Globus_Sites "
+                 << "where hostname = '" << globus_site << "')";
+
+    }
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "In `Scan_Parse_Parameter_Type::delete_environment_shellscripts':"
+             << endl
+             << "`sql_strm.str()' == " << sql_strm.str()
+             << endl;
+        unlock_cerr_mutex(); 
+ 
+    }  /* |if (DEBUG)|  */ 
+
+    long affected_rows = 0L;
+
+    status = submit_mysql_query(sql_strm.str(), result, 0, 0, &affected_rows);
+
+    if (status)
+    {
+        lock_cerr_mutex(); 
+        cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+             << "ERROR!  In `Scan_Parse_Parameter_Type::delete_environment_shellscripts':"
+             << endl 
+             << "`Scan_Parse_Parameter_Type::submit_mysql_query' failed, returning " 
+             << status << "."
+             << endl
+             << mysql_error(mysql_ptr)
+             << endl 
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+        unlock_cerr_mutex(); 
+
+       if (result) 
+          mysql_free_result(result);
+
+
+       if (!globus_site.empty())
+       {
+           temp_strm << "DELETE ENVIRONMENT SHELLSCRIPTS "
+                     << "FOR GLOBUS_SITE <"
+                     << globus_site << "> FAILED -1";
+       }
+       else if (id > 0)
+       {
+            temp_strm << "DELETE ENVIRONMENT SHELLSCRIPT " << id << " FAILED";
+       }
+       else 
+       {
+            temp_strm << "DELETE ENVIRONMENT SHELLSCRIPTS FAILED -1";
+       }
+   
+       response.command = temp_strm.str();
+
+       pthread_mutex_lock(&response_deque_mutex);
+       response_deque.push_back(response);
+       pthread_mutex_unlock(&response_deque_mutex);
+
+       return 1;
+
+    }  /* |if (status)|  */
+
+    mysql_free_result(result);
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "In `Scan_Parse_Parameter_Type::delete_environment_shellscripts':"
+             << endl 
+             << "`Scan_Parse_Parameter_Type::submit_mysql_query' succeeded."
+             << endl
+             << "affected_rows == " << affected_rows
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */
+
+    if (affected_rows < 0)
+    {
+   
+       lock_cerr_mutex(); 
+       cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+            << "ERROR!  In `Scan_Parse_Parameter_Type::delete_environment_shellscripts':"
+            << endl 
+            << "`mysql_affected_rows' returned " << affected_rows << " (< 0)." 
+            << endl
+            << "This should never occur."
+            << endl 
+            << "Exiting function unsuccessfully with return value 1."
+            << endl;
+       unlock_cerr_mutex(); 
+
+       if (!globus_site.empty())
+       {
+           temp_strm << "DELETE ENVIRONMENT SHELLSCRIPTS "
+                     << "FOR GLOBUS_SITE <"
+                     << globus_site << "> FAILED " << affected_rows;
+       }
+       else if (id > 0)
+       {
+            temp_strm << "DELETE ENVIRONMENT SHELLSCRIPT " << id << " FAILED";
+       }
+       else 
+       {
+            temp_strm << "DELETE ENVIRONMENT SHELLSCRIPTS FAILED " << affected_rows;
+       }
+   
+       response.command = temp_strm.str();
+
+       pthread_mutex_lock(&response_deque_mutex);
+       response_deque.push_back(response);
+       pthread_mutex_unlock(&response_deque_mutex);
+
+       return 1;
+
+    }
+
+    else if (affected_rows == 0)
+    {
+   
+
+       if (!globus_site.empty())
+       {
+           temp_strm << "DELETE ENVIRONMENT SHELLSCRIPTS "
+                     << "FOR GLOBUS_SITE <"
+                     << globus_site << "> FAILED 0";
+       }
+       else if (id > 0)
+       {
+            temp_strm << "DELETE ENVIRONMENT SHELLSCRIPT " << id << " FAILED";
+       }
+       else 
+       {
+            temp_strm << "DELETE ENVIRONMENT SHELLSCRIPTS FAILED 0";
+       }
+   
+       response.command = temp_strm.str();
+
+       pthread_mutex_lock(&response_deque_mutex);
+       response_deque.push_back(response);
+       pthread_mutex_unlock(&response_deque_mutex);
+
+    }
+
+    else 
+    {
+       if (!globus_site.empty())
+       {
+
+          temp_strm << "DELETE ENVIRONMENT SHELLSCRIPTS FOR GLOBUS_SITE <"
+                    << globus_site << "> SUCCEEDED " << affected_rows;
+
+       }
+       else if (id > 0)
+       {
+            temp_strm << "DELETE ENVIRONMENT SHELLSCRIPT " << id << " SUCCEEDED";
+       }
+       else 
+       {
+            temp_strm << "DELETE ENVIRONMENT SHELLSCRIPTS SUCCEEDED " 
+                      << affected_rows;
+       }
+
+       if (DEBUG)
+       {
+
+      }  /* |if (DEBUG)|  */ 
+
+       response.command = temp_strm.str();
+
+       pthread_mutex_lock(&response_deque_mutex);
+       response_deque.push_back(response);
+       pthread_mutex_unlock(&response_deque_mutex);
+
+    }
+
+
+@q ****** (6) Exit successfully.  @>
+
+@ Exit successfully.  
+\initials{LDF 2012.03.16.}
+
+@<|Scan_Parse_Parameter_Type::delete_environment_shellscripts| definition@>=
+
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "Exiting `Scan_Parse_Parameter_Type::delete_environment_shellscripts' "
+             << "successfully with exit status 0."
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */ 
+
+    return 0;
+
+}  /* End of |delete_environment_shellscripts| definition  */
+
+#endif /* |HAVE_LIBMYSQLCLIENT|  */
+
+@q **** (4) Show environment shellscripts.  @>
+
+@ Show environment shellscripts.
+\initials{LDF 2012.03.21.}
+
+\LOG
+\initials{LDF 2012.03.21.}
+Added this function.
+\ENDLOG
+
+@q ***** (5) Definition  @>
+@
+@<|Scan_Parse_Parameter_Type::show_environment_shellscripts| definition@>=
+
+#if HAVE_LIBMYSQLCLIENT
+int
+Scan_Parse_Parameter_Type::show_environment_shellscripts(Response_Type &response, 
+                                                         char buffer[])
+{
+@q ****** (6) @>
+
+    bool DEBUG = false;  /* |true|  */
+    set_debug_level(DEBUG);
+
+    int status = 0;
+
+    MYSQL_RES* result          = 0;
+    unsigned int row_ctr       = 0;
+    unsigned int field_ctr     = 0;
+   
+    MYSQL_ROW curr_row;
+
+    stringstream sql_strm;
+
+    stringstream temp_strm;
+
+    unsigned int curr_user_id = (effective_user_id > 0) ? effective_user_id : user_id;
+
+    bool html = (response.output_format == Response_Type::OUTPUT_FORMAT_HTML) ? true : false;
+
+@q ****** (6) @>
+
+    if (DEBUG) 
+    { 
+       lock_cerr_mutex(); 
+       cerr << "[Thread " << thread_ctr << "]:  "
+            << "Entering `Scan_Parse_Parameter_Type::show_environment_shellscripts'."
+            << endl;
+
+       cerr << "response.show_environment_shellscript_options == " 
+            << response.show_environment_shellscript_options 
+            << endl
+            << "response.globus_site_set.size() == " << response.globus_site_set.size()
+            << endl;
+
+       if (response.globus_site_set.size() > 0)
+       {
+
+           cerr << "response.globus_site_set:" << endl;
+
+           for (set<string>::const_iterator iter = response.globus_site_set.begin();
+                iter != response.globus_site_set.end();
+                ++iter)
+           {
+                cerr << *iter << endl;
+           }
+
+       }  /* |if|  */
+
+       unlock_cerr_mutex(); 
+
+    } /* |if (DEBUG)| */
+
+@q ****** (6) @>
+
+@q ******* (7) @>
+@
+
+\begingroup
+\obeylines
+Options:
+User $=1$
+Globus site $=2$
+All Globus sites $=4$
+\endgroup
+
+@<|Scan_Parse_Parameter_Type::show_environment_shellscripts| definition@>=
+
+  sql_strm.str("");
+
+@q ******** (8) @>
+
+  if (response.show_environment_shellscript_options == 0)  
+  {
+      /* No options $\longrightarrow$ show everything.  
+         \initials{LDF 2012.03.26.}  */
+                                      
+      response.show_environment_shellscript_options = 5; 
+  }
+
+
+@q ******** (8) @>
+
+@ Showing all Globus sites takes precedence over showing a single
+Globus site.  However, this condition should never occur, because
+of the two corresponding options, the last one used in the input will 
+take precedence.
+\initials{LDF 2012.03.26.}
+
+@<|Scan_Parse_Parameter_Type::show_environment_shellscripts| definition@>=
+
+
+  else if (   response.show_environment_shellscript_options & 2
+           && response.show_environment_shellscript_options & 4)
+  {
+
+       response.show_environment_shellscript_options &= 5;
+  }
+
+@q ******** (8) @>
+
+  if (   response.show_environment_shellscript_options & 1
+      && response.show_environment_shellscript_options & 4)
+  {
+
+       /* Showing user environment shellscripts implies showing them for 
+          all Globus sites, unless the ``Globus site'' option is specified.
+          \initials{LDF 2012.03.26.}  */
+
+      response.show_environment_shellscript_options &= 3;
+  }
+  
+@q ******** (8) @>
+
+  sql_strm << "select E.environment_shellscript_id, E.user_id, "
+           << "U.user_name, U.commonName, U.organizationalUnitName, "
+           << "G.globus_site_id, G.hostname, "
+           << "E.admin, E.disabled, E.shellscript "
+           << "from Environment_Shellscripts as E, Globus_Sites as G, "
+           << "User_Info as U "
+           << "where E.environment_shellscript_id > 0 and E.user_id = U.user_id "
+           << "and E.globus_site_id = G.globus_site_id ";
+
+  if (response.show_environment_shellscript_options & 1)
+     sql_strm << "and E.user_id = " << curr_user_id << " ";
+
+  if (response.show_environment_shellscript_options & 2
+      || response.show_environment_shellscript_options & 4)
+  {
+ 
+      sql_strm << " and (E.user_id = " << curr_user_id << " or E.admin = 1) ";
+
+  }
+
+  if (   response.show_environment_shellscript_options & 2
+      && response.globus_site_set.size() > 0)
+  {
+
+       if (response.globus_site_set.size() ==  1)
+          sql_strm << "and G.hostname = '" << *response.globus_site_set.begin() << "' ";
+       else
+       {
+           string or_string = ""; 
+
+           sql_strm << "and (";  
+
+@q                         ")"  @>
+
+           for (set<string>::const_iterator iter 
+                   = response.globus_site_set.begin();
+                iter != response.globus_site_set.end();
+                ++iter)
+           {
+                sql_strm << or_string << "G.hostname = '" << *iter << "'";
+
+                or_string = " or "; 
+           }
+
+@q         "("  @>
+
+           sql_strm << ")";  
+
+       }  /* |else|  */
+
+  }  /* |if|  */
+  
+  sql_strm << "order by E.environment_shellscript_id";
+
+@q ******* (7) @>
+@
+@<|Scan_Parse_Parameter_Type::show_environment_shellscripts| definition@>=
+
+  if (DEBUG) 
+  { 
+     lock_cerr_mutex(); 
+     cerr << "[Thread " << thread_ctr << "]:  "
+          << "In `Scan_Parse_Parameter_Type::show_environment_shellscripts':"
+          << endl
+          << "`sql_strm.str()' == " << sql_strm.str()
+          << endl;
+     unlock_cerr_mutex(); 
+
+  } /* |if (DEBUG)| */
+
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::show_environment_shellscripts| definition@>=
+
+    status = submit_mysql_query(sql_strm.str(),
+                                result, 
+                                &row_ctr, 
+                                &field_ctr);
+
+@q ******* (7) @>
+
+    if (status)
+    {
+        lock_cerr_mutex(); 
+        cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+             << "ERROR!  In `Scan_Parse_Parameter_Type::show_environment_shellscripts':"
+             << endl 
+             << "`Scan_Parse_Parameter_Type::submit_mysql_query' failed, returning " 
+             << status << "."
+             << endl
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+        unlock_cerr_mutex(); 
+
+        if (result) 
+           mysql_free_result(result);
+
+        return 1;
+
+    }  /* |if (status)|  */
+
+@q ******* (7) @>
+
+    else if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "In `Scan_Parse_Parameter_Type::show_environment_shellscripts':"
+             << endl 
+             << "`Scan_Parse_Parameter_Type::submit_mysql_query' succeeded."
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */
+
+@q ******* (7) @>
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "In `Scan_Parse_Parameter_Type::show_environment_shellscripts':"
+             << endl 
+             << "row_ctr == " << row_ctr 
+             << endl
+             << "field_ctr == " << field_ctr 
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */
+
+
+@q ******* (7) @>
+
+    bool dump_to_file = false;
+    ofstream out_strm;
+    
+    if (row_ctr == 0)
+    {
+
+        response.command = "SERVER NO ENVIRONMENT SHELLSCRIPTS TO SHOW";
+ 
+        response.local_filename = "";
+
+        memset(buffer, 0, MAX_BUFFER + 1);
+
+        if (result)
+           mysql_free_result(result);
+
+        return 2;
+
+    }  /* |if (row_ctr == 0)|  */
+
+
+@q ****** (6) @>
+@
+Here, the message to be sent to the client is stored in |buffer| instead of storing it 
+in |response.command|.  This is because of what |exchange_data_with_client| 
+(in \filename{connect.web}) does after this function returns.  
+\initials{LDF 2010.10.27.}
+
+@<|Scan_Parse_Parameter_Type::show_environment_shellscripts| definition@>=
+
+    else /* |row_ctr > 0|  */
+    {
+
+       temp_strm.str("");
+
+       temp_strm << "*** Environment shellscripts ***";
+
+       temp_strm << endl << endl;
+
+       for (int i = 0; i < row_ctr; ++i)
+        {
+@q ********* (9) @>
+
+            if ((curr_row = mysql_fetch_row(result)) == 0)
+            {
+                lock_cerr_mutex(); 
+                cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+                     << "ERROR!  In `Scan_Parse_Parameter_Type::show_environment_shellscripts':"
+                     << endl 
+                     << "`mysql_fetch_row' failed:"
+                     << endl
+                     << mysql_error(mysql_ptr)
+                     << endl 
+                     << "Exiting function unsuccessfully with return value 1."
+                     << endl;
+                unlock_cerr_mutex(); 
+
+                mysql_free_result(result);
+
+                response.command = "SERVER SHOW ENVIRONMENT SHELLSCRIPTS FAILED";
+
+                return 1;
+
+            }  /* |if (curr_row = mysql_fetch_row(result) == 0)|  */
+
+@q ********* (9) @>
+@
+\begingroup
+\obeylines
+Columns:
+|environment_shellscript_id|
+|user_id|
+|user_name|
+|commonName|
+|organizationalUnitName|
+|globus_site_id|
+|hostname|
+|admin|
+|disabled |
+|shellscript|
+\endgroup
+
+@<|Scan_Parse_Parameter_Type::show_environment_shellscripts| definition@>=
+
+
+            else /* |mysql_fetch_row(result)| succeeded  */
+            {
+@q ********** (10) @>
+
+                if (DEBUG)
+                {
+       
+                    lock_cerr_mutex(); 
+                    cerr << "[Thread " << thread_ctr << "]:  "
+                         << "In `Scan_Parse_Parameter_Type::show_environment_shellscripts':"
+                         << endl 
+                         << "`mysql_fetch_row' succeeded."
+                         << endl;
+                    unlock_cerr_mutex(); 
+ 
+
+                }  /* |if (DEBUG)|  */ 
+
+@q ********** (10) |environment_shellscript_id|  @>
+@ |environment_shellscript_id|.
+@<|Scan_Parse_Parameter_Type::show_environment_shellscripts| definition@>=
+ 
+                if (curr_row[0] && strlen(curr_row[0]))
+                {
+                    if (DEBUG)
+                    {
+                        cerr << "environment_shellscript_id  == " << curr_row[0] << endl;
+
+                    }  /* |if (DEBUG)|  */ 
+
+                    temp_strm << "environment_shellscript_id:  " << curr_row[0]
+                              << endl;
+
+
+                } /* |if (curr_row[0])|  */
+
+                else  /* |curr_row[0] == 0 || strlen(curr_row[0]) == 0|  */
+                {
+                    if (DEBUG)
+                    {
+                        cerr << "environment_shellscript_id  == NULL" << endl;
+
+                    }  /* |if (DEBUG)|  */ 
+
+
+                    temp_strm << "environment_shellscript_id:  NULL" << endl;
+
+                }  /* |else| (|curr_row[0] == 0 || strlen(curr_row[0]) == 0|)  */
+
+@q ********** (10) |user_id|.  @>
+
+@ |user_id|.
+\initials{LDF 2012.03.26.}
+
+@<|Scan_Parse_Parameter_Type::show_environment_shellscripts| definition@>=
+ 
+                if (curr_row[1] && strlen(curr_row[1]))
+                {
+                    if (DEBUG)
+                    {
+                        cerr << "user_id  == " << curr_row[1] << endl;
+
+                    }  /* |if (DEBUG)|  */ 
+
+                    temp_strm << "user_id:  " << curr_row[1] << endl;
+
+
+                } /* |if (curr_row[1] && strlen(curr_row[1]))|  */
+
+                else
+                {
+                    if (DEBUG)
+                    {
+                        cerr << "user_id == NULL or empty string" << endl;
+
+                    }  /* |if (DEBUG)|  */ 
+
+
+                    temp_strm << "user_id:  NULL" << endl;
+
+                }  /* |else| (|curr_row[1] == 0 || strlen(curr_row[1]) == 0|)  */
+
+@q ********** (10) |user_name|.  @>
+@ |user_name|.  
+\initials{LDF 2012.03.26.}
+
+@<|Scan_Parse_Parameter_Type::show_environment_shellscripts| definition@>=
+ 
+                if (curr_row[2] && strlen(curr_row[2]))
+                {
+                    if (DEBUG)
+                    {
+                        cerr << "user_name  == " << curr_row[2] << endl;
+
+                    }  /* |if (DEBUG)|  */ 
+
+                    temp_strm << "user_name:  " << curr_row[2] << endl;
+
+
+                } /* |if (curr_row[2] && strlen(curr_row[2]))|  */
+
+                else
+                {
+                    if (DEBUG)
+                    {
+                        cerr << "user_name == NULL or empty string" << endl;
+
+                    }  /* |if (DEBUG)|  */ 
+
+
+                    temp_strm << "user_name:  NULL" << endl;
+
+                }  /* |else| (|curr_row[2] == 0 || strlen(curr_row[2]) == 0|)  */
+
+
+@q ********** (10) |commonName|.  @>
+
+@ |commonName|.  
+\initials{LDF 2012.03.26.}
+
+@<|Scan_Parse_Parameter_Type::show_environment_shellscripts| definition@>=
+ 
+                if (curr_row[3] && strlen(curr_row[3]))
+                {
+                    if (DEBUG)
+                    {
+                        cerr << "commonName  == " << curr_row[3] << endl;
+
+                    }  /* |if (DEBUG)|  */ 
+
+                    temp_strm << "commonName:  " << curr_row[3] << endl;
+
+
+                } /* |if (curr_row[3] && strlen(curr_row[3]))|  */
+
+                else
+                {
+                    if (DEBUG)
+                    {
+                        cerr << "commonName == NULL or empty string" << endl;
+
+                    }  /* |if (DEBUG)|  */ 
+
+
+                    temp_strm << "commonName:  NULL" << endl;
+
+                }  /* |else| (|curr_row[3] == 0 || strlen(curr_row[3]) == 0|)  */
+
+@q ********** (10) |organizationalUnitName|.  @>
+
+@ |organizationalUnitName|.  
+\initials{LDF 2012.03.26.}
+
+@<|Scan_Parse_Parameter_Type::show_environment_shellscripts| definition@>=
+ 
+                if (curr_row[4] && strlen(curr_row[4]))
+                {
+                    if (DEBUG)
+                    {
+                        cerr << "organizationalUnitName  == " << curr_row[4] << endl;
+
+                    }  /* |if (DEBUG)|  */ 
+
+                    temp_strm << "organizationalUnitName:  " << curr_row[4] << endl;
+
+
+                } /* |if (curr_row[4] && strlen(curr_row[4]))|  */
+
+                else
+                {
+                    if (DEBUG)
+                    {
+                        cerr << "organizationalUnitName == NULL or empty string" << endl;
+
+                    }  /* |if (DEBUG)|  */ 
+
+
+                    temp_strm << "organizationalUnitName:  NULL" << endl;
+
+                }  /* |else| (|curr_row[4] == 0 || strlen(curr_row[4]) == 0|)  */
+
+@q ********** (10) |globus_site_id|.  @>
+
+@ |globus_site_id|.  
+\initials{LDF 2012.03.26.}
+
+@<|Scan_Parse_Parameter_Type::show_environment_shellscripts| definition@>=
+ 
+                if (curr_row[5] && strlen(curr_row[5]))
+                {
+                    if (DEBUG)
+                    {
+                        cerr << "globus_site_id  == " << curr_row[5] << endl;
+
+                    }  /* |if (DEBUG)|  */ 
+
+                    temp_strm << "globus_site_id:  " << curr_row[5] << endl;
+
+
+                } /* |if (curr_row[5] && strlen(curr_row[5]))|  */
+
+                else
+                {
+                    if (DEBUG)
+                    {
+                        cerr << "globus_site_id == NULL or empty string" << endl;
+
+                    }  /* |if (DEBUG)|  */ 
+
+
+                    temp_strm << "globus_site_id:  NULL" << endl;
+
+                }  /* |else| (|curr_row[5] == 0 || strlen(curr_row[5]) == 0|)  */
+
+@q ********** (10) |hostname|.  @>
+
+@ |hostname|.  
+\initials{LDF 2012.03.26.}
+
+@<|Scan_Parse_Parameter_Type::show_environment_shellscripts| definition@>=
+ 
+                if (curr_row[6] && strlen(curr_row[6]))
+                {
+                    if (DEBUG)
+                    {
+                        cerr << "hostname  == " << curr_row[6] << endl;
+
+                    }  /* |if (DEBUG)|  */ 
+
+                    temp_strm << "hostname:  " << curr_row[6] << endl;
+
+
+                } /* |if (curr_row[6] && strlen(curr_row[6]))|  */
+
+                else
+                {
+                    if (DEBUG)
+                    {
+                        cerr << "hostname == NULL or empty string" << endl;
+
+                    }  /* |if (DEBUG)|  */ 
+
+
+                    temp_strm << "hostname:  NULL" << endl;
+
+                }  /* |else| (|curr_row[6] == 0 || strlen(curr_row[6]) == 0|)  */
+
+
+@q ********** (10) |admin|.  @>
+
+@ |admin|.  
+\initials{LDF 2012.03.26.}
+
+@<|Scan_Parse_Parameter_Type::show_environment_shellscripts| definition@>=
+ 
+                if (curr_row[7] && strlen(curr_row[7]))
+                {
+                    if (DEBUG)
+                    {
+                        cerr << "admin  == " << curr_row[7] << endl;
+
+                    }  /* |if (DEBUG)|  */ 
+
+                    temp_strm << "admin:  " << curr_row[7] << endl;
+
+
+                } /* |if (curr_row[7] && strlen(curr_row[7]))|  */
+
+                else
+                {
+                    if (DEBUG)
+                    {
+                        cerr << "admin == NULL or empty string" << endl;
+
+                    }  /* |if (DEBUG)|  */ 
+
+
+                    temp_strm << "admin:  NULL" << endl;
+
+                }  /* |else| (|curr_row[7] == 0 || strlen(curr_row[7]) == 0|)  */
+
+
+@q ********** (10) |disabled|.  @>
+
+@ |disabled|.  
+\initials{LDF 2012.03.26.}
+
+@<|Scan_Parse_Parameter_Type::show_environment_shellscripts| definition@>=
+ 
+                if (curr_row[8] && strlen(curr_row[8]))
+                {
+                    if (DEBUG)
+                    {
+                        cerr << "disabled  == " << curr_row[8] << endl;
+
+                    }  /* |if (DEBUG)|  */ 
+
+                    temp_strm << "disabled:  " << curr_row[8] << endl;
+
+
+                } /* |if (curr_row[8] && strlen(curr_row[8]))|  */
+
+                else
+                {
+                    if (DEBUG)
+                    {
+                        cerr << "disabled == NULL or empty string" << endl;
+
+                    }  /* |if (DEBUG)|  */ 
+
+
+                    temp_strm << "disabled:  NULL" << endl;
+
+                }  /* |else| (|curr_row[8] == 0 || strlen(curr_row[8]) == 0|)  */
+
+
+@q ********** (10) |shellscript|.  @>
+
+@ |shellscript|.  
+\initials{LDF 2012.03.26.}
+
+@<|Scan_Parse_Parameter_Type::show_environment_shellscripts| definition@>=
+ 
+                if (curr_row[9] && strlen(curr_row[9]))
+                {
+                    if (DEBUG)
+                    {
+                        cerr << "shellscript  == " << curr_row[9] << endl;
+
+                    }  /* |if (DEBUG)|  */ 
+
+                    temp_strm << "shellscript:  " << curr_row[9] << endl;
+
+
+                } /* |if (curr_row[9] && strlen(curr_row[9]))|  */
+
+                else
+                {
+                    if (DEBUG)
+                    {
+                        cerr << "shellscript == NULL or empty string" << endl;
+
+                    }  /* |if (DEBUG)|  */ 
+
+
+                    temp_strm << "shellscript:  NULL" << endl;
+
+                }  /* |else| (|curr_row[9] == 0 || strlen(curr_row[9]) == 0|)  */
+
+
+@q ********** (10) @>
+
+                temp_strm << endl;
+
+            }  /* |else| (|mysql_fetch_row(result)| succeeded)  */
+
+@q ********* (9) @>
+
+
+@q ********* (9) @>
+@ After the loop, a newline character or two are added to the end 
+of the text that's sent to the client, so we dump it to a file even if |temp_strm.str()| 
+contains a number of characters somewhat smaller than |MAX_BUFFER|.  Currently, 
+|MAX_BUFFER - 10| is used. 
+\initials{LDF 2010.11.04.}
+
+@<|Scan_Parse_Parameter_Type::show_environment_shellscripts| definition@>=
+
+            if (!dump_to_file && temp_strm.str().size() >= MAX_BUFFER - 10)  
+            {
+
+                char temp_filename[] = "/tmp/SSXXXXXX";
+
+                int temp_fd = mkstemp(temp_filename);
+
+                if (temp_fd == -1)
+                {
+
+                    lock_cerr_mutex(); 
+                    cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+                         << "ERROR!  In "
+                         << "`Scan_Parse_Parameter_Type::show_environment_shellscripts':"
+                         << endl 
+                         << "`mkstemp' failed.  Can't open temporary file."
+                         << endl
+                         << "Exiting function unsuccessfully with return value 1."
+                         << endl;
+                    unlock_cerr_mutex(); 
+
+                    mysql_free_result(result);
+
+                    memset (buffer, 0, MAX_BUFFER + 1);      
+                    response.command = "SERVER SHOW ENVIRONMENT SHELLSCRIPTS FAILED";
+
+                    return 1;
+
+                }  /* |if (temp_fd == -1)|  */
+
+                temp_file_vector.push_back(string(temp_filename));
+
+                close(temp_fd);
+
+                response.local_filename  = temp_filename;
+
+                out_strm.open(response.local_filename.c_str());
+
+                dump_to_file = true;
+              
+            }  /* |if|  */
+
+@q ********* (9) @>
+@
+@<|Scan_Parse_Parameter_Type::show_environment_shellscripts| definition@>=
+
+            if (dump_to_file)
+            {
+                out_strm << temp_strm.str() << endl;
+                temp_strm.str("");
+            }
+
+
+@q ********* (9) @>
+
+
+        }  /* |for|  */
+
+        if (dump_to_file)
+        {
+           out_strm << endl;
+           out_strm.close();
+        }
+        else 
+        {
+           temp_strm << endl;
+        }
+
+        memset (buffer, 0, MAX_BUFFER + 1);      
+
+        if (!dump_to_file)
+           strcpy(buffer, temp_strm.str().c_str());
+                   
+        response.command = "SERVER SENDING ENVIRONMENT SHELLSCRIPT INFO";
+
+    }  /* |else| (|row_ctr > 0|)  */
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::show_environment_shellscripts| definition@>=
+
+    if (result)
+       mysql_free_result(result);
+
+    if (DEBUG) 
+    { 
+       lock_cerr_mutex(); 
+       cerr << "[Thread " << thread_ctr << "]:  "
+            << "Exiting `Scan_Parse_Parameter_Type::show_environment_shellscripts' successfully "
+            << "with return value 0."
+            << endl;
+       unlock_cerr_mutex(); 
+
+    } /* |if (DEBUG)| */
+
+    return 0;
+
+@q ****** (6) @>
+
+}  /* End of |Scan_Parse_Parameter_Type::show_environment_shellscripts| definition  */
+
+#endif /* |HAVE_LIBMYSQLCLIENT|  */
+
+@q **** (4) Check Globus site admin.  @>
+@ Check Globus site admin.  
+\initials{LDF 2012.03.23.}
+
+\LOG
+\initials{LDF 2012.03.23.}
+Added this function definition.
+\ENDLOG
+
+@q ***** (5) Definition  @>
+
+@<|Scan_Parse_Parameter_Type::check_globus_site_admin| definition@>=
+
+#if HAVE_LIBMYSQLCLIENT
+int
+Scan_Parse_Parameter_Type::check_globus_site_admin(unsigned int user_id, string globus_site)
+{
+@q ****** (6) @>
+
+    bool DEBUG = false;  /* |true|  */ 
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "Entering `Scan_Parse_Parameter_Type::check_globus_site_admin'."
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */ 
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::check_globus_site_admin| definition@>=
+
+    stringstream sql_strm;
+
+    sql_strm.str("");
+
+    int status;
+
+    MYSQL_RES *result;
+    MYSQL_ROW curr_row;
+
+    unsigned int row_ctr = 0;
+    unsigned int field_ctr = 0;
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::check_globus_site_admin| definition@>=
+
+    sql_strm << "select admin_id from Globus_Sites_Admins where globus_site_id = "
+             << "(select globus_site_id from Globus_Sites where hostname = '"
+             << globus_site << "') and admin_id = " << user_id;
+
+    if (DEBUG)
+    {
+         lock_cerr_mutex(); 
+         cerr << "sql_strm.str() == " << sql_strm.str() << endl;
+         unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */ 
+
+    status = submit_mysql_query(sql_strm.str(), result, &row_ctr, &field_ctr);
+
+    if (status)
+    {
+        lock_cerr_mutex(); 
+        cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+             << "ERROR!  In `Scan_Parse_Parameter_Type::check_globus_site_admin':"
+             << endl 
+             << "`Scan_Parse_Parameter_Type::submit_mysql_query' failed, returning " 
+             << status << "."
+             << endl
+             << mysql_error(mysql_ptr)
+             << endl 
+             << "Exiting function unsuccessfully with return value 3."
+             << endl;
+        unlock_cerr_mutex(); 
+
+       if (result) 
+          mysql_free_result(result);
+
+       return 3;
+
+    }  /* |if (status)|  */
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::check_globus_site_admin| definition@>=
+
+    mysql_free_result(result);
+    result = 0;
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "In `Scan_Parse_Parameter_Type::check_globus_site_admin':"
+             << endl 
+             << "`Scan_Parse_Parameter_Type::submit_mysql_query' succeeded."
+             << endl
+             << "`row_ctr' == " << row_ctr
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::check_globus_site_admin| definition@>=
+
+    if (row_ctr == 0)
+    {
+        if (DEBUG)
+        {
+            lock_cerr_mutex(); 
+            cerr << "[Thread " << thread_ctr << "]:  "
+                 << "In `Scan_Parse_Parameter_Type::check_globus_site_admin':"
+                 << endl 
+                 << "`row_ctr' == 0.  User `" << user_id << "' is not admin."
+                 << endl
+                 << "Exiting function successfully with return value 2."
+                 << endl;
+            unlock_cerr_mutex(); 
+
+        }  /* |if (DEBUG)|  */
+
+        return 2;
+
+    }  /* |if (row_ctr == 0)|  */
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::check_globus_site_admin| definition@>=
+
+    else if (row_ctr > 1)
+    {
+         lock_cerr_mutex(); 
+         cerr << "[Thread " << thread_ctr << "]:  "
+              << "WARNING!  In `Scan_Parse_Parameter_Type::check_globus_site_admin':"
+              << endl 
+              << "`row_ctr' == " << row_ctr << " (> 1)."
+              << endl 
+              << "There shouldn't be multiple rows for a single Globus site/admin pair."
+              << endl
+              << "Assuming this is alright."
+              << endl 
+              << "Exiting function successfully with return value 0."
+              << endl;
+         unlock_cerr_mutex(); 
+
+         return 0; 
+
+    }  /* |else if (row_ctr > 1)|  */
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::check_globus_site_admin| definition@>=
+
+    else if (row_ctr ==  1)
+    {
+         if (DEBUG)
+         {
+             lock_cerr_mutex(); 
+             cerr << "[Thread " << thread_ctr << "]:  "
+                  << "In `Scan_Parse_Parameter_Type::check_globus_site_admin':"
+                  << endl 
+                  << "`row_ctr' == 1.  "
+                  << "User is admin."
+                  << endl 
+                  << "Exiting function successfully with return value 0."
+                  << endl;
+             unlock_cerr_mutex(); 
+
+         }  /* |if (DEBUG)|  */ 
+
+
+         return 0; 
+
+    }  /* |else if (row_ctr == 1)|  */
+
+@q ****** (6) @>
+
+}  /* End of |Scan_Parse_Parameter_Type::check_globus_site_admin| definition  */
+
+
+#endif /* |HAVE_LIBMYSQLCLIENT|  */
+
+@q **** (4) Enable environment shellscript.  @>
+@ Enable environment shellscript.  
+\initials{LDF 2012.03.26.}
+
+\LOG
+\initials{LDF 2012.03.26.}
+Added this function definition.
+\ENDLOG
+
+@q ***** (5) Definition  @>
+
+@<|Scan_Parse_Parameter_Type::enable_environment_shellscript| definition@>=
+
+#if HAVE_LIBMYSQLCLIENT
+int
+Scan_Parse_Parameter_Type::enable_environment_shellscript(unsigned int id, 
+                                                          bool disable_flag)
+{
+@q ****** (6) @>
+
+    bool DEBUG = false;  /* |true|  */ 
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "Entering `Scan_Parse_Parameter_Type::enable_environment_shellscript'."
+             << endl
+             << "`user_id' == " << user_id
+             << endl
+             << "`disable_flag' == " << disable_flag
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */ 
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::enable_environment_shellscript| definition@>=
+
+    stringstream sql_strm;
+
+    sql_strm.str("");
+
+    int status;
+
+    MYSQL_RES *result;
+    MYSQL_ROW curr_row;
+
+    unsigned int row_ctr = 0;
+    unsigned int field_ctr = 0;
+
+    unsigned int curr_user_id = (effective_user_id > 0) ? effective_user_id : user_id;
+
+    Response_Type response;
+    response.type = Response_Type::COMMAND_ONLY_TYPE;
+
+    stringstream temp_strm;
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::enable_environment_shellscript| definition@>=
+
+   sql_strm << "select disabled from Environment_Shellscripts where "
+            << "environment_shellscript_id = " << id << " and user_id = "
+            << curr_user_id;
+
+
+    if (DEBUG)
+    {
+         lock_cerr_mutex(); 
+         cerr << "sql_strm.str() == " << sql_strm.str() << endl;
+         unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */ 
+
+    status = submit_mysql_query(sql_strm.str(), result, &row_ctr, &field_ctr);
+
+    if (status)
+    {
+        lock_cerr_mutex(); 
+        cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+             << "ERROR!  In `Scan_Parse_Parameter_Type::enable_environment_shellscript':"
+             << endl 
+             << "`Scan_Parse_Parameter_Type::submit_mysql_query' failed, returning " 
+             << status << "."
+             << endl
+             << mysql_error(mysql_ptr)
+             << endl 
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+        unlock_cerr_mutex(); 
+
+       if (result) 
+          mysql_free_result(result);
+
+       if (disable_flag)
+          temp_strm << "DISABLE ";
+       else
+          temp_strm << "ENABLE ";
+ 
+       temp_strm << "ENVIRONMENT SHELLSCRIPT " << id << " FAILED -1";
+
+       response.command = temp_strm.str();
+
+       pthread_mutex_lock(&response_deque_mutex);
+       response_deque.push_back(response);
+       pthread_mutex_unlock(&response_deque_mutex);
+
+       return 1;
+
+    }  /* |if (status)|  */
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::enable_environment_shellscript| definition@>=
+
+   if (row_ctr == 0)
+   {
+       if (DEBUG)
+       {
+            lock_cerr_mutex(); 
+            cerr << "`row_ctr' == 0.  Environment shellscript with "
+                 << "`environment_shellscript_id' == " << id << " and "
+                 << "`user_id' == " << curr_user_id << " doesn't exist."
+                 << endl 
+                 << "Exiting function unsuccessfully with return value 1."
+                 << endl;
+            unlock_cerr_mutex(); 
+
+
+       }  /* |if (DEBUG)|  */ 
+
+       mysql_free_result(result);
+ 
+       if (disable_flag)
+          temp_strm << "DISABLE ";
+       else
+          temp_strm << "ENABLE ";
+ 
+       temp_strm << "ENVIRONMENT SHELLSCRIPT " << id << " FAILED 0";
+
+       response.command = temp_strm.str();
+
+       pthread_mutex_lock(&response_deque_mutex);
+       response_deque.push_back(response);
+       pthread_mutex_unlock(&response_deque_mutex);
+
+       return 1;
+
+   }  /* |if (row_ctr == 0)|  */
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::enable_environment_shellscript| definition@>=
+
+    curr_row = mysql_fetch_row(result);
+
+    if (curr_row == 0)
+    {
+       lock_cerr_mutex(); 
+       cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+            << "ERROR!  In `Scan_Parse_Parameter_Type::enable_environment_shellscript':"
+            << endl 
+            << "`mysql_fetch_row' failed:"
+            << endl
+            << mysql_error(mysql_ptr)
+            << endl 
+            << "Exiting function unsuccessfully with return value 1."
+            << endl;
+       unlock_cerr_mutex(); 
+
+       mysql_free_result(result);
+
+       if (disable_flag)
+          temp_strm << "DISABLE ";
+       else
+          temp_strm << "ENABLE ";
+ 
+       temp_strm << "ENVIRONMENT SHELLSCRIPT " << id << " FAILED 0";
+
+       response.command = temp_strm.str();
+
+       pthread_mutex_lock(&response_deque_mutex);
+       response_deque.push_back(response);
+       pthread_mutex_unlock(&response_deque_mutex);
+
+       return 1;
+
+    }  /* |if (curr_row == 0)|  */
+
+@q ****** (6) @>
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "In `Scan_Parse_Parameter_Type::enable_environment_shellscript':"
+             << endl;
+        if (curr_row[0])
+           cerr << "`curr_row[0]' == " << curr_row[0]
+                << endl;
+        else
+           cerr << "`curr_row[0]' is NULL." << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */
+
+@q ****** (6) @>
+
+    if (curr_row[0] == 0 || strlen(curr_row[0]) == 0)
+    {
+       lock_cerr_mutex(); 
+       cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+            << "ERROR!  In `Scan_Parse_Parameter_Type::enable_environment_shellscript':"
+            << endl 
+            << "`curr_row[0]' == NULL or `strlen(curr_row[0])' == 0."
+            << endl
+            << "This shouldn't happen."
+            << endl 
+            << "Exiting function unsuccessfully with return value 1."
+            << endl;
+       unlock_cerr_mutex(); 
+
+       mysql_free_result(result);
+
+       if (disable_flag)
+          temp_strm << "DISABLE ";
+       else
+          temp_strm << "ENABLE ";
+ 
+       temp_strm << "ENVIRONMENT SHELLSCRIPT " << id << " FAILED 0";
+
+       response.command = temp_strm.str();
+
+       pthread_mutex_lock(&response_deque_mutex);
+       response_deque.push_back(response);
+       pthread_mutex_unlock(&response_deque_mutex);
+
+
+       return 1;
+
+    }
+
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::enable_environment_shellscript| definition@>=
+
+    int curr_disabled_val = atoi(curr_row[0]);
+
+    if (curr_disabled_val == disable_flag)
+    {
+       lock_cerr_mutex(); 
+       cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+            << "WARNING!  In `Scan_Parse_Parameter_Type::enable_environment_shellscript':"
+            << endl 
+            << "`curr_disabled_val' == " << curr_disabled_val 
+            << " == `disable_flag' == " << disable_flag
+            << endl
+            << "Not resetting."
+            << endl 
+            << "Exiting function successfully with return value 2."
+            << endl;
+       unlock_cerr_mutex(); 
+
+       mysql_free_result(result);
+
+       if (disable_flag)
+          temp_strm << "DISABLE ";
+       else
+          temp_strm << "ENABLE ";
+ 
+       temp_strm << "ENVIRONMENT SHELLSCRIPT " << id << " FAILED 1";
+
+       response.command = temp_strm.str();
+
+       pthread_mutex_lock(&response_deque_mutex);
+       response_deque.push_back(response);
+       pthread_mutex_unlock(&response_deque_mutex);
+
+       return 2;
+
+    }  /* |if (curr_disabled_val == disable_flag)|  */
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::enable_environment_shellscript| definition@>=
+
+
+    mysql_free_result(result);
+    result = 0;    
+
+    sql_strm.str("");
+
+    sql_strm << "update Environment_Shellscripts set disabled = "
+             << disable_flag << " where environment_shellscript_id = "
+             << id << " and user_id = " << curr_user_id;
+
+    if (DEBUG)
+    {
+         lock_cerr_mutex(); 
+         cerr << "sql_strm.str() == " << sql_strm.str() << endl;
+         unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */ 
+
+    long affected_rows = 0L;
+
+    status = submit_mysql_query(sql_strm.str(), result, 0, 0, &affected_rows);
+
+    if (status)
+    {
+        lock_cerr_mutex(); 
+        cerr << get_datestamp() << " [Thread " << thread_ctr << "]:  "
+             << "ERROR!  In `Scan_Parse_Parameter_Type::enable_environment_shellscript':"
+             << endl 
+             << "`Scan_Parse_Parameter_Type::submit_mysql_query' failed, returning " 
+             << status << "."
+             << endl
+             << mysql_error(mysql_ptr)
+             << endl 
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+        unlock_cerr_mutex(); 
+
+       if (result) 
+          mysql_free_result(result);
+
+       if (disable_flag)
+          temp_strm << "DISABLE ";
+       else
+          temp_strm << "ENABLE ";
+ 
+       temp_strm << "ENVIRONMENT SHELLSCRIPT " << id << " FAILED -1";
+
+       response.command = temp_strm.str();
+
+       pthread_mutex_lock(&response_deque_mutex);
+       response_deque.push_back(response);
+       pthread_mutex_unlock(&response_deque_mutex);
+
+       return 1;
+
+    }  /* |if (status)|  */
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::enable_environment_shellscript| definition@>=
+
+    mysql_free_result(result);
+    result = 0;
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "In `Scan_Parse_Parameter_Type::enable_environment_shellscript':"
+             << endl 
+             << "`Scan_Parse_Parameter_Type::submit_mysql_query' succeeded."
+             << endl
+             << "`affected_rows' == " << affected_rows
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::enable_environment_shellscript| definition@>=
+
+    if (affected_rows == 0)
+    {
+        if (DEBUG)
+        {
+            lock_cerr_mutex(); 
+            cerr << "[Thread " << thread_ctr << "]:  "
+                 << "In `Scan_Parse_Parameter_Type::enable_environment_shellscript':"
+                 << endl 
+                 << "`affected_rows' == 0."
+                 << endl 
+                 << "Failed to update `Environment_Shellscript' table."
+                 << endl
+                 << "Exiting function unsuccessfully with return value 1."
+                 << endl;
+            unlock_cerr_mutex(); 
+
+        }  /* |if (DEBUG)|  */
+
+       if (disable_flag)
+          temp_strm << "DISABLE ";
+       else
+          temp_strm << "ENABLE ";
+ 
+       temp_strm << "ENVIRONMENT SHELLSCRIPT " << id << " FAILED 0";
+
+       response.command = temp_strm.str();
+
+       pthread_mutex_lock(&response_deque_mutex);
+       response_deque.push_back(response);
+       pthread_mutex_unlock(&response_deque_mutex);
+
+       return 1;
+
+    }  /* |if (affected_rows == 0)|  */
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::enable_environment_shellscript| definition@>=
+
+    else if (affected_rows > 1)
+    {
+         lock_cerr_mutex(); 
+         cerr << "[Thread " << thread_ctr << "]:  "
+              << "ERROR!  In `Scan_Parse_Parameter_Type::enable_environment_shellscript':"
+              << endl 
+              << "`affected_rows' == " << affected_rows << " (> 1)."
+              << endl 
+              << "There shouldn't be multiple rows for a single environment shellscript."
+              << endl
+              << "Exiting function unsuccessfully with return value 1."
+              << endl;
+         unlock_cerr_mutex(); 
+
+         if (disable_flag)
+            temp_strm << "DISABLE ";
+         else
+            temp_strm << "ENABLE ";
+ 
+         temp_strm << "ENVIRONMENT SHELLSCRIPT " << id << " FAILED 0"; 
+
+         response.command = temp_strm.str();
+
+         pthread_mutex_lock(&response_deque_mutex);
+         response_deque.push_back(response);
+         pthread_mutex_unlock(&response_deque_mutex);
+
+
+         return 1; 
+
+    }  /* |else if (affected_rows > 1)|  */
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::enable_environment_shellscript| definition@>=
+
+    else if (affected_rows ==  1)
+    {
+        if (DEBUG)
+        {
+            lock_cerr_mutex(); 
+            cerr << "[Thread " << thread_ctr << "]:  "
+                 << "In `Scan_Parse_Parameter_Type::enable_environment_shellscript':"
+                 << endl 
+                 << "`affected_rows' == 1." 
+                 << endl 
+                 << "Updated `Environment_Shellscript' table successfully."
+                 << endl;
+            unlock_cerr_mutex(); 
+
+        }  /* |if (DEBUG)|  */
+
+        if (disable_flag)
+          temp_strm << "DISABLE ";
+        else
+          temp_strm << "ENABLE ";
+ 
+        temp_strm << "ENVIRONMENT SHELLSCRIPT " << id << " SUCCEEDED ";
+
+        response.command = temp_strm.str();
+
+        pthread_mutex_lock(&response_deque_mutex);
+        response_deque.push_back(response);
+        pthread_mutex_unlock(&response_deque_mutex);
+
+    }  /* |else if (affected_rows == 1)|  */
+
+@q ****** (6) @>
+@
+@<|Scan_Parse_Parameter_Type::enable_environment_shellscript| definition@>=
+
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "[Thread " << thread_ctr << "]:  "
+             << "Exiting `Scan_Parse_Parameter_Type::enable_environment_shellscript' "
+             << "successfully with return value 0."
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */ 
+
+    return 0; 
+
+@q ****** (6) @>
+
+}  /* End of |Scan_Parse_Parameter_Type::enable_environment_shellscript| definition  */
+
+
+#endif /* |HAVE_LIBMYSQLCLIENT|  */
+
+
+
+@q **** (4) @>
+@
+@<Garbage@>=
+
+@q **** (4) @>
+
+@q *** (3) Putting `spptenvf.web.web' together.  @>
+
+@ Putting {\tt spptenvf.web\PERIOD web} together.
+
+@q **** (4) This is what's compiled.  @>
+@ This is what's compiled.
+@c
+@<Include files@>@;@/
+using namespace std;
+@<|Scan_Parse_Parameter_Type::store_environment_shellscript| definition@>@;@/
+@<|Scan_Parse_Parameter_Type::fetch_environment_shellscripts| definition@>@;@/
+@<|Scan_Parse_Parameter_Type::delete_environment_shellscripts| definition@>@;@/
+@<|Scan_Parse_Parameter_Type::show_environment_shellscripts| definition@>@;@/
+@<|Scan_Parse_Parameter_Type::check_globus_site_admin| definition@>@;@/
+@<|Scan_Parse_Parameter_Type::enable_environment_shellscript| definition@>@;@/
+
+#if 0 
+@<Garbage@>@;@/
+#endif 
+
+@q **** (4) This is what's written to the header file `spptenvf.h'.  @>
+
+@ This is what's written to the header file \filename{spptenvf.h}.
+
+That is, no {\CPLUSPLUS/} code is written to the header file, but it's helpful 
+for it to exist, so that this CWEB file can be handled in exactly the same 
+way as the others.
+\initials{LDF 2012.01.13.}
+
+@(spptenvf.h@>=
+#ifndef SPPTENVF.WEB_H
+#define SPPTENVF.WEB_H 1
+/* Empty  */
+#endif 
+
+@q * (1) Emacs-Lisp code for use in indirect buffers  @>
+
+@q (progn (cweb-mode) (outline-minor-mode))                          @>
+
+@q * (1) Local variables for Emacs @>
+
+@q * Local variables for Emacs.@>
+@q Local Variables: @>
+@q mode:CWEB @>
+@q eval:(display-time) @>
+@q abbrev-mode:t @>
+@q eval:(read-abbrev-file) @>
+@q indent-tabs-mode:nil @>
+@q eval:(outline-minor-mode) @>
+@q fill-column:80 @>
+@q End: @>

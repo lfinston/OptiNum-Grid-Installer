@@ -1,0 +1,2357 @@
+@q thrdfncs.web  @>
+@q Created by Laurence D. Finston (LDF) Tue Nov 22 16:36:27 CET 2011 @>
+
+@q * (1) Top @>
+
+@q * (1) Copyright and License.@>
+
+@q This file is part of the OptiNum Grid Installer @>
+@q Copyright (C) 2010, 2011, 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen @>
+
+@q The OptiNum Grid Installer is free software; you can redistribute it and/or modify @>
+@q it under the terms of the GNU General Public License as published by @>
+@q the Free Software Foundation; either version 3 of the License, or @>
+@q (at your option) any later version.  @>
+
+@q The OptiNum Grid Installer is distributed in the hope that it will be useful, @>
+@q but WITHOUT ANY WARRANTY; without even the implied warranty of @>
+@q MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the @>
+@q GNU General Public License for more details.  @>
+
+@q You should have received a copy of the GNU General Public License          @>
+@q along with the OptiNum Grid Installer; if not, write to the Free Software                    @>
+@q Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA @>
+
+@q ("@@" stands for a single at-sign in the following paragraph.) @>
+
+@q Please send bug reports to Laurence.Finston@@gwdg.de@>
+
+@q Laurence D. Finston                                                   @>
+@q Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen  @>
+@q Am Fassberg 11         					         @>
+@q 37077 Goettingen              					 @>
+@q Germany                           					 @>                                
+
+@q Laurence.Finston@@gwdg.de (@@ stands for a single "at" sign.)@>
+
+@q ** (2)  Thread functions.  @>
+@* Thread functions.
+\initials{LDF 2011.11.22.}
+
+\LOG
+\initials{LDF 2011.11.22.}
+Added this file.
+\ENDLOG
+
+@q ** (2) Include files  @>
+
+@ Include files.
+
+@<Include files@>=
+#include <stdlib.h>  /* Standard Library for C  */
+#include <stdio.h>
+#include <unistd.h>
+#include <errno.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <sys/stat.h>
+#include <sys/ioctl.h>
+#include <fcntl.h>
+#include <string.h>
+#include <signal.h>
+
+#include <algorithm> /* Standard Template Library (STL) for C++  */
+#include <fstream> 
+#include <iomanip>
+#include <ios>
+#include <iostream>
+
+#include <string>
+#include <time.h>
+#include <math.h>
+#include <sstream>  
+
+#include <deque>
+#include <map>
+#include <vector>
+#include <set>
+
+
+#include <pthread.h>  /* POSIX threads  */
+
+#include <gcrypt.h> /* for |gcry_control| */
+#include <gnutls/gnutls.h>
+
+#if HAVE_CONFIG_H
+#include <config.h>
+#endif 
+
+#if IS_ROCKS_GOEGRID
+#undef HAVE_LIBMYSQLCLIENT
+#endif 
+
+#if HAVE_LIBMYSQLCLIENT
+#include <mysql.h>
+#endif 
+
+#include "entries.h++"  /* Headers generated from CWEB files belonging to this package  */
+#include "dstngnmt.h++"
+#include "glblvrbl.h++"  
+#include "glblfncs.h++"
+#include "utilfncs.h++"
+#include "parser.h++"  
+#include "scanner.h++"  
+#include "x509cert.h++"
+#include "rspnstp.h++"
+#include "glsinftp.h++"
+#include "scprpmtp.h++"
+
+@q ** (2) |remote_install_func|.  @>
+@ {\bf remote\_install\_func}.
+\initials{LDF 2011.10.19.}
+
+\vskip\baselineskip
+\halign{#:\quad&#\hfil\cr
+%
+{\bf Return values}\span\cr
+\noalign{\vskip.5\baselineskip}
+0&Success\cr
+%
+1&In first child process (call to \.{sudo} for \.{strtinst} or \.{strtinst.sh}): 
+|execl| returned.  It shouldn't return at all\cr
+%
+2&First child process failed to exit\cr
+%
+1000 $+$ exit status of first child process\span
+First child process exited unsuccessfully\cr
+%
+3&Filename returned by child process too long ($> 511$ characters)\cr
+4&In second child process (call to \.{sudo} for \.{instchwn} or \.{instchwn.sh}):
+|execl| returned.  It shouldn't return at all\cr
+5&Second child process failed to exit\cr
+%
+10000 $+$ exit status of second child process\span
+Second child process exited unsuccessfully\cr
+%
+6&No Globus site specified\cr
+7&Globus site not found on |globus_site_map|\cr
+}
+
+\LOG
+\initials{LDF 2011.10.19.}
+Added this function.
+
+\initials{LDF 2011.10.21.}
+Added code from |Scan_Parse_Parameter_Type::call_installstarter| and removed 
+the call to that function, which I've deleted.
+
+\initials{LDF 2011.10.27.}
+Added code for passing a return value back to the caller.
+
+\initials{LDF 2011.11.22.}
+Moved this function from \filename{connect.web} to this file (i.e., \filename{thrdfncs.web}).
+
+\initials{LDF 2012.02.07.}
+Now returning different values for error exits.
+\ENDLOG
+
+@q *** (3) Declaration  @>
+
+@<Thread function declarations@>=
+
+void*
+remote_install_func(void *v);
+
+@q *** (3) Definition  @>
+@
+@<|remote_install_func| definition @>=
+
+void*
+remote_install_func(void *v)
+{
+@q **** (4) @>
+
+   bool DEBUG = false;  /* |true|  */
+   set_debug_level(DEBUG);
+ 
+   if (DEBUG) 
+   {
+       lock_cerr_mutex(); 
+       cerr << "Entering `remote_install_func'." << endl;
+       unlock_cerr_mutex(); 
+
+   } /* |if (DEBUG)|  */
+
+@q **** (4) @>
+@
+@<|remote_install_func| definition @>=
+
+   Entry_Type *entry = static_cast<Entry_Type*>(v); 
+
+   Scan_Parse_Parameter_Type *param = entry->param;
+
+   if (DEBUG) 
+   {
+      lock_cerr_mutex(); 
+      entry->show("entry:");
+      unlock_cerr_mutex(); 
+
+   } /* |if (DEBUG)|  */ 
+
+@q **** (4) Check Globus site.  @>
+
+@ Check Globus site.  
+\initials{LDF 2012.02.08.}
+
+\LOG
+\initials{LDF 2012.02.08.}
+Added this section.
+\ENDLOG
+
+@<|remote_install_func| definition @>=
+
+   if (entry->globus_site.empty())
+   {
+       lock_cerr_mutex(); 
+       cerr << "ERROR!  In `remote_install_func':  No Globus site specified."
+            << endl 
+            << "This is not permitted."
+            << endl 
+            << "Exiting function unsuccessfully with return value 6."
+            << endl;
+          unlock_cerr_mutex(); 
+
+          entry->remote_install_retval = 6;
+ 
+          pthread_exit(&entry->remote_install_retval);
+
+   }  /* |if (entry->globus_site.empty())|  */
+
+   map<string, bool>::const_iterator find_iter 
+      = globus_site_map.find(entry->globus_site);
+
+   if (find_iter == globus_site_map.end())
+   {
+       lock_cerr_mutex(); 
+       cerr << "ERROR!  In `remote_install_func':  Invalid Globus site:  "
+            << "`'" << entry->globus_site << "'."
+            << endl 
+            << "Exiting function unsuccessfully with return value 7."
+               << endl;
+       unlock_cerr_mutex(); 
+
+          entry->remote_install_retval = 7;
+ 
+          pthread_exit(&entry->remote_install_retval);
+
+   }  /* |if (find_iter == globus_site_map.end())|  */
+
+   else if (DEBUG)
+   {
+       lock_cerr_mutex(); 
+       cerr << "In `remote_install_func':  Globus site "
+            << "`'" << entry->globus_site << "' found on `globus_site_map'."
+            << endl;
+       unlock_cerr_mutex(); 
+
+   }  /* |else if (DEBUG)|  */ 
+
+@q **** (4) @>
+@
+@<|remote_install_func| definition @>=
+
+    const unsigned int BUFFER_SIZE = 1048576;  /* $2^{20}$  */;
+
+    char sub_buffer[BUFFER_SIZE];
+    char *buffer = sub_buffer;
+
+@q **** (4) @>
+
+   string cmd_str;
+
+   string flag_str;
+
+   if (entry->install_or_reinstall_flag == 0)
+      flag_str = "0";
+   else
+      flag_str = "1";
+
+   string user_name_str;
+
+   if (!param->effective_user_name.empty())
+   {
+      user_name_str = param->effective_user_name;
+   }
+   else
+   {
+      user_name_str = param->user_name;
+   }
+
+@q **** (4) @>
+
+@
+\LOG
+\initials{LDF 2012.03.20.}  
+Now calling \filename{strtinst\_1.sh} on \.{pcfinston.gwdg.de}.  
+This is necessary, because |LD_LIBRARY_PATH| needs to be set so that 
+old versions of libraries for GNUTLS and its prerequisites are found.
+@:TODO@> !! TODO:  Must get \.{optdbsrv} to work with the newer versions!
+\ENDLOG
+
+@<|remote_install_func| definition @>=
+
+#if IS_OPTINUM_SRV
+
+   cmd_str = "/opt/optinum/dbsrvcli/bin/strtinst.sh";
+
+#elif IS_PCFINSTON_GWDG
+
+   cmd_str = "/home/lfinsto/opt_rep/optinum/Installer/dbsrvcli/src/strtinst_1.sh";
+
+#endif 
+
+
+@q **** (4) @>
+@
+@<|remote_install_func| definition @>=
+
+    int status;
+
+
+    int fd[2];
+
+#if IS_PCFINSTON_GWDG
+
+    status = pipe2(fd, O_CLOEXEC);
+
+#elif IS_OPTINUM_SRV
+
+    status = pipe(fd);
+
+#endif
+
+    pid_t pid;
+    pid_t r_pid[2];
+
+    pid = fork();
+
+@q **** (4) @>
+@
+@<|remote_install_func| definition @>=
+
+
+    if (pid > 0)  /* Parent  */
+    {
+@q ***** (5) @>
+
+         entry->remote_install_pid[0] = pid;
+
+         if (DEBUG)
+         {
+            lock_cerr_mutex(); 
+            cerr << "`pid' == " << pid << endl
+                 << "`entry->remote_install_pid[0]' == " << entry->remote_install_pid[0]
+                 << endl 
+                 << "(they should be the same)." << endl;
+            unlock_cerr_mutex(); 
+
+         }  /* |if (DEBUG)|  */ 
+
+         close(fd[1]);
+
+         memset(buffer, 0, BUFFER_SIZE);
+	 status = read(fd[0], buffer, BUFFER_SIZE);
+
+         if (DEBUG)
+         {
+             lock_cerr_mutex(); 
+	     fprintf(stderr, "Read %d characters:  %s\n", status, buffer);
+             unlock_cerr_mutex(); 
+
+         }  /* |if (DEBUG)|  */ 
+
+         close(fd[0]);
+
+@q ***** (5) @>
+
+    }  /* |if|  (parent)  */
+
+@q **** (4) @>
+@
+@<|remote_install_func| definition @>=
+
+
+    else  /* Child  */
+    {
+@q ***** (5) @>
+
+          close(fd[0]);
+          status = dup2(fd[1], STDOUT_FILENO);
+
+          if (DEBUG)
+          {
+             lock_cerr_mutex(); 
+             fprintf(stderr, "dup2 returned %d\n", status);
+             unlock_cerr_mutex(); 
+
+          }  /* |if (DEBUG)|  */ 
+
+@q ***** (5) @>
+@
+\LOG
+\initials{LDF 2011.10.27.}
+Removed the arguments for the names of the non-temporary output 
+and error files from the call to |execl|.  They aren't needed 
+in \.{strtinst}.
+
+\initials{LDF 2012.02.10.}
+@:BUG FIX@> BUG FIX:  Added |string link_dir_str|.  Now setting it to 
+\filename{.}, if |entry->remote_install_link_directory| is empty.
+If |link_directory == "."|, then there's no difference whether the
+\.{--link-directory} option is used or not.  It is therefore a good choice for
+the default value that |remote_install_func| passes to 
+\.{strtinst} as |argv[7]|.  Something must be passed and recognized as an
+argument by \.{strtinst}.  Additionally, \.{""} is recognized.
+This will have to have been passed as |"\"\""| to |execl|, because |""| will be 
+interpreted as NULL, i.e., the end of the argument list.
+\ENDLOG 
+
+@<|remote_install_func| definition @>=
+
+     string temp_str = entry->package_version;
+
+     if (temp_str.empty())
+        temp_str = "\"\"";
+
+     string reinstall_prerequisites_str;
+
+     if (entry->remote_install_reinstall_prerequisites == 0)
+        reinstall_prerequisites_str = "0";
+     else if (entry->remote_install_reinstall_prerequisites < 0)
+        reinstall_prerequisites_str = "-1";
+     else if (entry->remote_install_reinstall_prerequisites > 0)
+        reinstall_prerequisites_str = "1";
+      
+     string create_links_str = (entry->remote_install_create_links) ? "1" : "0";
+
+     string link_dir_str = (entry->remote_install_link_directory.empty())
+                           ? "." : entry->remote_install_link_directory;
+
+#if 1 /* 0 */
+bool save_DEBUG = DEBUG;
+DEBUG = false; /* |true|  */
+#endif 
+
+     if (DEBUG)
+     {
+         lock_cerr_mutex(); 
+         cerr << "create_links_str == " << create_links_str << endl;
+
+         cerr << "entry->remote_install_link_directory == " 
+              << entry->remote_install_link_directory << endl;
+         unlock_cerr_mutex(); 
+
+     }  /* |if (DEBUG)|  */      
+
+#if 1 /* 0 */
+DEBUG = save_DEBUG; 
+#endif 
+
+     if (DEBUG)
+     { 
+         lock_cerr_mutex(); 
+         cerr << "About to call sudo -u " << user_name_str
+              << endl 
+              << "cmd_str == " 
+              << cmd_str
+              << endl;
+         unlock_cerr_mutex(); 
+     } /* |if (DEBUG)|  */ 
+
+          status = 
+             execl("/usr/bin/sudo", "sudo", "-u", user_name_str.c_str(),
+                   cmd_str.c_str(), 
+                   entry->package_name.c_str(),
+                   temp_str.c_str(),
+                   flag_str.c_str(),
+                   entry->globus_site.c_str(),
+                   reinstall_prerequisites_str.c_str(),
+                   create_links_str.c_str(),
+                   link_dir_str.c_str(),
+                   0);
+
+@q ***** (5) @>
+
+          lock_cerr_mutex(); 
+          cerr << "ERROR!  `execl' returned " << status << "." 
+               << endl
+               << "It shouldn't return at all."
+               << endl 
+               << "Exiting function unsuccessfully with return value 1."
+               << endl;
+          unlock_cerr_mutex(); 
+
+          entry->remote_install_retval = 1;
+ 
+          pthread_exit(&entry->remote_install_retval);
+
+@q ***** (5) @>
+
+ 
+    }  /* |else| (Child)  */
+
+@q **** (4) @>
+@
+@<|remote_install_func| definition @>=
+
+    if (DEBUG)                                                
+    {                                                         
+                                                              
+         cerr << "entry->remote_install_pid[" << 0 << "] == " 
+              << entry->remote_install_pid[0] << endl;        
+                                                              
+    }  /* |if (DEBUG)|  */                                    
+
+    r_pid[0] = waitpid(entry->remote_install_pid[0], &status, 0);
+
+    if (DEBUG)
+    {
+         lock_cerr_mutex(); 
+         cerr << "`waitpid' returned " << r_pid 
+              << " for process " << 0 << endl;
+         unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */ 
+
+    if (WIFEXITED(status) != 0)
+    {
+          if (WEXITSTATUS(status) != 0)
+          {
+            lock_cerr_mutex(); 
+            cerr << "ERROR!  In `remote_install_func':  "
+                 << "Child process " << entry->remote_install_pid[0]
+                 << " exited with exit status " << WEXITSTATUS(status) 
+                 << "."
+                 << endl
+                 << "Exiting function unsuccessfully with return value " 
+                 << (1000 + WEXITSTATUS(status)) << "."
+                 << endl;
+            unlock_cerr_mutex(); 
+
+            entry->remote_install_retval = 1000 + WEXITSTATUS(status);
+ 
+            pthread_exit(&entry->remote_install_retval);
+
+          }    
+          else if (DEBUG)                                       
+          {                                                
+              lock_cerr_mutex();                           
+              cerr << "In `remote_install_func':  "        
+                   << "`WEXITSTATUS(" << status << ")' == "   
+                   << WEXITSTATUS(status)                  
+                   << endl;                                
+              unlock_cerr_mutex();                         
+                                                           
+          }  /* |if (DEBUG)|  */                           
+
+
+    }  /* |if (WIFEXITED(status) != 0)|  */
+
+    else
+    {
+      lock_cerr_mutex(); 
+      cerr << "ERROR!  In `remote_install_func':  "
+           << "Child process " << entry->remote_install_pid[0]
+           << " didn't exit."
+           << endl
+           << "Exiting function unsuccessfully with return value 1."
+           << endl;
+      unlock_cerr_mutex(); 
+
+      entry->remote_install_retval = 2;
+      pthread_exit(&entry->remote_install_retval);
+
+    }
+
+    char item[4][512];
+
+    string curr_package_name;
+    string curr_package_version;
+    string curr_stdout_filename;
+    string curr_stderr_filename;
+
+@q **** (4) @>
+
+
+    for (int i = 0; i < 4; ++i)
+       memset(item[i], 0, 512);
+
+    status = sscanf(buffer, "%s %s %s %s", item[0], item[1], 
+                                           item[2], item[3]);
+
+    for (int i = 0; i < 4; ++i)
+    {
+       if (strlen(item[i]) >= 511)
+       {
+           lock_cerr_mutex(); 
+           cerr << "ERROR!  In `remote_install_func':"
+                << endl
+                << "`item[" << i << "]' is too long:  " << strlen(item[i])
+                << "characters (>= 511)."
+                << endl
+                << "This is not permitted."
+                << endl
+                << "Exiting thread function unsuccessfully with return value 1."
+                << endl;
+           unlock_cerr_mutex(); 
+
+           entry->remote_install_retval = 3;
+           pthread_exit(&entry->remote_install_retval);
+
+       }
+
+    }  /* |for|  */
+  
+    curr_package_name    = item[0];      
+    curr_package_version = item[1];      
+    curr_stdout_filename = item[2];      
+    curr_stderr_filename = item[3];      
+
+
+    if (curr_package_name[0] == '\'')
+       curr_package_name.erase(0, 1);
+
+    if (curr_package_name[curr_package_name.size() - 1] == '\'')
+       curr_package_name.erase(curr_package_name.size() - 1);
+    
+
+    if (curr_package_version[0] == '\'')
+       curr_package_version.erase(0, 1);
+
+    if (curr_package_version[curr_package_version.size() - 1] == '\'')
+       curr_package_version.erase(curr_package_version.size() - 1);
+    
+
+    if (curr_stdout_filename[0] == '\'')
+       curr_stdout_filename.erase(0, 1);
+
+    if (curr_stdout_filename[curr_stdout_filename.size() - 1] == '\'')
+       curr_stdout_filename.erase(curr_stdout_filename.size() - 1);
+   
+    if (curr_stderr_filename[0] == '\'')
+       curr_stderr_filename.erase(0, 1);
+
+    if (curr_stderr_filename[curr_stderr_filename.size() - 1] == '\'')
+       curr_stderr_filename.erase(curr_stderr_filename.size() - 1);
+
+    if (DEBUG)
+    {
+         lock_cerr_mutex(); 
+         cerr << "curr_package_name == " << curr_package_name << endl
+              << "curr_package_version == " << curr_package_version << endl
+              << "curr_stdout_filename == " << curr_stdout_filename << endl
+              << "curr_stderr_filename == " << curr_stderr_filename << endl;
+         unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */ 
+
+@q **** (4) @>
+@
+\LOG
+\initials{LDF 2012.03.20.}  
+Now calling \filename{instchwn\_1.sh} on \.{pcfinston.gwdg.de}.  
+This is necessary, because |LD_LIBRARY_PATH| needs to be set so that 
+old versions of libraries for GNUTLS and its prerequisites are found.
+@:TODO@> !! TODO:  Must get \.{optdbsrv} to work with the newer versions!
+\ENDLOG
+
+@<|remote_install_func| definition @>=
+
+#if IS_PCFINSTON_GWDG
+
+   cmd_str = "/home/lfinsto/opt_rep/optinum/Installer/dbsrvcli/src/instchwn_1.sh";
+
+#elif IS_OPTINUM_SRV
+
+    cmd_str = "/opt/optinum/dbsrvcli/bin/instchwn.sh";
+   
+    if (DEBUG)
+    {
+
+       cerr << "cmd_str == " << cmd_str << endl;
+
+    } /* |if (DEBUG)|  */ 
+
+
+#endif
+
+    pid = fork();
+
+    if (pid > 0)  /* Parent  */
+    {
+
+         entry->remote_install_pid[1] = pid;
+
+         if (DEBUG)
+         {
+             lock_cerr_mutex(); 
+             cerr << "`pid' == " << pid << endl
+                  << "`entry->remote_install_pid[1]' == " << entry->remote_install_pid[1]
+                  << endl 
+                  << "(they should be the same)." << endl;
+             unlock_cerr_mutex(); 
+
+         }  /* |if (DEBUG)|  */ 
+
+    }  /* |if|  (parent)  */
+
+    else  /* Child  */
+    {
+
+          status = 
+             execl("/usr/bin/sudo", "sudo", 
+                   cmd_str.c_str(), 
+                   curr_stdout_filename.c_str(),
+                   curr_stderr_filename.c_str(),
+                   0);
+ 
+          lock_cerr_mutex(); 
+          cerr << "ERROR!  `execl' returned " << status << "."
+               << endl
+               << "It shouldn't return at all."
+               << endl 
+               << "Exiting function unsuccessfully with return value 1."
+               << endl;
+          unlock_cerr_mutex(); 
+
+          entry->remote_install_retval = 4;
+ 
+          pthread_exit(&entry->remote_install_retval);
+ 
+
+    }  /* |else| (Child)  */
+
+
+    if (DEBUG)                                                
+    {                                                         
+                                                              
+         cerr << "entry->remote_install_pid[" << 1 << "] == " 
+              << entry->remote_install_pid[1] << endl;        
+                                                              
+    }  /* |if (DEBUG)|  */                                    
+
+    r_pid[1] = waitpid(entry->remote_install_pid[1], &status, 0);
+
+    if (DEBUG)
+    {
+         lock_cerr_mutex(); 
+         cerr << "`waitpid' returned " << r_pid 
+              << " for process " << 1 << endl;
+         unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */ 
+
+    if (WIFEXITED(status) != 0)
+    {
+          if (WEXITSTATUS(status) != 0)
+          {
+            lock_cerr_mutex(); 
+            cerr << "ERROR!  In `remote_install_func':  "
+                 << "Child process " << entry->remote_install_pid[1]
+                 << " exited with exit status " << WEXITSTATUS(status) 
+                 << "."
+                 << endl
+                 << "Exiting function unsuccessfully with return value " 
+                 << (10000 + WEXITSTATUS(status)) << "."
+                 << endl;
+            unlock_cerr_mutex(); 
+
+            entry->remote_install_retval = 10000 + WEXITSTATUS(status);
+ 
+            pthread_exit(&entry->remote_install_retval);
+
+          }    
+          else if (DEBUG)                                       
+          {                                                
+              lock_cerr_mutex();                           
+              cerr << "In `remote_install_func':  "        
+                   << "`WEXITSTATUS(" << status << ")' == "   
+                   << WEXITSTATUS(status)                  
+                   << endl;                                
+              unlock_cerr_mutex();                         
+                                                           
+          }  /* |if (DEBUG)|  */                           
+
+
+    }  /* |if (WIFEXITED(status) != 0)|  */
+
+    else
+    {
+      lock_cerr_mutex(); 
+      cerr << "ERROR!  In `remote_install_func':  "
+           << "Child process " << entry->remote_install_pid[1]
+           << " didn't exit."
+           << endl
+           << "Exiting function unsuccessfully with return value 1."
+           << endl;
+      unlock_cerr_mutex(); 
+
+      entry->remote_install_retval = 5;
+      pthread_exit(&entry->remote_install_retval);
+
+
+    }
+
+@q **** (4) @>
+@
+@<|remote_install_func| definition @>=
+
+    Response_Type response;
+
+    response.type = Response_Type::REMOTE_INSTALL_TYPE;
+
+    response.entry_name = curr_package_name;
+    response.version = curr_package_version;
+    response.local_stdout_filename = curr_stdout_filename;
+    response.local_stderr_filename = curr_stderr_filename;
+
+    response.remote_stdout_filename = entry->stdout_filename;
+    response.remote_stderr_filename = entry->stderr_filename;
+    
+    response.globus_site_set.insert(entry->globus_site);
+    
+    pthread_mutex_lock(&param->response_deque_mutex);
+    param->response_deque.push_back(response);
+    pthread_mutex_unlock(&param->response_deque_mutex);
+
+@q **** (4) @>
+@
+@<|remote_install_func| definition @>=
+
+    if (DEBUG)
+    {
+         lock_cerr_mutex();
+         cerr << "[Thread " << param->thread_ctr << "] "
+              << "Exiting `remote_install_func' successfully."
+              << endl;
+         unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */ 
+
+   entry->remote_install_retval = 0;
+   pthread_exit(&entry->remote_install_retval);
+
+@q **** (4) @>
+
+}  /* End of |remote_install_func| definition  */
+
+@q ** (2) sub_distribute_key_pair.  @>
+@ \.{sub\_distribute\_key\_pair}.
+\initials{LDF 2011.11.22.}
+
+\LOG
+\initials{LDF 2011.11.22.}
+Added this function.
+\ENDLOG
+
+@q *** (3) Declaration  @>
+
+@<Thread function declarations@>=
+void*
+sub_distribute_key_pair(void *v);
+
+
+@q *** (3) Definition   @>
+@
+@<|sub_distribute_key_pair| definition@>=
+void*
+sub_distribute_key_pair(void *v)
+{
+@q **** (4) @>
+
+    bool DEBUG = false;  /* |true|  */
+    set_debug_level(DEBUG);
+
+    int status;
+
+    stringstream temp_strm;
+  
+    Response_Type response;
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "Entering `sub_distribute_key_pair'." << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */ 
+
+@q **** (4) @>
+@
+@<|sub_distribute_key_pair| definition@>=
+
+    GPG_Key_Pair_Type *gkpt = static_cast<GPG_Key_Pair_Type *>(v);
+
+    if (DEBUG)
+    {
+       
+        lock_cerr_mutex(); 
+        cerr << "In `sub_distribute_key_pair':" << endl
+             << "`gkpt->globus_site' == " << gkpt->globus_site
+             << endl;
+        unlock_cerr_mutex(); 
+
+    } /* |if (DEBUG)|  */ 
+
+    Scan_Parse_Parameter_Type *param = gkpt->param;
+
+    string curr_user_name;
+    unsigned int curr_user_id;
+
+    if (param->effective_user_id > 0)
+        curr_user_id = param->effective_user_id;
+    else 
+        curr_user_id = param->user_id;
+
+
+    if (!param->effective_user_name.empty())
+        curr_user_name = param->effective_user_name;
+    else 
+        curr_user_name = param->user_name;
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "param->key_name == " << param->key_name << endl;
+        unlock_cerr_mutex(); 
+
+    } /* |if (DEBUG)|  */ 
+
+
+
+#if IS_PCFINSTON_GWDG
+ 
+   if (curr_user_name == "lfinsto")
+   {
+      curr_user_name = "ldf";
+
+      if (DEBUG)
+      {
+           lock_cerr_mutex(); 
+           cerr << "TESTING:  Setting `curr_user_name' to `ldf'."
+                << endl;
+           unlock_cerr_mutex(); 
+
+      }  /* |if (DEBUG)|  */ 
+
+   }  /* |if|  */
+
+#endif 
+
+@q **** (4) Check size of the key pair before sending.  @>
+
+@ Check size of the key pair before sending.
+\initials{LDF 2011.11.28.} 
+
+\LOG
+\initials{LDF 2011.11.28.}
+Added this section.
+\ENDLOG
+
+@<|sub_distribute_key_pair| definition@>=
+
+    if (strlen(param->key_pair_str) >= param->MAX_BUFFER)
+    {
+        lock_cerr_mutex(); 
+        cerr << "ERROR!  In `sub_distribute_key_pair':  "
+             << "`param->key_pair_str.size()' >= `param->MAX_BUFFER':"
+             << endl
+             << "`strlen(param->key_pair_str)' == " << strlen(param->key_pair_str)
+             << endl 
+             << "`param->MAX_BUFFER' == " << param->MAX_BUFFER
+             << endl 
+             << "Exiting `sub_distribute_key_pair' unsuccessfully with "
+             << "return value 1."
+             << endl;
+        unlock_cerr_mutex(); 
+
+        temp_strm.str("");
+        temp_strm << "SERVER DISTRIBUTE KEY_PAIR FAILED "
+                  << "DISTINGUISHED_NAME <" << param->key_name << "> "
+                  << "GLOBUS_SITE <" 
+                  << gkpt->globus_site << "> 1";
+        
+        response.type = Response_Type::COMMAND_ONLY_TYPE;
+        response.command = temp_strm.str();
+    
+        param->response_deque.push_back(response);
+
+        gkpt->return_value =  1;
+
+        pthread_exit(&(gkpt->return_value));
+
+    }  /* |if (param->key_pair_str.size() >= param->MAX_BUFFER)|  */
+
+
+@q **** (4) @>
+@
+@<|sub_distribute_key_pair| definition@>=
+
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        gkpt->show("*gkpt:");
+        cerr << "param->key_name == " << param->key_name << endl
+             << "param->user_id == " << param->user_id << endl
+             << "param->effective_user_id == " 
+             << param->effective_user_id << endl
+             << "curr_user_id == " 
+             << curr_user_id << endl
+             << "param->user_name == " << param->user_name << endl
+             << "param->effective_user_name == " 
+             << param->effective_user_name << endl
+             << "curr_user_name == " 
+             << curr_user_name << endl;
+            unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */ 
+
+@q **** (4) @>
+@
+@<|sub_distribute_key_pair| definition@>=
+
+    int fd[2];
+
+    if(pipe(fd) == -1)
+    {
+        lock_cerr_mutex(); 
+        cerr << "ERROR!  In `sub_distribute_key_pair':  "
+             << "`pipe' failed, returning -1:"
+             << endl;
+
+        perror("pipe error");
+
+        cerr << endl
+             << "Exiting `sub_distribute_key_pair' unsuccessfully with "
+             << "return value 1."
+             << endl;
+        unlock_cerr_mutex(); 
+
+        close(fd[0]);
+        close(fd[1]);
+
+        temp_strm.str("");
+        temp_strm << "SERVER DISTRIBUTE KEY_PAIR FAILED "
+                  << "DISTINGUISHED_NAME <" << param->key_name << "> "
+                  << "GLOBUS_SITE <" 
+                  << gkpt->globus_site << "> 1";
+        
+        response.type = Response_Type::COMMAND_ONLY_TYPE;
+        response.command = temp_strm.str();
+    
+        param->response_deque.push_back(response);
+
+        gkpt->return_value =  1;
+
+        pthread_exit(&(gkpt->return_value));
+        
+
+    }  /* |if|  */
+
+    else if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "In `sub_distribute_key_pair':  "
+             << "`pipe' succeeded."
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |else if (DEBUG)|  */ 
+
+    pid_t pid;
+
+    pid_t r_pid;
+
+    char buffer[param->MAX_BUFFER];
+    memset(buffer, 0, param->MAX_BUFFER);
+
+    string cmd_str;
+
+
+@q **** (4) Fork.  @>
+
+@ Fork.  
+\initials{LDF 2011.12.06.}
+
+@<|sub_distribute_key_pair| definition@>=
+
+    pid = fork();
+
+    if (pid > 0)  /* Parent  */
+    {
+@q ***** (5) @>
+
+         if (DEBUG)
+         {
+             lock_cerr_mutex(); 
+             cerr << "PID == " <<  pid << endl;
+             unlock_cerr_mutex(); 
+
+         } /* |if (DEBUG)|  */ 
+
+         close(fd[0]); /* Parent writes to |fd[1]|.  */
+
+@q ***** (5) @>
+@
+@<|sub_distribute_key_pair| definition@>=
+
+         memset(buffer, 0, param->MAX_BUFFER);
+         strcpy(buffer, param->key_name.c_str());
+         strcat(buffer, "\n");
+
+         status = write(fd[1], buffer, strlen(buffer));
+
+
+@q ***** (5) @>
+@
+\LOG
+\initials{LDF 2011.12.16.}
+Added this section, containing error handling code.
+\ENDLOG 
+
+@<|sub_distribute_key_pair| definition@>=
+
+         if (status <= 0)
+         {
+             lock_cerr_mutex(); 
+             cerr << "ERROR!  In `sub_distribute_key_pair':  "
+                  << "`write' failed, returning " << status;
+
+             if (status == -1)
+                cerr << "write error:  " << strerror(errno) << endl;
+             else
+                cerr << "." << endl;
+
+             cerr << "Exiting `sub_distribute_key_pair' unsuccessfully with "
+                  << "return value 1."
+                  << endl;
+             unlock_cerr_mutex(); 
+
+             temp_strm.str("");
+             temp_strm << "SERVER DISTRIBUTE KEY_PAIR FAILED "
+                       << "DISTINGUISHED_NAME <" << param->key_name << "> "
+                       << "GLOBUS_SITE <" 
+                       << gkpt->globus_site << "> 1";
+        
+             response.type = Response_Type::COMMAND_ONLY_TYPE;
+             response.command = temp_strm.str();
+    
+             param->response_deque.push_back(response);
+
+             gkpt->return_value =  1;
+
+             kill(pid, SIGKILL);  /* Don't bother testing whether |kill| succeeds.  
+                                     \initials{LDF 2011.12.16.}  */
+
+             pthread_exit(&(gkpt->return_value));
+          
+
+         }  /* |if (status <= 0)|  */
+
+@q ***** (5) @>
+@
+@<|sub_distribute_key_pair| definition@>=
+
+         else if (DEBUG)
+         {
+            lock_cerr_mutex(); 
+            cerr << "WROTE KEY NAME, " << status << " CHARACTERS TO CHILD." 
+                 << endl
+                 << "`buffer' == " << endl << buffer
+                 << endl;
+
+            unlock_cerr_mutex(); 
+
+         } /* |if (DEBUG)|  */            
+
+@q ***** (5) @>
+@
+@<|sub_distribute_key_pair| definition@>=
+
+         temp_strm.str("");
+
+         temp_strm << "gpg --homedir " << gpg_homedir << " --decrypt 2>/dev/null <<EOF" 
+                   << endl << param->key_pair_str 
+                   << "\nEOF";
+
+#if 0 
+         if (DEBUG)
+         {
+            lock_cerr_mutex(); 
+            cerr << "temp_strm.str() == " << temp_strm.str() << endl;
+            unlock_cerr_mutex(); 
+
+         }  /* |if (DEBUG)|  */ 
+
+#endif
+
+         FILE *fp = popen(temp_strm.str().c_str(), "r");
+
+         if (fp == 0)
+         {
+        
+              lock_cerr_mutex(); 
+              cerr << "ERROR!  In `sub_distribute_key_pair':  "
+                   << "`popen' failed, returning 0:"
+                   << endl;
+  
+              perror("popen error");
+
+              cerr << "Exiting `sub_distribute_key_pair' unsuccessfully with "
+                   << "return value 1."
+                   << endl;
+              unlock_cerr_mutex(); 
+
+              close(fd[0]);
+              close(fd[1]);
+
+              temp_strm.str("");
+              temp_strm << "SERVER DISTRIBUTE KEY_PAIR FAILED "
+                        << "DISTINGUISHED_NAME <" << param->key_name << "> "
+                        << "GLOBUS_SITE <" 
+                        << gkpt->globus_site << "> 1";
+        
+              response.type = Response_Type::COMMAND_ONLY_TYPE;
+              response.command = temp_strm.str();
+    
+              param->response_deque.push_back(response);
+
+              gkpt->return_value =  1;
+
+              pthread_exit(&(gkpt->return_value));             
+              unlock_cerr_mutex(); 
+
+         }  /* |if (status == 0)|  */
+
+@q ***** (5) @>
+
+         else if (DEBUG)
+         {
+            lock_cerr_mutex();
+            cerr << "`popen' succeeded." << endl;
+            unlock_cerr_mutex(); 
+
+         }  /* |else if (DEBUG)|  */
+ 
+@q ***** (5) @>
+@
+@<|sub_distribute_key_pair| definition@>=
+
+         memset(buffer, 0, param->MAX_BUFFER);
+         status = fread(buffer, 1, param->MAX_BUFFER - 1, fp);
+
+         if (status == 0)
+         {
+        
+              lock_cerr_mutex(); 
+              cerr << "ERROR!  In `sub_distribute_key_pair':  "
+                   << "`fread' failed, returning 0."
+                   << endl 
+                   << "Exiting `sub_distribute_key_pair' unsuccessfully with "
+                   << "return value 1."
+                   << endl;
+              unlock_cerr_mutex(); 
+
+              pclose(fp);
+
+              close(fd[0]);
+              close(fd[1]);
+
+              temp_strm.str("");
+              temp_strm << "SERVER DISTRIBUTE KEY_PAIR FAILED "
+                        << "DISTINGUISHED_NAME <" << param->key_name << "> "
+                        << "GLOBUS_SITE <" 
+                        << gkpt->globus_site << "> 1";
+        
+              response.type = Response_Type::COMMAND_ONLY_TYPE;
+              response.command = temp_strm.str();
+    
+              param->response_deque.push_back(response);
+
+              gkpt->return_value =  1;
+
+              pthread_exit(&(gkpt->return_value));             
+              unlock_cerr_mutex(); 
+
+         }  /* |if (status == 0)|  */
+ 
+@q ***** (5) @>
+
+@ We try to read at most |param->MAX_BUFFER - 1| characters in order to leave space for an |EOF|
+character at the end of |buffer|.
+\initials{LDF 2011.11.28.}
+
+@<|sub_distribute_key_pair| definition@>=
+
+         else if (status == param->MAX_BUFFER - 1)
+         {
+              lock_cerr_mutex(); 
+              cerr << "ERROR!  In `sub_distribute_key_pair':  "
+                   << "`fread' read `param->MAX_BUFFER' - 1 (" << (param->MAX_BUFFER - 1)
+                   << ") characters."
+                   << endl 
+                   << "This is not permitted:  too many characters."
+                   << endl 
+                   << "Exiting `sub_distribute_key_pair' unsuccessfully with "
+                   << "return value 1."
+                   << endl;
+              unlock_cerr_mutex(); 
+
+              close(fd[0]);
+              close(fd[1]);
+              pclose(fp);
+
+              temp_strm.str("");
+              temp_strm << "SERVER DISTRIBUTE KEY_PAIR FAILED " 
+                        << "DISTINGUISHED_NAME <" << param->key_name << "> "
+                        << "GLOBUS_SITE <" 
+                        << gkpt->globus_site << "> 1";
+        
+              response.type = Response_Type::COMMAND_ONLY_TYPE;
+              response.command = temp_strm.str();
+    
+              param->response_deque.push_back(response);
+
+              gkpt->return_value =  1;
+
+              pthread_exit(&(gkpt->return_value));             
+              unlock_cerr_mutex(); 
+
+         }  /* |else if (status == param->MAX_BUFFER - 1)|  */
+
+@q ***** (5) @>
+
+#if 0 
+         else if (DEBUG)
+         {
+             lock_cerr_mutex(); 
+             cerr << "In `sub_distribute_key_pair':  After fread:  status == " << status 
+                  << endl
+                  << "`buffer' == " << endl << buffer << endl;
+             unlock_cerr_mutex(); 
+
+         }  /* |else if (DEBUG)|  */ 
+#endif
+
+@q ***** (5) @>
+@
+@<|sub_distribute_key_pair| definition@>=
+
+         pclose(fp);
+
+         temp_strm.str("");
+
+         buffer[strlen(buffer)] = EOF;
+
+         status = write(fd[1], buffer, strlen(buffer));
+
+         if (status == -1)
+         {
+        
+              lock_cerr_mutex(); 
+              cerr << "ERROR!  In `sub_distribute_key_pair':  "
+                   << "`write' failed, returning -1:"
+                   << endl;
+
+              perror("write error");
+
+              cerr << "Exiting `sub_distribute_key_pair' unsuccessfully with "
+                   << "return value 1."
+                   << endl;
+              unlock_cerr_mutex(); 
+
+              close(fd[0]);
+              close(fd[1]);
+
+              temp_strm.str("");
+              temp_strm << "SERVER DISTRIBUTE KEY_PAIR FAILED " 
+                        << "DISTINGUISHED_NAME <" << param->key_name << "> "
+                        << "GLOBUS_SITE <" 
+                        << gkpt->globus_site << "> 1";
+        
+              response.type = Response_Type::COMMAND_ONLY_TYPE;
+              response.command = temp_strm.str();
+    
+              param->response_deque.push_back(response);
+
+              gkpt->return_value =  1;
+
+              pthread_exit(&(gkpt->return_value));             
+              unlock_cerr_mutex(); 
+
+         }  /* |if (status == -1)|  */
+
+@q ***** (5) @>
+
+         else if (status < strlen(buffer))
+         {
+              lock_cerr_mutex(); 
+              cerr << "ERROR!  In `sub_distribute_key_pair':  "
+                   << "`write' failed to write full contents of `buffer', returning " 
+                   << status << "."
+                   << endl
+                   << "`strlen(buffer)' == " << strlen(buffer)
+                   << endl
+                   << "`status' == " << status 
+                   << endl  
+                   << "Exiting `sub_distribute_key_pair' unsuccessfully with "
+                   << "return value 1."
+                   << endl;
+              unlock_cerr_mutex(); 
+
+              close(fd[0]);
+              close(fd[1]);
+
+              temp_strm.str("");
+              temp_strm << "SERVER DISTRIBUTE KEY_PAIR FAILED "
+                        << "DISTINGUISHED_NAME <" << param->key_name << "> "
+                        << "GLOBUS_SITE <" 
+                        << gkpt->globus_site << "> 1";
+        
+              response.type = Response_Type::COMMAND_ONLY_TYPE;
+              response.command = temp_strm.str();
+    
+              param->response_deque.push_back(response);
+
+              gkpt->return_value =  1;
+
+              pthread_exit(&(gkpt->return_value));             
+
+         }  /* |else if (status < strlen(buffer))|  */
+
+@q ***** (5) @>
+
+         else if (DEBUG)
+         {
+             lock_cerr_mutex(); 
+             cerr << "WROTE " << status << " CHARACTERS." << endl;
+#if 0 
+             cerr <<  buffer;
+#endif 
+             unlock_cerr_mutex(); 
+
+         }  /* |else if (DEBUG)|  */ 
+       
+@q ***** (5) @>
+@
+@<|sub_distribute_key_pair| definition@>=
+
+         r_pid = waitpid(pid, &status, 0);
+
+         if (DEBUG)
+         {
+             lock_cerr_mutex(); 
+             cerr << "waitpid returned " << r_pid << endl;
+             unlock_cerr_mutex(); 
+
+         } /* |if (DEBUG)|  */ 
+
+         if (WIFEXITED(status))
+         {
+            if (DEBUG)
+            {
+               lock_cerr_mutex(); 
+               cerr << "WEXITSTATUS(" << status << ") == " << WEXITSTATUS(status) 
+                    << endl;
+               unlock_cerr_mutex(); 
+
+            } /* |if (DEBUG)|  */ 
+
+            gkpt->return_value = WEXITSTATUS(status);
+
+         }
+         else
+         {
+             lock_cerr_mutex(); 
+             cerr << "Child failed to exit." << endl;
+             gkpt->return_value = 1;
+             unlock_cerr_mutex(); 
+         }
+
+@q ***** (5) @>
+
+    }  /* |if|  (Parent)  */
+
+@q **** (4) @>
+@
+@<|sub_distribute_key_pair| definition@>=
+
+    else /* Child  */
+    {
+@q ***** (5) @>
+
+          close(fd[1]);  /* Child reads from |fd[0]|.  */
+
+          if (dup2(fd[0], STDIN_FILENO) == -1)
+          {
+              lock_cerr_mutex(); 
+              cerr << "ERROR!  In `sub_distribute_key_pair':  "
+                   << "`pipe' failed, returning -1:"
+                   << endl;
+
+              perror("dup2 error");
+
+              cerr << endl
+                   << "Exiting `sub_distribute_key_pair' unsuccessfully with "
+                   << "return value 1."
+                   << endl;
+              unlock_cerr_mutex(); 
+
+              close(fd[0]);
+              close(fd[1]);
+
+              temp_strm.str("");
+              temp_strm << "SERVER DISTRIBUTE KEY_PAIR FAILED "
+                        << "DISTINGUISHED_NAME <" << param->key_name << "> "
+                        << "GLOBUS_SITE <" 
+                        << gkpt->globus_site << "> 1";
+        
+              response.type = Response_Type::COMMAND_ONLY_TYPE;
+              response.command = temp_strm.str();
+    
+              param->response_deque.push_back(response);
+
+              gkpt->return_value =  1;
+
+              pthread_exit(&(gkpt->return_value));
+
+          }  /* |if|  */
+          
+          else if (DEBUG)
+          {
+             lock_cerr_mutex(); 
+             cerr << "In child process:  dup2 succeeded." << endl;
+             unlock_cerr_mutex(); 
+
+          }  /* |else if (DEBUG)|  */ 
+
+#if IS_PCFINSTON_GWDG
+
+          cmd_str = "/home/lfinsto/opt_rep/optinum/Installer/dbsrvcli/src/instkypr";
+
+          status = execl("/usr/bin/sudo", 
+                         "sudo", 
+                         "-u", 
+                         curr_user_name.c_str(),
+                         cmd_str.c_str(),
+                         gkpt->globus_site.c_str(),
+                         0);
+
+
+#elif IS_OPTINUM_SRV
+
+          if (param->proxy_cred_filename.empty())
+             param->proxy_cred_filename = get_proxy_cred_filename(curr_user_name);
+
+          if (DEBUG)
+          {
+              lock_cerr_mutex(); 
+              cerr << "param->proxy_cred_filename == " << param->proxy_cred_filename << endl;
+              unlock_cerr_mutex(); 
+
+          } /* |if (DEBUG)|  */ 
+
+          cmd_str = "/opt/optinum/dbsrvcli/bin/instkypr.sh";
+
+          status = execl("/usr/bin/sudo", 
+                         "sudo", 
+                         "-u", 
+                         curr_user_name.c_str(),
+                         cmd_str.c_str(),
+                         param->proxy_cred_filename.c_str(),
+                         gkpt->globus_site.c_str(),
+                         0);
+
+#endif 
+
+@q ***** (5) @>
+@
+@<|sub_distribute_key_pair| definition@>=
+
+
+          lock_cerr_mutex(); 
+          cerr << "ERROR!  `execl' returned " << status << endl
+               << "execl error:  " << strerror(status)
+               << endl 
+               << "Exiting `sub_distribute_key_pair' unsuccessfully "
+               << "with exit status 1." 
+               << endl;
+          unlock_cerr_mutex(); 
+
+          temp_strm.str("");
+          temp_strm << "SERVER DISTRIBUTE KEY_PAIR FAILED "
+                    << "DISTINGUISHED_NAME <" << param->key_name << "> "
+                    << "GLOBUS_SITE <" 
+                    << gkpt->globus_site << "> 1";
+        
+          response.type = Response_Type::COMMAND_ONLY_TYPE;
+          response.command = temp_strm.str();
+    
+          param->response_deque.push_back(response);
+
+          close(fd[0]);
+          close(fd[1]);
+
+          gkpt->return_value =  1;
+
+          pthread_exit(&(gkpt->return_value));
+ 
+@q ***** (5) @>
+
+    }  /* |else| (Child) */
+   
+@q **** (4) Exit.  @>   
+
+@ Exit.  
+\initials{LDF 2011.12.07.}
+
+@:TODO@> !! TODO: 
+Maybe add more exit statuses to \.{kyprinst.sh}.
+\initials{LDF 2011.12.07.}
+
+@<|sub_distribute_key_pair| definition@>=
+
+    if (gkpt->return_value == 0)
+    {
+        if (DEBUG)
+        {
+            lock_cerr_mutex(); 
+            cerr << "In `sub_distribute_key_pair':  Installed key pair successfully."
+                 << endl 
+                 << "Exiting function successfully with exit status 0." 
+                 << endl;
+            unlock_cerr_mutex(); 
+
+        }  /* |if (DEBUG)|  */ 
+
+        temp_strm.str("");
+        temp_strm << "SERVER DISTRIBUTE KEY_PAIR SUCCEEDED "
+                  << "DISTINGUISHED_NAME <" << param->key_name << "> "
+                  << "GLOBUS_SITE <" 
+                  << gkpt->globus_site << "> 0";
+        
+        response.type = Response_Type::COMMAND_ONLY_TYPE;
+        response.command = temp_strm.str();
+    
+        param->response_deque.push_back(response);
+
+
+    }  /* |if (gkpt->return_value == 0)|  */
+
+    else if (gkpt->return_value == 1)
+    {
+        if (DEBUG)
+        {
+            lock_cerr_mutex(); 
+            cerr << "ERROR!  In `sub_distribute_key_pair':  Failed to install key pair."
+                 << endl 
+                 << "Exiting function unsuccessfully with exit status 1." 
+                 << endl;
+            unlock_cerr_mutex(); 
+
+        }  /* |if (DEBUG)|  */ 
+
+        temp_strm.str("");
+        temp_strm << "SERVER DISTRIBUTE KEY_PAIR FAILED "
+                  << "DISTINGUISHED_NAME <" << param->key_name << "> "
+                  << "GLOBUS_SITE <" 
+                  << gkpt->globus_site << "> 1";
+        
+        response.type = Response_Type::COMMAND_ONLY_TYPE;
+        response.command = temp_strm.str();
+    
+        param->response_deque.push_back(response);
+
+
+    }  /* |if (gkpt->return_value == 1)|  */
+
+    else if (gkpt->return_value == 2)
+    {
+        if (DEBUG)
+        {
+            lock_cerr_mutex(); 
+            cerr << "In `sub_distribute_key_pair':  Key pair already installed.  "
+                 << "Did not reinstall."
+                 << endl 
+                 << "Exiting `sub_distribute_key_pair' successfully with exit status 2." 
+                 << endl;
+            unlock_cerr_mutex(); 
+
+        }  /* |if (DEBUG)|  */ 
+
+        temp_strm.str("");
+        temp_strm << "SERVER DISTRIBUTE KEY_PAIR SUCCEEDED "
+                  << "DISTINGUISHED_NAME <" << param->key_name << "> "
+                  << "GLOBUS_SITE <" 
+                  << gkpt->globus_site << "> 2";
+        
+        response.type = Response_Type::COMMAND_ONLY_TYPE;
+        response.command = temp_strm.str();
+    
+        param->response_deque.push_back(response);
+
+
+    }  /* |else if (gkpt->return_value == 2)|  */
+
+    else if (gkpt->return_value == 3)
+    {
+        if (DEBUG)
+        {
+            lock_cerr_mutex(); 
+            cerr << "WARNING!  In `sub_distribute_key_pair':  Installed key pair, but "
+                 << "failed to set \"owner trust\"."
+                 << endl 
+                 << "Exiting `sub_distribute_key_pair' semi-successfully with exit status 3." 
+                 << endl;
+            unlock_cerr_mutex(); 
+
+        }  /* |if (DEBUG)|  */ 
+
+
+        temp_strm.str("");
+        temp_strm << "SERVER DISTRIBUTE KEY_PAIR SUCCEEDED "
+                  << "DISTINGUISHED_NAME <" << param->key_name << "> "
+                  << "GLOBUS_SITE <" 
+                  << gkpt->globus_site << "> 3";
+        
+        response.type = Response_Type::COMMAND_ONLY_TYPE;
+        response.command = temp_strm.str();
+    
+        param->response_deque.push_back(response);
+
+
+    }  /* |else if (gkpt->return_value == 3)|  */
+
+    else if (gkpt->return_value == 4)
+    {
+        if (DEBUG)
+        {
+            lock_cerr_mutex(); 
+            cerr << "In `sub_distribute_key_pair':  Installed key pair.  "
+                 << "PLEASE NOTE:  A secret key already existed."
+                 << endl 
+                 << "User may need to sign the new secret key in order "
+                 << "to be able to use it without being queried." 
+                 << endl 
+                 << "Exiting `sub_distribute_key_pair' successfully with exit status 4." 
+                 << endl;
+            unlock_cerr_mutex(); 
+
+        }  /* |if (DEBUG)|  */ 
+
+        temp_strm.str("");
+        temp_strm << "SERVER DISTRIBUTE KEY_PAIR SUCCEEDED "
+                  << "DISTINGUISHED_NAME <" << param->key_name << "> "
+                  << "GLOBUS_SITE <" 
+                  << gkpt->globus_site << "> 4";
+        
+        response.type = Response_Type::COMMAND_ONLY_TYPE;
+        response.command = temp_strm.str();
+    
+        param->response_deque.push_back(response);
+
+    }  /* |else if (gkpt->return_value == 4)|  */
+
+
+    pthread_exit(&(gkpt->return_value));
+
+}  /* End of |sub_distribute_key_pair| definition  */
+
+@q * (1) Cull database.  @>
+
+@ Cull database.  
+\initials{LDF 2012.01.05.}
+
+\LOG
+\initials{LDF 2012.01.05.}
+Added this function.
+\ENDLOG
+
+@:TODO@> !! TODO:  It would be possible to join with the thread running this function 
+by using |pthread_timedjoin_np| at the end of |main|.  If |cull_database| doesn't exit
+with an error, |pthread_timedjoin_np| will time out.  Then, the thread in which
+|cull_database| is running can be killed.
+\par
+If |cull_database| exits because of an error, it would be possible to catch this and
+end execution of |main|, or just call |exit| from |cull_database|.  Or, 
+if there's an error, it could just go to sleep for |MAX_UINT| seconds
+(in theory, repeatedly).
+\par
+However, it shouldn't fail and it's not that big a problem if it does, so 
+none of this is particularly urgent.
+\initials{LDF 2012.01.10.}
+
+\LOG
+\initials{LDF 2012.01.13.}
+Added code for deleted expired items from the \.{Entries} database table.
+
+\initials{LDF 2012.05.09.}
+Added code for resetting fields in rows of the \.{Certificates} table 
+to NULL for expired X.509 certificates.  They are {\it not\/} deleted.
+\ENDLOG 
+
+@q ** (2) Declaration  @>
+
+@<|cull_database| declaration@>=
+
+#if HAVE_LIBMYSQLCLIENT
+
+void*
+cull_database(void *v);
+
+#endif 
+
+@q ** (2) Definition @>
+@
+@<|cull_database| definition@>=
+
+#if HAVE_LIBMYSQLCLIENT
+
+void*
+cull_database(void *v)
+{
+@q *** (3) @>
+
+    bool DEBUG = false;  /* |true|  */
+    set_debug_level(DEBUG); 
+
+    int status = 0;
+
+    stringstream temp_strm;
+
+    int sleep_value = 7200; /* 300: 5 min., 600: 10 min., 1200: 20 min., 7200:  2 hrs.  */
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "Entering `cull_database'." << endl
+             << "`sleep_value' == " << sleep_value << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */    
+
+
+@q *** (3) Initialize |mysql_ptr|.  @>
+
+@ Initialize |mysql_ptr|.  
+\initials{LDF 2009.12.28.}
+
+@<|cull_database| definition@>=
+
+      MYSQL *mysql_ptr = mysql_init(0);
+
+      if (mysql_ptr)
+      {
+         if (DEBUG)
+         {
+            lock_cerr_mutex(); 
+            cerr << "In `cull_database':  " 
+                 << "`mysql_init' succeeded."
+                 << endl;
+            unlock_cerr_mutex();
+
+         }  /* |if (DEBUG)|  */ 
+
+      }  /* |if (mysql_ptr)| */
+
+      else  /* |else|  */
+      {
+         lock_cerr_mutex(); 
+         cerr << "ERROR!  In `cull_database':"
+              << endl
+              << "`mysql_init' failed.  Exiting thread function unsuccessfully with "
+              << "return value 0."
+              << endl;
+         unlock_cerr_mutex();
+
+         pthread_exit(0);
+
+      }  /* |else|  */
+
+@q *** (3) Connect |mysql_ptr| to the MySQL database.  @>
+
+@ Connect |mysql_ptr| to the MySQL database.  
+\initials{LDF 2009.12.28.}
+
+@<|cull_database| definition@>=
+
+#if IS_OPTINUM_SRV
+
+@q **** (4) Decrypt password for MySQL database.       @>
+@q **** (4) (Currently only for optinum-srv.gwdg.de.)  @>
+
+@ Decrypt password for MySQL database.
+(Currently only for optinum-srv.gwdg.de.)
+\initials{LDF 2011.05.19.}
+
+\LOG
+\initials{LDF 2011.05.19.}
+Added this section.  
+Replaced MySQL password in clear text with encrypted version.  Now decrypting it before 
+passing it as an argument to |mysql_real_connect|.
+\ENDLOG 
+
+@<|cull_database| definition@>=
+
+      char buffer[256];
+      memset(buffer, 0, 256);
+
+      const string mysql_password_encrypted(
+                   string("-----BEGIN PGP MESSAGE-----\n") + 
+                   string("Version: GnuPG v1.4.2 (GNU/Linux)\n") + 
+                   string("\n") + 
+                   string("hQEOA2floj/512F1EAP9FYkDuBU3pqDtO8p1NwLfg29NvZIju78HGBhCUeKi78pW\n") + 
+                   string("kOFol5aqKyjEpdWm6Udo+3V5K94PoCvLJ4QVlcOUdOAgoMH4m/KlJQHKev93mSdu\n") + 
+                   string("zCX2g5uCUzI4TcziUtfGnN0815XTrdZ69oi6DL3DjywSDfqmb8BvPT1SmB4CnuwE\n") + 
+                   string("AIBmIDXT20NqqHr0CD2nNcX579W3e2Y/LVdwDcYmYx4K1q0EKUUs2okElIrMWqRj\n") + 
+                   string("+rGFOhA/ujpmoKR2Nj6cFavztgc64tfW0yRl0qTL0CJljwXo+fyruBKd59JsOcz5\n") + 
+                   string("nkj7WhRLiKcDd1poznCItEPJjxViczH62udSByc+0FyU0kQBYpfPugxIy0VXv+2+\n") + 
+                   string("h51PxYrxy1K8s5RJ6wr03m4IfJ9M9UsutvcAyA7+VYeFc2bvKX3mCtD0jIYZmww8\n") + 
+                   string("xE05fvurjg==\n") + 
+                   string("=JWh2\n") + 
+                   string("-----END PGP MESSAGE-----"));
+
+      temp_strm.str("");
+
+      temp_strm << "echo '" << mysql_password_encrypted << "' "
+                << "| gpg --decrypt -u 7C5A8CA5 2> /dev/null";
+
+      if (DEBUG)  
+         cerr << "temp_strm.str() == " << temp_strm.str() << endl;
+
+      FILE *fp = popen(temp_strm.str().c_str(), "r");
+
+      if (fp == 0)
+      {
+         lock_cerr_mutex(); 
+         cerr << "ERROR!  In `cull_database':"
+              << endl
+              << "`popen' failed, returning NULL." << endl;
+
+         perror("popen error");
+
+         cerr << "Exiting thread function unsuccessfully with "
+              << "return value 0."
+              << endl;
+         unlock_cerr_mutex();
+
+         mysql_close(mysql_ptr); 
+
+         pthread_exit(0);
+
+      }
+      else if (DEBUG)
+      {
+         lock_cerr_mutex(); 
+         cerr << "In `cull_database':"
+              << endl
+              << "`popen' succeeded."
+              << endl; 
+         unlock_cerr_mutex();
+      } 
+
+      status = fread(buffer, 1, 256, fp);
+
+      if (status <= 0)
+      {
+
+         lock_cerr_mutex(); 
+         cerr << "ERROR!  In `cull_database':"
+              << endl
+              << "`fread' failed, returning " << status << endl;
+
+         perror("fread error");
+
+         cerr << "Exiting thread function unsuccessfully with "
+              << "return value 0."
+              << endl;
+         unlock_cerr_mutex();
+
+         mysql_close(mysql_ptr); 
+
+         pclose(fp);
+
+         pthread_exit(0);
+
+
+      }  /* |if (status <= 0)|  */
+
+      else if (status > 255)
+      {
+
+         lock_cerr_mutex(); 
+         cerr << "ERROR!  In `cull_database':"
+              << endl
+              << "`fread' read " << status << " (> 255) characters." 
+              << endl 
+              << "This isn't permitted."
+              << endl 
+              << "Exiting thread function unsuccessfully with "
+              << "return value 0."
+              << endl;
+         unlock_cerr_mutex();
+
+         mysql_close(mysql_ptr); 
+
+         pclose(fp);
+ 
+         pthread_exit(0);
+
+      }
+
+      else if (DEBUG)
+      {
+         lock_cerr_mutex(); 
+         cerr << "In `cull_database':"
+              << endl
+              << "`fread' succeeded.  Read " << status << " characters."
+              << endl
+              << "(Not showing buffer)" 
+#if 0 
+              << "`buffer' == " 
+              << endl 
+              << buffer
+#endif 
+              << endl 
+              << buffer
+              << endl;
+         unlock_cerr_mutex();
+      } 
+
+      pclose(fp);
+      fp = 0;
+      temp_strm.str("");
+
+@q **** (4) Connect (for optinum-srv.gwdg.de).  @>
+
+@ Connect (for optinum-srv.gwdg.de).  
+\initials{LDF 2011.05.19.}
+
+@<|cull_database| definition@>=
+
+      buffer[8] = 0;
+
+      if (!mysql_real_connect(mysql_ptr,                /* |MYSQL*|  */              
+                              0,                        /* host (localhost)  */      
+                              "lfinsto",                /* user  */                  
+                              buffer,                   /* password  */              
+                              "dbsrvcli",               /* database  */              
+                              0,                        /* port (default)  */                 
+                              NULL,                     /* unix socket  */           
+                              CLIENT_MULTI_STATEMENTS)) /* |client_flag|  */        
+                              
+
+@q **** (4) For testing on local systems.  @>
+
+@ For testing on local systems.  
+\initials{LDF 2011.05.19.}
+
+@<|cull_database| definition@>=
+
+#else
+
+      if (!mysql_real_connect(mysql_ptr,                   /* |MYSQL*|  */             
+                              0,                           /* host (localhost)  */     
+                              "root",                      /* user  */                 
+                              0,                           /* password  */             
+                              "dbsrvcli",                  /* database  */             
+                              0,                           /* port (default)  */       
+                              "/var/run/mysql/mysql.sock", /* unix socket  */          
+                              CLIENT_MULTI_STATEMENTS))    /* |client_flag|  */        
+
+                             
+
+#endif 
+
+@q **** (4) @>
+@
+@<|cull_database| definition@>=
+
+      /* Don't put anything here, this is correct.  
+         It's the statement for the |if|-conditional, which
+         is determined by the conditionally-compiled code above.
+         \initials{LDF 2012.01.10.}  
+      */
+
+      {
+         lock_cerr_mutex(); 
+         cerr << "ERROR!  In `cull_database':"
+              << endl
+              << "`mysql_real_connect' failed.  "
+              << "Error:  " << mysql_error(mysql_ptr)
+              << endl 
+              << "Exiting thread function unsuccessfully with "
+              << "return value 0."
+              << endl;
+          unlock_cerr_mutex();
+
+          mysql_close(mysql_ptr); 
+
+          pthread_exit(0);
+
+      }  /* |if|  */
+
+      else if (DEBUG)
+      {
+         lock_cerr_mutex(); 
+         cerr << "In `cull_database':"
+              << endl
+              << "`mysql_real_connect' succeeded."
+              << endl; 
+         unlock_cerr_mutex();
+      } 
+
+@q *** (3) Loop forever.@>
+
+@ Loop forever.
+\initials{LDF 2012.01.05.}
+
+@<|cull_database| definition@>=
+
+    stringstream sql_strm;
+    MYSQL_RES *result;
+
+    for (;;)
+    {
+@q **** (4) @>
+@
+@<|cull_database| definition@>=
+
+         sql_strm.str("");
+
+         if (DEBUG)
+         {
+             lock_cerr_mutex(); 
+             cerr << "In `cull_database':  Will cull expired items from database."
+                  << endl;  
+             unlock_cerr_mutex(); 
+
+         }  /* |if  (DEBUG)|  */ 
+
+@q **** (4) @>
+@
+
+\LOG
+\initials{LDF 2012.01.13.}
+Added code for deleting rows from the \.{Entries} and \.{Prerequisites} tables.
+
+\initials{LDF 2012.01.17.}
+@:BUG FIX@> BUG FIX:  Now deleting items from \.{Prerequisites} table before
+the items from the \.{Entries} table:  If the items from the latter 
+are deleted first, the \.{SELECT} command in the command for deleting the items
+from the  \.{Prerequisites} table won't work.
+
+\initials{LDF 2012.04.16.}
+Added code for deleting expired deleted rows from the \.{Globus\_Sites} table
+and corresponding rows from the \.{Globus\_Sites\_Admins} table.
+@:??@> ??  I had to do this in two steps, because the multi-table \.{DELETE}
+command with a \.{USING} clause caused queries in another MySQL session 
+to block.  I don't know why.
+\ENDLOG
+
+@<|cull_database| definition@>=
+
+         pthread_mutex_unlock(&session_data_mutex);
+
+         sql_strm << "lock tables Session_Data write, Entries write, "
+                  << "Prerequisites write "
+                  << ", Globus_Sites write, "
+                  << "Globus_Sites_Admins write, Certificates write; "
+
+                  << "delete from Session_Data where timestamp < "
+                  << "timestampadd(hour, -2, utc_timestamp()); "
+
+                  << "delete from Prerequisites "
+                  << "where entry_id in "
+                  << "(select entry_id from Entries where deleted = 1 "
+                  << "and last_modified < timestampadd(day, -1, utc_timestamp())); "
+
+                  << "delete from Entries where deleted = 1 "
+                  << "and last_modified < timestampadd(day, -1, utc_timestamp()); "
+                  << "delete from Globus_Sites where deleted = 1 and "
+                  << "last_modified < timestampadd(day, -1, utc_timestamp()); "
+
+                  << "delete from Globus_Sites_Admins where globus_site_id not in "
+                  << "(select globus_site_id from Globus_Sites); "
+
+                  << "update Certificates set serialNumber = NULL, Validity_notBefore = NULL, "
+                  << "Validity_notAfter = NULL where Validity_notAfter is not NULL "
+                  << "and Validity_notAfter < utc_timestamp(); "
+  
+                  << "unlock tables";
+
+         if (DEBUG)
+         {
+             lock_cerr_mutex(); 
+             cerr << "In `cull_database':  `sql_strm.str()' == "
+                  << sql_strm.str()
+                  << endl;
+             unlock_cerr_mutex(); 
+
+         }  /* |if (DEBUG)|  */ 
+
+@q **** (4) @>
+      
+         status = mysql_query(mysql_ptr, sql_strm.str().c_str());
+
+         if (status != 0)
+         {
+             lock_cerr_mutex(); 
+             cerr << "ERROR!  In `cull_database':  `mysql_query' failed, "
+                  << "returning " << status << ":"                  
+                  << endl 
+                  << mysql_error(mysql_ptr)
+                  << endl
+                  << "Exiting thread function unsuccessfully with return value 0."
+                  << endl;
+             unlock_cerr_mutex(); 
+
+             mysql_close(mysql_ptr); 
+
+             pthread_exit(0);
+
+
+         }  /* |if (status != 0)|  */
+
+@q **** (4) @>
+
+         else if (DEBUG)
+         {
+             lock_cerr_mutex(); 
+             cerr << "In `cull_database':  `submit_mysql_query' succeeded."
+                  << endl;
+             unlock_cerr_mutex(); 
+
+         }  /* |else if (DEBUG)|  */ 
+
+         pthread_mutex_unlock(&session_data_mutex);
+
+         do
+         {
+              result = mysql_store_result(mysql_ptr);
+              
+              if (result)
+              {
+                 mysql_free_result(result);
+                 result = 0;
+              } 
+
+              status = mysql_next_result(mysql_ptr);
+         }
+         while (status == 0);
+ 
+@q **** (4) @>
+@
+@<|cull_database| definition@>=
+        
+         if (DEBUG)
+         {
+             lock_cerr_mutex(); 
+             cerr << "In `cull_database':  Culled database.  Going to "
+                  << "sleep for " << sleep_value << " seconds."
+                  << endl;  
+             unlock_cerr_mutex(); 
+
+         }  /* |if  (DEBUG)|  */ 
+
+         sleep(sleep_value); 
+
+         continue;
+
+@q **** (4) @>
+
+    }  /* |for|  */    
+
+@q *** (3) @>
+
+@ Normally, this function should never exit, so this code should never be reached.
+\initials{LDF 2012.01.05.}
+
+@<|cull_database| definition@>=
+
+    mysql_close(mysql_ptr);
+
+    mysql_ptr = 0;
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "Exiting thread function `cull_database' "
+             << "successfully with return value 0." 
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */    
+
+    pthread_exit(0);
+
+@q *** (3) @>
+
+}  /* End of |cull_database|  */
+
+#endif /* |ifdef HAVE_LIBMYSQLCLIENT|  */
+
+@q * (1) @>
+@
+@<Garbage@>=
+
+@q **** (4) @>
+
+@q *** (3) Putting `thrdfncs.web' together.  @>
+
+@ Putting {\tt thrdfncs\PERIOD web} together.
+
+@q **** (4) This is what's compiled.  @>
+@ This is what's compiled.
+@c
+@<Include files@>@;@/
+using namespace std;
+@<Thread function declarations@>@;@/
+@<|cull_database| declaration@>@;@/
+@<|remote_install_func| definition @>@;@/
+@<|sub_distribute_key_pair| definition@>@;@/
+@<|cull_database| definition@>@;@/
+
+#if 0 
+@<Garbage@>@;@/
+#endif 
+
+@q **** (4) This is what's written to the header file `thrdfncs.h'.  @>
+
+@ This is what's written to the header file \filename{thrdfncs.h}.
+@
+@(thrdfncs.h@>=
+#ifndef THRDFNCS_H
+#define THRDFNCS_H 1
+using namespace std;
+@<Thread function declarations@>@;@/
+@<|cull_database| declaration@>@;@/
+#endif 
+
+@q * (1) Emacs-Lisp code for use in indirect buffers  @>
+
+@q (progn (cweb-mode) (outline-minor-mode))                          @>
+
+@q * (1) Local variables for Emacs @>
+
+@q * Local variables for Emacs.@>
+@q Local Variables: @>
+@q mode:CWEB @>
+@q eval:(display-time) @>
+@q abbrev-mode:t @>
+@q eval:(read-abbrev-file) @>
+@q indent-tabs-mode:nil @>
+@q eval:(outline-minor-mode) @>
+@q fill-column:80 @>
+@q End: @>

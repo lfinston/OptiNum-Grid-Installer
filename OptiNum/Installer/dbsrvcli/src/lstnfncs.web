@@ -1,0 +1,1916 @@
+@q lstnfncs.web  @>
+@q Created by Laurence D. Finston (LDF) Tue Dec  8 18:38:46 CET 2009 @>
+
+@q * (1) Top @>
+
+@q * (1) Copyright and License.@>
+
+@q This file is part of the OptiNum Grid Installer @>
+@q Copyright (C) 2010, 2011, 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen @>
+
+@q The OptiNum Grid Installer is free software; you can redistribute it and/or modify @>
+@q it under the terms of the GNU General Public License as published by @>
+@q the Free Software Foundation; either version 3 of the License, or @>
+@q (at your option) any later version.  @>
+
+@q The OptiNum Grid Installer is distributed in the hope that it will be useful, @>
+@q but WITHOUT ANY WARRANTY; without even the implied warranty of @>
+@q MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the @>
+@q GNU General Public License for more details.  @>
+
+@q You should have received a copy of the GNU General Public License          @>
+@q along with the OptiNum Grid Installer; if not, write to the Free Software                    @>
+@q Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA @>
+
+@q ("@@" stands for a single at-sign in the following paragraph.) @>
+
+@q Please send bug reports to Laurence.Finston@@gwdg.de@>
+
+@q Laurence D. Finston                                                   @>
+@q Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen  @>
+@q Am Fassberg 11         					         @>
+@q 37077 Goettingen              					 @>
+@q Germany                           					 @>                                
+
+@q Laurence.Finston@@gwdg.de (@@ stands for a single "at" sign.)@>
+
+@q ** (2)  lstnfncs.web  @>
+@* Listen functions.
+
+@ Version control identifier.
+@<Version control identifier@>=
+static char version_control_id[] 
+   = "$Id: lstnfncs.web 8356 2012-05-25 08:01:31Z finston $";
+  
+@q ** (2) Include files  @>
+
+@ Include files.
+
+@<Include files@>=
+
+
+#include <stdlib.h>
+#include <stdio.h>
+#include <unistd.h>
+
+#include <errno.h>
+#include <fcntl.h>
+#include <math.h>
+#include <string.h>
+#include <time.h>
+
+#include <sys/socket.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+
+#include <arpa/inet.h>
+
+#include <netdb.h>
+#include <netinet/in.h>
+#include <netinet/in.h>
+
+#include <gcrypt.h> /* for |gcry_control| */
+
+#include <gnutls/gnutls.h>
+
+#include <iomanip>
+#include <ios>
+#include <iostream>
+#include <map>
+#include <fstream>
+#include <sstream>   
+#include <string>
+#include <set>
+#include <vector>
+#include <deque>
+
+#include <pthread.h>
+
+#if HAVE_CONFIG_H
+#include <config.h>
+#endif
+
+#if IS_ROCKS_GOEGRID
+#undef HAVE_LIBMYSQLCLIENT
+#endif 
+
+#if HAVE_LIBMYSQLCLIENT
+#include <mysql.h>
+#endif
+
+using namespace std;
+
+#include "entries.h++"
+#include "dstngnmt.h++"
+#include "glblvrbl.h++"
+#include "glblfncs.h++"
+#include "gntlsfnc.h++"
+#include "rspnstp.h++"
+#include "parser.h++"
+#include "scanner.h++"
+#include "glsinftp.h++"
+#include "scprpmtp.h++"
+#include "connect.h++" 
+#include "utilfncs.h++"
+
+@q ** (2) File-local variables.  @>
+
+@ File-local variables.  
+\initials{LDF 2011.05.19.}
+
+\LOG
+\initials{LDF 2011.05.19.}
+Added this section with the declaration of |const string mysql_password_encrypted|.
+\ENDLOG
+
+@<File-local variables@>=
+
+#if HAVE_LIBMYSQLCLIENT
+const string mysql_password_encrypted(
+                string("-----BEGIN PGP MESSAGE-----\n") + 
+                string("Version: GnuPG v1.4.2 (GNU/Linux)\n") + 
+                string("\n") + 
+                string("hQEOA2floj/512F1EAP9FYkDuBU3pqDtO8p1NwLfg29NvZIju78HGBhCUeKi78pW\n") + 
+                string("kOFol5aqKyjEpdWm6Udo+3V5K94PoCvLJ4QVlcOUdOAgoMH4m/KlJQHKev93mSdu\n") + 
+                string("zCX2g5uCUzI4TcziUtfGnN0815XTrdZ69oi6DL3DjywSDfqmb8BvPT1SmB4CnuwE\n") + 
+                string("AIBmIDXT20NqqHr0CD2nNcX579W3e2Y/LVdwDcYmYx4K1q0EKUUs2okElIrMWqRj\n") + 
+                string("+rGFOhA/ujpmoKR2Nj6cFavztgc64tfW0yRl0qTL0CJljwXo+fyruBKd59JsOcz5\n") + 
+                string("nkj7WhRLiKcDd1poznCItEPJjxViczH62udSByc+0FyU0kQBYpfPugxIy0VXv+2+\n") + 
+                string("h51PxYrxy1K8s5RJ6wr03m4IfJ9M9UsutvcAyA7+VYeFc2bvKX3mCtD0jIYZmww8\n") + 
+                string("xE05fvurjg==\n") + 
+                string("=JWh2\n") + 
+                string("-----END PGP MESSAGE-----"));
+#endif 
+
+@q ** (2) Preprocessor macro definitions.  @>
+@ Preprocessor macro definitions.
+\initials{LDF 2009.11.25.}
+
+@<Preprocessor macro definitions@>=
+
+#define SA struct sockaddr
+#define SOCKET_ERR(err,s) if(err==-1) {perror(s);pthread_exit(0);}
+
+#define DH_BITS 1024
+
+@q ** (2) Listen functions@>
+
+@ Listen functions.
+\initials{LDF 2010.02.10.}
+
+\LOG
+\initials{LDF 2010.02.10.}
+Added this file.
+\ENDLOG
+
+@q *** (3) Listen function for authorized connections.  @>
+@ Listen function for authorized connections.
+\initials{LDF 2010.02.10.}
+
+\LOG
+\initials{LDF 2010.02.10.}
+Added this function.
+\ENDLOG
+
+@q **** (4) Declaration  @>
+
+@<Declare |listen_auth|@>=
+void*
+listen_auth(void* v);
+
+@q **** (4) Definition   @>
+@
+@<Define |listen_auth|@>=
+void*
+listen_auth(void* v)
+{
+@q **** (4) @>
+
+#if HAVE_LIBMYSQLCLIENT
+
+   bool DEBUG = true;  /* |false|  */
+   set_debug_level(DEBUG);
+
+   string thread_ctr_str;
+
+   stringstream temp_strm;
+
+   temp_strm << "[Thread " << *static_cast<int*>(v) << "] ";
+
+   thread_ctr_str = temp_strm.str();
+ 
+   temp_strm.str("");
+
+   if (DEBUG)
+   {
+       lock_cerr_mutex(); 
+       cerr << thread_ctr_str << "*** Entering `listen_auth'."
+            << endl;
+       unlock_cerr_mutex(); 
+
+
+   }  /* |if (DEBUG)|  */ 
+
+   int status = 0;
+
+   string curr_key_filename  = DEFAULT_KEY_FILENAME;
+   string curr_cert_filename = DEFAULT_CERT_FILENAME;
+   string curr_ca_filename   = DEFAULT_CA_FILENAME;
+   string curr_crl_filename  = DEFAULT_CRL_FILENAME;
+
+   pthread_attr_t attr;
+
+@q **** (4) @>
+
+@ |cert_cred| contains the server's credentials, so there's no need to have more than
+one of them.  Each |Scan_Parse_Parameter_Type| created will have a pointer to this object.  
+It's deallocated after the main |listen| loop.
+\initials{LDF 2009.12.30.}
+
+@<Define |listen_auth|@>=
+
+   gnutls_certificate_credentials_t cert_cred;
+
+   gnutls_x509_crt_t *ca_list;  
+   unsigned int ca_list_size;
+
+   int err, listen_sd, i;
+   int sd, ret;
+   struct sockaddr_in sa_serv;
+   struct sockaddr_in sa_cli;
+   int client_len;
+   char topbuf[512];
+   int optval = 1;
+
+   Scan_Parse_Parameter_Type* param = 0;
+
+@q **** (4) @>
+@
+@<Define |listen_auth|@>=
+
+  status = set_cert_files(curr_key_filename,
+                          curr_cert_filename,
+                          curr_ca_filename, 
+                          curr_crl_filename);  
+
+  if (status)
+  {
+     lock_cerr_mutex(); 
+     cerr << thread_ctr_str << "ERROR!  In `listen_auth':  "
+          << "`set_cert_files' failed, returning " << status
+          << endl;
+     unlock_cerr_mutex(); 
+
+     mysql_library_end();
+
+     pthread_exit(0);
+
+  }  /* |if (status)|  */
+
+  else if (DEBUG)
+  {
+     lock_cerr_mutex(); 
+     cerr << thread_ctr_str << "In `listen_auth':  "
+          << "`set_cert_files' succeeded, returning " << status
+          << endl;
+     unlock_cerr_mutex(); 
+
+  }  /* |else if (DEBUG)|  */   
+
+@q **** (4) @>
+@
+@<Define |listen_auth|@>=
+
+
+  /* to disallow usage of the blocking /dev/random    */
+
+  gnutls_certificate_allocate_credentials (&cert_cred);
+
+
+
+@q ***** (5) @>
+@ !! TODO:  Add error handling.  
+\initials{LDF 2009.12.08.}
+
+@<Define |listen_auth|@>=
+
+   status = gnutls_certificate_set_x509_trust_file (cert_cred, 
+                                                    curr_ca_filename.c_str(),
+                                                    GNUTLS_X509_FMT_PEM);
+   if (DEBUG)
+   {
+       lock_cerr_mutex();
+       cerr << thread_ctr_str << "In `listen_auth':"
+            << endl 
+            << "`gnutls_certificate_set_x509_trust_file' returned " << status
+            << " (the number of certificates processed)." 
+            << endl;
+       unlock_cerr_mutex(); 
+
+   }  /* |if (DEBUG)|  */ 
+
+   if (curr_crl_filename != "")
+   {
+      status = gnutls_certificate_set_x509_crl_file (cert_cred, curr_crl_filename.c_str(),
+                                                     GNUTLS_X509_FMT_PEM);
+      if (DEBUG)
+      {
+          lock_cerr_mutex();
+          cerr << thread_ctr_str << "In `listen_auth':"
+               << endl 
+               << "`gnutls_certificate_set_x509_crl_file' returned " << status
+               << " (the number of CRLs (certificate revocation lists) processed)." 
+               << endl;
+          unlock_cerr_mutex(); 
+
+      }  /* |if (DEBUG)|  */ 
+
+  }  /* |if (curr_crl_filename != "")|  */
+
+@q ***** (5) @>
+
+@ !! TODO:  Add error handling.  \initials{LDF 2009.12.08.}
+
+@<Define |listen_auth|@>=
+
+  status = gnutls_certificate_set_x509_key_file (cert_cred, 
+                                                 curr_cert_filename.c_str(), 
+                                                 curr_key_filename.c_str(), 
+                                                 GNUTLS_X509_FMT_PEM);
+  if (DEBUG)
+  {
+      lock_cerr_mutex();
+      cerr << thread_ctr_str << "In `listen_auth':"
+           << endl
+           << "`gnutls_certificate_set_x509_key_file' returned " << status
+           << endl;
+      unlock_cerr_mutex(); 
+
+  }  /* |if (DEBUG)|  */ 
+
+  if (status != GNUTLS_E_SUCCESS)
+  {
+      lock_cerr_mutex(); 
+      cerr << thread_ctr_str << "ERROR!  In `listen_auth':"
+           << endl 
+           << "`gnutls_certificate_set_x509_key_file' returned "
+           << status << ":"
+           << endl;
+      
+      gnutls_perror(status);
+
+      unlock_cerr_mutex(); 
+
+  }  /* |if (status != GNUTLS_E_SUCCESS)|  */
+
+  else if (DEBUG)
+  {
+      lock_cerr_mutex(); 
+      cerr << thread_ctr_str << "In `listen_auth':"
+           << endl 
+           << "`gnutls_certificate_set_x509_key_file' returned GNUTLS_E_SUCCESS ("
+           << status << ")."
+           << endl;
+      
+      gnutls_perror(status);
+
+      unlock_cerr_mutex(); 
+
+  }  /* |else if (DEBUG)|  */ 
+
+
+@q **** (4) @>
+@
+!! TODO:  Add error handling.  \initials{LDF 2009.12.08.}
+
+@<Define |listen_auth|@>=
+
+
+  gnutls_certificate_get_x509_cas(cert_cred, &ca_list, &ca_list_size);
+
+  if (DEBUG)
+  {
+      lock_cerr_mutex(); 
+      cerr << thread_ctr_str << "In `listen_auth':  "
+           << "ca_list_size == " << ca_list_size
+           << endl;
+      unlock_cerr_mutex(); 
+
+  }  /* |else if (DEBUG)|  */ 
+
+@q **** (4) @>
+
+  gnutls_dh_params_t dh_params;
+  gnutls_rsa_params_t rsa_params;
+
+  generate_dh_params (dh_params);
+  generate_rsa_params (rsa_params);
+
+  if (TLS_SESSION_CACHE != 0)
+  {
+     wrap_db_init ();
+  }
+
+@q **** (4) @>
+
+  gnutls_certificate_set_dh_params (cert_cred, dh_params);
+  gnutls_certificate_set_rsa_export_params (cert_cred, rsa_params);
+
+@q **** (4) Socket operations  @>
+
+@ Socket operations.
+
+@<Define |listen_auth|@>=
+
+  listen_sd = socket (AF_INET, SOCK_STREAM, 0);
+
+  SOCKET_ERR(listen_sd, "socket");
+
+  memset (&sa_serv, '\0', sizeof (sa_serv));
+  sa_serv.sin_family = AF_INET;
+  sa_serv.sin_addr.s_addr = INADDR_ANY;
+  sa_serv.sin_port = htons (port_num_auth);  /* Server Port number */
+
+  setsockopt (listen_sd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof (int));
+
+  err = bind (listen_sd, (SA *) & sa_serv, sizeof (sa_serv));
+  SOCKET_ERR(err, "bind");
+  err = listen (listen_sd, 1024);
+  SOCKET_ERR(err, "listen");
+
+  temp_strm << thread_ctr_str 
+            << "In `listen_auth':  Server ready. Listening to port " << port_num_auth
+            << endl;
+
+  lock_cerr_mutex(); 
+  cout << temp_strm.str();
+  if (DEBUG) 
+     cerr << temp_strm.str();
+  unlock_cerr_mutex(); 
+
+  temp_strm.str("");
+
+  client_len = sizeof (sa_cli);
+
+  pthread_attr_init(&attr);
+  pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+
+@q ***** (5) Main |accept| loop.  @>
+
+@ Main |accept| loop.  
+\initials{LDF 2009.12.28.}
+
+\LOG
+\initials{LDF 2010.05.26.}
+Now setting |param->remote_ip_address| and |param->remote_port|.
+\ENDLOG 
+
+@<Define |listen_auth|@>=
+
+  for (bool first_time = true;;)
+  {
+@q ****** (6) @>
+
+      sd = accept (listen_sd, (SA *) & sa_cli, (socklen_t*) &client_len);
+ 
+      if (DEBUG) 
+      {
+         /* !! TODO:  LDF 2010.08.20.  
+            The file descriptors are different.
+            How do I find out what port number is being used for
+            |sd|?
+         */
+
+         cerr << "`sd' == " << sd << ", `listen_sd' == " << listen_sd
+              << endl;
+      }
+
+      temp_strm.str("");
+
+      temp_strm << thread_ctr_str << "In `listen_auth':  Connection from "
+                << inet_ntop (AF_INET, &sa_cli.sin_addr, topbuf, sizeof (topbuf)) 
+                << ", port " 
+                << ntohs (sa_cli.sin_port)
+                << endl;
+
+      lock_cerr_mutex(); 
+      cout << temp_strm.str();
+      if (DEBUG) 
+         cerr << temp_strm.str();
+      unlock_cerr_mutex(); 
+
+      temp_strm.str("");
+
+      param = new Scan_Parse_Parameter_Type;
+
+      pthread_mutex_lock(&thread_ctr_mutex);
+      param->thread_ctr = thread_ctr++;
+      pthread_mutex_unlock(&thread_ctr_mutex);
+
+      param->fd            = sd;
+      param->cert_cred_ptr = &cert_cred;
+ 
+      param->ca_list       = ca_list;
+      param->ca_list_size  = ca_list_size;
+ 
+      param->remote_ip_address = inet_ntop(AF_INET, &sa_cli.sin_addr, topbuf, sizeof (topbuf));
+      param->remote_port       = static_cast<int>(ntohs(sa_cli.sin_port)); 
+
+
+@q ****** (6) Initialize |param->mysql_ptr|.  @>
+
+@ Initialize |param->mysql_ptr|.  
+\initials{LDF 2009.12.28.}
+
+@<Define |listen_auth|@>=
+
+      param->mysql_ptr = mysql_init(0);
+
+      if (param->mysql_ptr)
+      {
+         if (DEBUG)
+         {
+            lock_cerr_mutex(); 
+            cerr << thread_ctr_str << "In `listen_auth':  " 
+                 << "`mysql_init' succeeded."
+                 << endl;
+            unlock_cerr_mutex();
+
+         }  /* |if (DEBUG)|  */ 
+
+      }  /* |if (param->mysql_ptr)| */
+
+      else
+      {
+         lock_cerr_mutex(); 
+         cerr << thread_ctr_str << "ERROR!  In `listen_auth':"
+              << endl
+              << "`mysql_init' failed.  Exiting thread function unsuccessfully with "
+              << "return value 0."
+              << endl;
+         unlock_cerr_mutex();
+ 
+         mysql_library_end();
+         delete param;
+         param = 0;
+
+         pthread_exit(0);
+
+      }
+
+@q ****** (6) Connect |param->mysql_ptr| to the MySQL database.  @>
+
+@ Connect |param->mysql_ptr| to the MySQL database.  
+\initials{LDF 2009.12.28.}
+
+@<Define |listen_auth|@>=
+
+#if IS_OPTINUM_SRV
+
+@q ******* (7) Decrypt password for MySQL database.       @>
+@q ******* (7) (Currently only for optinum-srv.gwdg.de.)  @>
+
+@ Decrypt password for MySQL database.
+(Currently only for optinum-srv.gwdg.de.)
+\initials{LDF 2011.05.19.}
+
+\LOG
+\initials{LDF 2011.05.19.}
+Added this section.  
+Replaced MySQL password in clear text with encrypted version.  Now decrypting it before 
+passing it as an argument to |mysql_real_connect|.
+\ENDLOG 
+
+@<Define |listen_auth|@>=
+
+      char buffer[256];
+      memset(buffer, 0, 256);
+
+      temp_strm.str("");
+
+
+      temp_strm << "echo '" << mysql_password_encrypted << "' "
+                << "| gpg --decrypt -u 7C5A8CA5 2> /dev/null";
+
+      if (DEBUG)  
+         cerr << "temp_strm.str() == " << temp_strm.str() << endl;
+
+      FILE *fp = popen(temp_strm.str().c_str(), "r");
+
+      if (fp == 0)
+      {
+         lock_cerr_mutex(); 
+         cerr << thread_ctr_str << "ERROR!  In `listen_auth':"
+              << endl
+              << "`popen' failed, returning NULL." << endl;
+
+         perror("popen error");
+
+         cerr << "Exiting thread function unsuccessfully with "
+              << "return value 0."
+              << endl;
+         unlock_cerr_mutex();
+
+         mysql_close(param->mysql_ptr); 
+
+         mysql_library_end();
+ 
+         delete param;
+         param = 0;
+
+         pthread_exit(0);
+
+      }
+      else if (DEBUG)
+      {
+         lock_cerr_mutex(); 
+         cerr << thread_ctr_str << "In `listen_auth':"
+              << endl
+              << "`popen' succeeded."
+              << endl; 
+         unlock_cerr_mutex();
+      } 
+
+      status = fread(buffer, 1, 256, fp);
+
+      if (status <= 0)
+      {
+
+         lock_cerr_mutex(); 
+         cerr << thread_ctr_str << "ERROR!  In `listen_auth':"
+              << endl
+              << "`fread' failed, returning " << status << endl;
+
+         perror("fread error");
+
+         cerr << "Exiting thread function unsuccessfully with "
+              << "return value 0."
+              << endl;
+         unlock_cerr_mutex();
+
+         mysql_close(param->mysql_ptr); 
+
+         mysql_library_end();
+ 
+         delete param;
+         param = 0;
+
+         pthread_exit(0);
+
+
+      }  /* |if (status <= 0)|  */
+
+      else if (status > 255)
+      {
+
+         lock_cerr_mutex(); 
+         cerr << thread_ctr_str << "ERROR!  In `listen_auth':"
+              << endl
+              << "`fread' read " << status << " (> 255) characters." 
+              << endl 
+              << "This isn't permitted."
+              << endl 
+              << "Exiting thread function unsuccessfully with "
+              << "return value 0."
+              << endl;
+         unlock_cerr_mutex();
+
+         mysql_close(param->mysql_ptr); 
+
+         mysql_library_end();
+ 
+         delete param;
+         param = 0;
+
+         pthread_exit(0);
+
+
+      }
+
+      else if (DEBUG)
+      {
+         lock_cerr_mutex(); 
+         cerr << thread_ctr_str << "In `listen_auth':"
+              << endl
+              << "`fread' succeeded.  Read " << status << " characters."
+              << endl
+              << "`buffer' == " 
+              << endl 
+              << buffer
+              << endl;
+         unlock_cerr_mutex();
+      } 
+
+      pclose(fp);
+      fp = 0;
+      temp_strm.str("");
+
+@q ******* (7) Connect (for optinum-srv.gwdg.de).  @>
+
+@ Connect (for optinum-srv.gwdg.de).  
+\initials{LDF 2011.05.19.}
+
+@<Define |listen_auth|@>=
+
+      buffer[8] = 0;
+
+      if (!mysql_real_connect(param->mysql_ptr, 0, "lfinsto", buffer, 0, 0, NULL, 0))
+
+@q ******* (7) For testing on local systems.  @>
+
+@ For testing on local systems.  
+\initials{LDF 2011.05.19.}
+
+\LOG
+\initials{LDF 2012.03.21.}
+The socket file for the MySQL server is now |"/var/run/mysql/mysql.sock"|
+on \.{pcfinston.gwdg.de}.
+\ENDLOG 
+
+@<Define |listen_auth|@>=
+
+#else
+
+      if (!mysql_real_connect(param->mysql_ptr, 
+                              0, 
+                              "root", 
+                              0, 
+                              0,
+                              0, 
+                              "/var/run/mysql/mysql.sock", 0))
+
+#endif 
+
+@q ******* (7) @>
+@
+@<Define |listen_auth|@>=
+
+      {
+         lock_cerr_mutex(); 
+         cerr << thread_ctr_str << "ERROR!  In `listen_auth':"
+              << endl
+              << "`mysql_real_connect' failed.  "
+              << "Error:  " << mysql_error(param->mysql_ptr)
+              << endl 
+              << "Exiting thread function unsuccessfully with "
+              << "return value 0."
+              << endl;
+          unlock_cerr_mutex();
+
+          mysql_close(param->mysql_ptr); 
+
+          mysql_library_end();
+ 
+          delete param;
+          param = 0;
+
+          pthread_exit(0);
+
+      }
+      else if (DEBUG)
+      {
+         lock_cerr_mutex(); 
+         cerr << thread_ctr_str << "In `listen_auth':"
+              << endl
+              << "`mysql_real_connect' succeeded."
+              << endl; 
+         unlock_cerr_mutex();
+      } 
+
+@q ****** (6) Select ``dbsrvcli'' database.  @>
+
+@ Select ``dbsrvcli'' database.  
+\initials{LDF 2009.12.28.}
+
+@<Define |listen_auth|@>=
+
+      status = mysql_select_db(param->mysql_ptr, "dbsrvcli");
+
+      if (status == 0)
+      {
+        
+         if (DEBUG)
+         {
+            lock_cerr_mutex(); 
+            cerr << thread_ctr_str << "In `listen_auth':  "
+                 << "`mysql_select_db succeeded'."
+                 << endl;
+            unlock_cerr_mutex();
+
+         }  /* |if (DEBUG)|  */ 
+
+      }  /* |if (status == 0)| */
+
+      else /* |status != 0| */
+      {
+         lock_cerr_mutex(); 
+         cerr << thread_ctr_str << "In `listen_auth':  "
+              << "`mysql_select_db' failed, returning " << status 
+              << endl;
+         unlock_cerr_mutex();
+
+         mysql_close(param->mysql_ptr); 
+
+         mysql_library_end();
+ 
+         delete param;
+         param = 0;
+
+         pthread_exit(0);
+
+      }   /* |else| (|status != 0|) */
+
+@q ****** (6) Initialize |globus_site_map|.  @>
+@ Initialize |globus_site_map| (once only).  
+\initials{LDF 2012.02.03.}
+
+This function only retrieves |hostname| and |enabled| from the \.{Globus\_Sites} database 
+table.  \.{optdbsrv} doesn't require any more information.  However, if it is ever desirable 
+to retrieve more information, the function |init_globus_site_info_map| can be used.
+This function is no longer present in the source code, but can be found in revision 7869
+of \filename{strtinst.web}.
+\initials{LDF 2012.04.12.}
+
+\LOG
+\initials{LDF 2011.11.17.}
+Added this section.
+
+\initials{LDF 2012.02.03.}
+Moved this section from |main| in \filename{optdbsrv.web} to 
+here (\filename{lstnfncs.web}).  |init_globus_site_map|  now reads the Globus site information
+from the database, so |param->mysql_ptr| must be connected to the database server.  
+\par
+This only has to be done once, since |globus_site_map| is a global variable.
+\ENDLOG
+
+@<Define |listen_auth|@>=
+
+   if (first_time)
+   {
+       if (DEBUG)
+       {
+           lock_cerr_mutex(); 
+           cerr << "In `listen_auth':  About to call `init_globus_site_map'."
+                << endl;
+           unlock_cerr_mutex(); 
+
+       }  /* |if (DEBUG)|  */ 
+
+       status = init_globus_site_map(param);
+
+       if (status != 0)
+       {
+           lock_cerr_mutex(); 
+           cerr << "WARNING!  In `listen_auth':  "
+                << "`init_globus_site_map' failed, returning " << status
+                << endl
+                << "Could not initialize `globus_site_map'.  Will try to continue."
+                << endl;
+           unlock_cerr_mutex(); 
+
+       }  /* |if (status != 0)|  */
+
+       else if (DEBUG)
+       {
+           lock_cerr_mutex(); 
+           cerr << "In `listen_auth':  "
+                << "`init_globus_site_map' succeeded, returning 0."
+                << endl
+                << "Showing `globus_site_map':"
+                << endl;
+        
+           for (map<string, bool>::const_iterator iter = globus_site_map.begin();
+                iter != globus_site_map.end();
+                ++iter)
+              cerr << iter->first << " : " << iter->second << endl;
+
+           cerr << endl;
+
+           unlock_cerr_mutex(); 
+
+       }  /* |else if (DEBUG)|  */ 
+
+   }  /* |if (first_time)|  */
+
+
+@q ****** (6) Create new connection thread.  @>
+
+@ Create new connection thread.  
+\initials{LDF 2009.12.28.}
+
+\LOG
+\initials{LDF 2012.01.10.}
+Added error handling.  @:TODO@> !! TODO:  Add more.
+\ENDLOG 
+
+@<Define |listen_auth|@>=
+
+      status = pthread_create(&(param->thread_id),
+                              &attr, /* Attribute  */
+                              connect_func, 
+                              static_cast<void*>(param));
+
+    /* !! TODO: LDF 2012.01.10.  Add more error handling.  */
+
+    if (status != 0)
+    {
+        lock_cerr_mutex(); 
+        cerr <<  "ERROR!  In `listen_auth':  `pthread_create' failed for `connect_func'."
+             << endl;
+        unlock_cerr_mutex(); 
+    }
+
+    else if (DEBUG) 
+    {
+        lock_cerr_mutex(); 
+        cerr << "In `listen_auth':  `pthread_create' succeeded for `connect_func'."
+             << endl;
+        unlock_cerr_mutex(); 
+
+    } /* |else if (DEBUG)|  */
+
+
+@q ****** (6) End of main |accept| loop.  @>
+
+@ End of main |accept| loop.  
+\initials{LDF 2009.12.28.}
+
+@<Define |listen_auth|@>=
+
+    first_time = false;
+
+  } /* |for|  */
+
+    pthread_attr_destroy(&attr);
+
+@q ***** (5) Finish up and exit.  @>
+
+@ Finish up and exit.  
+Stop listening for connections from clients, deinitialize TLS database, free
+credentials, destroy mutexes, etc.
+\initials{LDF 2009.12.28.}
+
+Normally, this code will never be reached.
+\initials{LDF 2010.02.10.}
+
+@<Define |listen_auth|@>=
+
+  close (listen_sd);
+
+  if (TLS_SESSION_CACHE != 0)
+  {
+      wrap_db_deinit ();
+  }
+
+  gnutls_certificate_free_credentials (cert_cred);
+
+#endif /* |HAVE_LIBMYSQLCLIENT|  */
+
+  pthread_exit(0);
+
+}  /* End of |listen_auth| definition  */
+
+
+@q *** (3) Listen function for non-authorized connections.  @>
+@ Listen function for non-authorized connections.
+\initials{LDF 2010.02.10.}
+
+\LOG
+\initials{LDF 2010.02.10.}
+Added this function.
+\ENDLOG
+
+@q **** (4) Declaration  @>
+
+@<Declare |listen_non_auth|@>=
+void*
+listen_non_auth(void* v);
+
+@q **** (4) Definition   @>
+@
+@<Define |listen_non_auth|@>=
+void*
+listen_non_auth(void* v)
+{
+@q ***** (5) @>
+
+#if HAVE_LIBMYSQLCLIENT
+
+   bool DEBUG = false;  /* |true|  */
+   set_debug_level(DEBUG);
+
+   int status = 0;
+
+
+
+   string thread_ctr_str;
+
+   stringstream temp_strm;
+
+
+   temp_strm << "[Thread " << *static_cast<int*>(v) << "] ";
+
+   thread_ctr_str = temp_strm.str();
+
+   temp_strm.str("");
+
+   if (DEBUG)
+   {
+       lock_cerr_mutex(); 
+       cerr << thread_ctr_str << "*** Entering `listen_non_auth'."
+            << endl;
+       unlock_cerr_mutex(); 
+
+
+   }  /* |if (DEBUG)|  */ 
+
+@q ***** (5) @>
+@
+@<Define |listen_non_auth|@>=
+
+  int err;
+  int listen_sd;
+  int sd;
+  struct sockaddr_in sa_serv;
+  struct sockaddr_in sa_cli;
+  int client_len;
+  char topbuf[512];
+  gnutls_session_t session;
+  int optval = 1;   
+
+  Scan_Parse_Parameter_Type* param = 0;
+
+  gnutls_dh_params_t dh_params;
+
+  gnutls_anon_server_credentials_t anoncred;
+
+  gnutls_anon_allocate_server_credentials (&anoncred);
+
+  generate_dh_params_non_auth(dh_params);
+
+  gnutls_anon_set_server_dh_params (anoncred, dh_params);
+
+  listen_sd = socket (AF_INET, SOCK_STREAM, 0);
+  SOCKET_ERR (listen_sd, "socket");
+
+  memset (&sa_serv, '\0', sizeof (sa_serv));
+  sa_serv.sin_family = AF_INET;
+  sa_serv.sin_addr.s_addr = INADDR_ANY;
+  sa_serv.sin_port = htons (port_num_non_auth);  /* Server Port number */
+
+  setsockopt (listen_sd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof (int));
+
+  err = bind (listen_sd, (SA *) & sa_serv, sizeof (sa_serv));
+  SOCKET_ERR (err, "bind");
+  err = listen (listen_sd, 1024);
+  SOCKET_ERR (err, "listen");
+
+  temp_strm << thread_ctr_str 
+            << "In `listen_non_auth':  Server ready. Listening to port " << port_num_non_auth
+            << endl;
+
+  lock_cerr_mutex(); 
+  cout << temp_strm.str();
+  if (DEBUG) 
+     cerr << temp_strm.str();
+  unlock_cerr_mutex(); 
+
+  temp_strm.str("");
+
+  client_len = sizeof (sa_cli);
+ 
+  pthread_attr_t attr;
+
+  pthread_attr_init(&attr);
+  pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+
+@q ***** (5) @>
+@
+\LOG
+\initials{LDF 2010.05.26.}
+Now setting |param->remote_ip_address| and |param->remote_port|.
+\ENDLOG 
+
+@<Define |listen_non_auth|@>=
+
+  for (;;)
+  {
+@q ****** (6) @>
+
+      sd = accept (listen_sd, (SA *) &sa_cli, (socklen_t*) &client_len);
+
+      lock_cerr_mutex(); 
+      cerr << thread_ctr_str << "In `listen_non_auth':  "
+           << "Connection from " 
+           << inet_ntop (AF_INET, &sa_cli.sin_addr, topbuf, sizeof (topbuf))
+           << ", port " << ntohs (sa_cli.sin_port)
+           << endl;
+      unlock_cerr_mutex(); 
+      
+      param                = new Scan_Parse_Parameter_Type;
+
+      pthread_mutex_lock(&thread_ctr_mutex);
+      param->thread_ctr = thread_ctr++;
+      pthread_mutex_unlock(&thread_ctr_mutex);
+
+      param->fd            = sd;
+      param->anon_server_cred_ptr = &anoncred;
+      param->anon_client_cred_ptr = 0;
+
+      param->cert_cred_ptr = 0;
+      param->ca_list       = 0;
+      param->ca_list_size  = 0;
+
+      param->remote_ip_address = inet_ntop(AF_INET, &sa_cli.sin_addr, topbuf, sizeof (topbuf));
+      param->remote_port       = static_cast<int>(ntohs(sa_cli.sin_port)); 
+
+ 
+@q ****** (6) Initialize |param->mysql_ptr|.  @>
+
+@ Initialize |param->mysql_ptr|.  
+\initials{LDF 2010.02.11.}
+
+@<Define |listen_non_auth|@>=
+
+      param->mysql_ptr = mysql_init(0);
+
+      if (param->mysql_ptr)
+      {
+         if (DEBUG)
+         {
+            lock_cerr_mutex(); 
+            cerr << thread_ctr_str << "In `listen_non_auth':  " 
+                 << "`mysql_init' succeeded."
+                 << endl;
+            unlock_cerr_mutex();
+
+         }  /* |if (DEBUG)|  */ 
+
+      }  /* |if (param->mysql_ptr)| */
+
+      else
+      {
+         lock_cerr_mutex(); 
+         cerr << thread_ctr_str << "ERROR!  In `listen_non_auth':"
+              << endl
+              << "`mysql_init' failed.  Exiting thread function unsuccessfully with "
+              << "return value 0."
+              << endl;
+         unlock_cerr_mutex();
+ 
+         mysql_library_end();
+         delete param;
+         param = 0;
+
+         pthread_exit(0);
+
+      }
+
+@q ****** (6) Connect |param->mysql_ptr| to the MySQL database.  @>
+
+@ Connect |param->mysql_ptr| to the MySQL database.  
+\initials{LDF 2009.12.28.}
+
+@<Define |listen_non_auth|@>=
+
+#if IS_OPTINUM_SRV
+
+@q ******* (7) Decrypt password for MySQL database.       @>
+@q ******* (7) (Currently only for optinum-srv.gwdg.de.)  @>
+
+@ Decrypt password for MySQL database.
+(Currently only for optinum-srv.gwdg.de.)
+\initials{LDF 2011.05.19.}
+
+\LOG
+\initials{LDF 2011.05.19.}
+Added this section.  
+Replaced MySQL password in clear text with encrypted version.  Now decrypting it before 
+passing it as an argument to |mysql_real_connect|.
+\ENDLOG 
+
+@<Define |listen_non_auth|@>=
+
+
+      char buffer[256];
+      memset(buffer, 0, 256);
+
+      temp_strm.str("");
+
+
+      temp_strm << "echo '" << mysql_password_encrypted << "' "
+                << "| gpg --decrypt -u 7C5A8CA5 2> /dev/null";
+
+      if (DEBUG)  
+         cerr << "temp_strm.str() == " << temp_strm.str() << endl;
+
+      FILE *fp = popen(temp_strm.str().c_str(), "r");
+
+      if (fp == 0)
+      {
+         lock_cerr_mutex(); 
+         cerr << thread_ctr_str << "ERROR!  In `listen_non_auth':"
+              << endl
+              << "`popen' failed, returning NULL." << endl;
+
+         perror("popen error");
+
+         cerr << "Exiting thread function unsuccessfully with "
+              << "return value 0."
+              << endl;
+         unlock_cerr_mutex();
+
+         mysql_close(param->mysql_ptr); 
+
+         mysql_library_end();
+ 
+         delete param;
+         param = 0;
+
+         pthread_exit(0);
+
+      }
+      else if (DEBUG)
+      {
+         lock_cerr_mutex(); 
+         cerr << thread_ctr_str << "In `listen_non_auth':"
+              << endl
+              << "`popen' succeeded."
+              << endl; 
+         unlock_cerr_mutex();
+      } 
+
+      status = fread(buffer, 1, 256, fp);
+
+      if (status <= 0)
+      {
+
+         lock_cerr_mutex(); 
+         cerr << thread_ctr_str << "ERROR!  In `listen_non_auth':"
+              << endl
+              << "`fread' failed, returning " << status << endl;
+
+         perror("fread error");
+
+         cerr << "Exiting thread function unsuccessfully with "
+              << "return value 0."
+              << endl;
+         unlock_cerr_mutex();
+
+         mysql_close(param->mysql_ptr); 
+
+         mysql_library_end();
+ 
+         delete param;
+         param = 0;
+
+         pthread_exit(0);
+
+
+      }  /* |if (status <= 0)|  */
+
+      else if (status > 255)
+      {
+
+         lock_cerr_mutex(); 
+         cerr << thread_ctr_str << "ERROR!  In `listen_non_auth':"
+              << endl
+              << "`fread' read " << status << " (> 255) characters." 
+              << endl 
+              << "This isn't permitted."
+              << endl 
+              << "Exiting thread function unsuccessfully with "
+              << "return value 0."
+              << endl;
+         unlock_cerr_mutex();
+
+         mysql_close(param->mysql_ptr); 
+
+         mysql_library_end();
+ 
+         delete param;
+         param = 0;
+
+         pthread_exit(0);
+
+
+      }
+
+      else if (DEBUG)
+      {
+         lock_cerr_mutex(); 
+         cerr << thread_ctr_str << "In `listen_non_auth':"
+              << endl
+              << "`fread' succeeded.  Read " << status << " characters."
+              << endl
+              << "`buffer' == " 
+              << endl 
+              << buffer
+              << endl;
+         unlock_cerr_mutex();
+      } 
+
+      pclose(fp);
+      fp = 0;
+      temp_strm.str("");
+
+      buffer[8] = 0;
+
+@q ******* (7) @>
+@
+\LOG
+\initials{LDF 2012.03.21.}
+The socket file for the MySQL server is now |"/var/run/mysql/mysql.sock"|
+on \.{pcfinston.gwdg.de}.
+\ENDLOG
+
+@<Define |listen_non_auth|@>=
+
+      if (!mysql_real_connect(param->mysql_ptr, 0, "lfinsto", buffer, 0,0, NULL, 0))
+
+#else
+
+      if (!mysql_real_connect(param->mysql_ptr, 0, "root", 0, 0,0, 
+                              "/var/run/mysql/mysql.sock", 0))
+
+#endif 
+      {
+         lock_cerr_mutex(); 
+         cerr << thread_ctr_str << "ERROR!  In `listen_non_auth':"
+              << endl
+              << "`mysql_real_connect' failed.  "
+              << "Error:  " << mysql_error(param->mysql_ptr)
+              << endl 
+              << "Exiting thread function unsuccessfully with "
+              << "return value 0."
+              << endl;
+          unlock_cerr_mutex();
+
+          mysql_close(param->mysql_ptr); 
+
+          mysql_library_end();
+ 
+          delete param;
+          param = 0;
+
+          pthread_exit(0);
+
+      }
+      else if (DEBUG)
+      {
+         lock_cerr_mutex(); 
+         cerr << thread_ctr_str << "In `listen_non_auth':"
+              << endl
+              << "`mysql_real_connect' succeeded."
+              << endl; 
+         unlock_cerr_mutex();
+      } 
+
+@q ****** (6) Select ``dbsrvcli'' database.  @>
+
+@ Select ``dbsrvcli'' database.  
+\initials{LDF 2009.12.28.}
+
+@<Define |listen_non_auth|@>=
+
+
+      status = mysql_select_db(param->mysql_ptr, "dbsrvcli");
+
+      if (status == 0)
+      {
+        
+         if (DEBUG)
+         {
+            lock_cerr_mutex(); 
+            cerr << thread_ctr_str << "In `listen_non_auth':  "
+                 << "`mysql_select_db succeeded'."
+                 << endl;
+            unlock_cerr_mutex();
+
+         }  /* |if (DEBUG)|  */ 
+
+      }  /* |if (status == 0)| */
+
+      else /* |status != 0| */
+      {
+         lock_cerr_mutex(); 
+         cerr << thread_ctr_str << "In `listen_non_auth':  "
+              << "`mysql_select_db' failed, returning " << status 
+              << endl;
+         unlock_cerr_mutex();
+
+         mysql_close(param->mysql_ptr); 
+
+         mysql_library_end();
+ 
+         delete param;
+         param = 0;
+
+         pthread_exit(0);
+
+      }   /* |else| (|status != 0|) */
+
+
+@q ****** (6) Create new thread.  @>
+
+@ Create new thread.  
+\initials{LDF 2009.12.28.}
+
+@<Define |listen_non_auth|@>=#
+
+      status = pthread_create(&(param->thread_id),
+                            &attr, /* Attribute  */
+                            connect_func_non_auth, 
+                            static_cast<void*>(param));
+   
+
+@q ****** (6) End of main |accept| loop.  @>
+
+@ End of main |accept| loop.  
+\initials{LDF 2009.12.28.}
+
+@<Define |listen_non_auth|@>=
+
+
+   }  /* |for|  */
+
+
+@q ***** (5) Exit |listen_non_auth| successfully.  @>
+
+@ Exit |listen_non_auth| successfully.  
+\initials{LDF 2010.02.10.}
+
+@<Define |listen_non_auth|@>=
+
+   pthread_attr_destroy(&attr);
+
+   if (DEBUG)
+   {
+       lock_cerr_mutex(); 
+       cerr << thread_ctr_str 
+            << "*** Exiting `listen_non_auth' successfully with return value 0."
+            << endl;
+       unlock_cerr_mutex(); 
+
+   }  /* |if (DEBUG)|  */ 
+
+
+   close (listen_sd);
+
+   gnutls_anon_free_server_credentials (anoncred);
+
+#endif /* |HAVE_LIBMYSQLCLIENT|  */
+
+   pthread_exit(0);
+
+}  /* End of |listen_non_auth| definition  */
+
+
+@q *** (3) @>
+
+@q ** (2) Initialize |globus_site_map|.  @>
+
+@ Initialize \.{globus\_site\_map}.
+\initials{LDF 2011.11.16.}
+
+\LOG
+\initials{LDF 2011.11.16.}
+Added this function.
+
+\initials{LDF 2011.11.21.}
+Changed this code to account for having changed the type of |globus_site_map| 
+from |vector<string>| to |vector<pair<string, bool> >|.  The |bool| element is 
+|true| if the Globus site is ``enabled'' or |false| if ``disabled''.
+Currently, this is hard-coded.  @:TODO@> !! TODO:  Program a way of changing this 
+interactively, by means of a configuration file or some other way.
+
+\initials{LDF 2012.02.03.}
+Added argument |Scan_Parse_Parameter_Type *param|.  Now querying the database 
+for the information needed to initialize |globus_site_map|.
+
+\initials{LDF 2012.02.03.}
+Moved this function from \filename{glblfncs.web} to this file (\filename{lstnfncs.web}).
+|init_globus_site_map|  now reads the Globus site information from the database, 
+so |param->mysql_ptr| must be connected to the database server.  
+\ENDLOG 
+
+@q *** (3) Declaration  @>
+
+@<|init_globus_site_map| declaration@>=
+#if HAVE_LIBMYSQLCLIENT
+int
+init_globus_site_map(Scan_Parse_Parameter_Type *param);
+#endif 
+
+@q **** (4) Definition @>
+@
+@<|init_globus_site_map| definition@>=
+#if HAVE_LIBMYSQLCLIENT
+int
+init_globus_site_map(Scan_Parse_Parameter_Type *param)
+{
+@q ***** (5) @>
+
+    bool DEBUG = false;  /* |true|  */ 
+ 
+    int status;
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "Entering `init_globus_site_map'."
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */ 
+
+@q ***** (5) Query database for Globus site information.  @>
+
+@ Query database for Globus site information.  
+\initials{LDF 2012.02.03.}
+
+\LOG
+\initials{LDF 2012.02.03.}
+Added this section.  Previously, the Globus site information was hardcoded here.
+\ENDLOG
+
+@<|init_globus_site_map| definition@>=
+
+    MYSQL_RES* result;
+    MYSQL_ROW curr_row;
+
+    unsigned int row_ctr = 0;
+    unsigned int field_ctr = 0;
+
+    stringstream sql_strm;
+
+    sql_strm << "select hostname, enabled from Globus_Sites "
+             << "where globus_site_id > 0 order by globus_site_id";
+
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "In `init_globus_site_map':  `sql_strm.str()' == "
+             << endl
+             << sql_strm.str()
+             << endl;
+        unlock_cerr_mutex(); 
+    }  /* |if (DEBUG)|  */ 
+
+    status = param->submit_mysql_query(sql_strm.str(),
+                                       result, 
+                                       &row_ctr, 
+                                       &field_ctr);
+
+    if (status)
+    {
+        lock_cerr_mutex(); 
+        cerr << "ERROR!  In `init_globus_site_map':"
+             << endl 
+             << "`Scan_Parse_Parameter_Type::submit_mysql_query' failed, returning " 
+             << status << "."
+             << endl
+             << "Exiting function unsuccessfully with return value 1."
+             << endl;
+        unlock_cerr_mutex(); 
+
+       if (result) 
+          mysql_free_result(result);
+
+       return 1;
+
+    }  /* |if (status)|  */
+
+    else if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "In `init_globus_site_map':"
+             << endl 
+             << "`Scan_Parse_Parameter_Type::submit_mysql_query' succeeded."
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "In `init_globus_site_map':"
+             << endl 
+             << "row_ctr == " << row_ctr 
+             << endl
+             << "field_ctr == " << field_ctr 
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */
+
+@q ***** (5) |row_ctr == 0|.  @>
+
+@ |row_ctr == 0|.  
+\initials{LDF 2012.02.03.}
+
+@<|init_globus_site_map| definition@>=
+
+    if (row_ctr ==  0)
+    {
+         lock_cerr_mutex();
+         cerr << "WARNING!  In `init_globus_site_map':"
+              << endl 
+              << "`Scan_Parse_Parameter_Type::submit_mysql_query' returned no rows."
+              << endl 
+              << "No Globus site information found."
+              << endl 
+              << "Exiting function with return value 1."
+              << endl;
+         unlock_cerr_mutex(); 
+
+         mysql_free_result(result);        
+
+         return 1;
+
+    } /* |if (row_ctr ==  0)| */
+
+@q ***** (5) Found Globus site info in \.{Globus\_Sites} database table.  @>
+
+@ Found Globus site info in \.{Globus\_Sites} database table.
+\initials{LDF 2012.02.03.}
+
+@<|init_globus_site_map| definition@>=
+
+    else /* |row_ctr >  0| */
+    {
+@q ****** (6) @>
+
+        int curr_enabled;
+
+        for (int i = 0; i < row_ctr; ++i)
+        {
+@q ******* (7) @>
+
+             curr_row = mysql_fetch_row(result);
+
+             if (curr_row == 0)
+             {
+                lock_cerr_mutex(); 
+                cerr << "ERROR!  In `init_globus_site_map':"
+                     << endl 
+                     << "`mysql_fetch_row' failed:"
+                     << endl
+                     << mysql_error(param->mysql_ptr)
+                     << endl 
+                     << "Exiting function unsuccessfully with return value 1."
+                     << endl;
+                unlock_cerr_mutex(); 
+
+                if (result)
+                   mysql_free_result(result);
+
+                return 1;
+
+             }  /* |if (curr_row == 0)|  */
+
+@q ******* (7) @>
+
+             if (DEBUG)
+             {
+                 lock_cerr_mutex(); 
+                 cerr << "In `init_globus_site_map':"
+                      << endl;
+
+                 if (curr_row[0])
+                    cerr << "`curr_row[0]' == " << curr_row[0]
+                         << endl;
+                 else
+                    cerr << "`curr_row[0]' is NULL." << endl;
+
+                 if (curr_row[1])
+                    cerr << "`curr_row[1]' == " << curr_row[1]
+                         << endl;
+                 else
+                    cerr << "`curr_row[1]' is NULL." << endl;
+
+
+                 unlock_cerr_mutex(); 
+
+             }  /* |if (DEBUG)|  */
+
+@q ******* (7) @>
+
+             if (curr_row[0] && strlen(curr_row[0]) > 0 && strlen(curr_row[0]) < 128)
+             {
+@q ******** (8) @>
+                 if (curr_row[1] && strlen(curr_row[1]) > 0)
+                 {
+@q ********* (9) @>
+                    status = sscanf(curr_row[1], "%d", &curr_enabled);
+
+                    if (status != 1)
+                    {
+                         lock_cerr_mutex(); 
+                         cerr << "WARNING!  In `init_globus_site_map':"
+                              << endl 
+                              << "`sscanf' failed, returning " << status << "."
+                              << endl;
+
+                         if (status == EOF)
+                             perror("sscanf error");
+
+                         cerr << "Can't add information for Globus site `" 
+                              << curr_row[0] << "' "
+                              << "to `globus_site_map'."
+                              << endl 
+                              << "Will try to continue."
+                              << endl;
+                         unlock_cerr_mutex(); 
+
+                         continue;
+
+                    }  /* |if (status != 1)|  */
+
+@q ********* (9) @>
+
+                    else
+                    {
+@q ********** (10) @>
+                         globus_site_map[string(curr_row[0])] 
+                            = static_cast<bool>(curr_enabled); 
+
+                         if (DEBUG)
+                         {
+                              lock_cerr_mutex(); 
+                              cerr << "In `init_globus_site_map':"
+                                   << endl 
+                                   << "Added item to `globus_site_map':  " 
+                                   << curr_row[0] << " : " << curr_enabled
+                                   << endl;
+                              unlock_cerr_mutex(); 
+ 
+                         }  /* |if (DEBUG)|  */   
+
+@q ********** (10) @>
+
+                    }  /* |else| (Success)  */
+
+@q ********* (9) @>
+                     
+                 }  /* |if (curr_row[1] && strlen(curr_row[1]) > 0)|  */
+             
+@q ******** (8) @>
+
+                 else /* |curr_row[1] == 0 || strlen(curr_row[1]) == 0|  */
+                 {
+                             lock_cerr_mutex(); 
+                             cerr << "WARNING!  In `init_globus_site_map':"
+                                  << endl;
+
+                             if (curr_row[1] == 0)
+                                 cerr << "`curr_row[1]' == 0." << endl;
+                             else
+                                 cerr << "`strlen(curr_row[1])' == 0." << endl;
+
+                             cerr << "Not adding item to `globus_site_map'."
+                                  << endl 
+                                  << "Will try to continue."
+                                  << endl;
+                             unlock_cerr_mutex(); 
+                             
+                             continue;
+
+                 }  /* |else|  */
+
+@q ******** (8) @>
+
+             }  /* |if (curr_row[0] && strlen(curr_row[0]) > 0) && strlen(curr_row[0]) < 128|  */
+
+@q ******* (7) @>
+
+             else /*    |curr_row[0] == 0 || strlen(curr_row[0]) == 0 
+                     || strlen(curr_row[0]) >= 128|  */
+             {
+                         lock_cerr_mutex(); 
+                         cerr << "WARNING!  In `init_globus_site_map':"
+                              << endl;
+
+                         if (curr_row[0] == 0)
+                             cerr << "`curr_row[0]' == 0." << endl;
+                         else if (strlen(curr_row[0]) == 0)
+                             cerr << "`strlen(curr_row[0])' == 0." << endl;
+                         else if (strlen(curr_row[0]) >= 128)
+                             cerr << "`strlen(curr_row[0])' == " 
+                                  <<  strlen(curr_row[0]) << "."
+                                  << endl;
+
+                         cerr << "Not adding item to `globus_site_map'."
+                              << endl 
+                              << "Will try to continue."
+                              << endl;
+                         unlock_cerr_mutex(); 
+
+                        continue;
+
+             }  /* |else|  */
+
+
+@q ******* (7) @>
+
+
+        }  /* |for|  */
+
+        if (DEBUG)
+        {
+
+           lock_cerr_mutex(); 
+           cerr << "globus_site_map.size() == " << globus_site_map.size() << endl;
+
+           for (map<string, bool>::const_iterator iter = globus_site_map.begin();
+                iter != globus_site_map.end();
+                ++iter)
+           {
+               cerr << "iter->first == " << iter->first << endl
+                    << "iter->second == " << iter->second << endl;
+
+           }
+
+           unlock_cerr_mutex(); 
+
+        }  /* |if (DEBUG)|  */ 
+
+@q ****** (6) @>
+
+    }        /* |else| (|row_ctr >  0|) */
+
+@q ***** (5) @>
+@
+@<|init_globus_site_map| definition@>=
+
+    if (DEBUG)
+    {
+        lock_cerr_mutex(); 
+        cerr << "Exiting `init_globus_site_map' successfully with return value 0."
+             << endl;
+        unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */ 
+
+    return 0;
+
+}  /* End of |init_globus_site_map| definition  */
+
+#endif  /* |HAVE_LIBMYSQLCLIENT|  */
+
+@q ** (2) Putting `lstnfncs.web' together.  @>
+
+@ Putting {\tt lstnfncs\PERIOD web} together.
+
+@q *** (3) This is what's compiled.  @>
+
+@ This is what's compiled.
+\initials{LDF 2010.02.10.}
+
+@c
+@<Include files@>@;@/
+using namespace std;
+@<Version control identifier@>@;@/
+@<Preprocessor macro definitions@>@;@/
+@<File-local variables@>@;@/
+@<Declare |listen_auth|@>@;@/
+@<Declare |listen_non_auth|@>@;@/
+@<|init_globus_site_map| declaration@>@;@/
+@<Define |listen_auth|@>@;@/
+@<Define |listen_non_auth|@>@;@/
+@<|init_globus_site_map| definition@>@;@/
+
+@q *** (3) This is what's written to the header file `lstnfncs.h++'.  @>
+
+@ This is what's written to the header file \filename{lstnfncs.h++}.
+\initials{LDF 2010.02.10.}
+
+@
+@(lstnfncs.h@>=
+#ifndef LSTNFNCS_H
+#define LSTNFNCS_H 1
+using namespace std;
+@<Declare |listen_auth|@>@;@/
+@<Declare |listen_non_auth|@>@;@/
+@<|init_globus_site_map| declaration@>@;@/
+#endif 
+
+@q * (1) Emacs-Lisp code for use in indirect buffers  @>
+
+@q (progn (cweb-mode) (outline-minor-mode))     @>
+
+@q * (1) Local variables for Emacs @>
+
+@q * Local variables for Emacs.@>
+@q Local Variables: @>
+@q mode:CWEB @>
+@q eval:(display-time) @>
+@q abbrev-mode:t @>
+@q eval:(read-abbrev-file) @>
+@q indent-tabs-mode:nil @>
+@q eval:(outline-minor-mode) @>
+@q fill-column:80 @>
+@q End: @>

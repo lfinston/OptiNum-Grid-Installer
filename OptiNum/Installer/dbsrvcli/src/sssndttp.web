@@ -1,0 +1,381 @@
+@q sssndttp.web@>
+@q Created by Laurence D. Finston (LDF) Tue Jan  3 18:37:37 CET 2012  @>
+
+@q * (1) Top @>
+
+@q * (1) Copyright and License.@>
+
+@q This file is part of the OptiNum Grid Installer @>
+@q Copyright (C) 2010, 2011, 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen @>
+
+@q The OptiNum Grid Installer is free software; you can redistribute it and/or modify @>
+@q it under the terms of the GNU General Public License as published by @>
+@q the Free Software Foundation; either version 3 of the License, or @>
+@q (at your option) any later version.  @>
+
+@q The OptiNum Grid Installer is distributed in the hope that it will be useful, @>
+@q but WITHOUT ANY WARRANTY; without even the implied warranty of @>
+@q MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the @>
+@q GNU General Public License for more details.  @>
+
+@q You should have received a copy of the GNU General Public License          @>
+@q along with the OptiNum Grid Installer; if not, write to the Free Software                    @>
+@q Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA @>
+
+@q ("@@" stands for a single at-sign in the following paragraph.) @>
+
+@q Please send bug reports to Laurence.Finston@@gwdg.de@>
+
+@q Laurence D. Finston                                                   @>
+@q Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen  @>
+@q Am Fassberg 11         					         @>
+@q 37077 Goettingen              					 @>
+@q Germany                           					 @>                                
+
+@q Laurence.Finston@@gwdg.de (@@ stands for a single "at" sign.)@>
+
+@q ** (2)  Session_Data_Type  @>
+@* \.{Session\_Data\_Type}.
+\initials{LDF 2012.01.03.}
+
+\LOG
+\initials{LDF 2012.01.03.}
+Created this file.
+\ENDLOG
+
+@q ** (2) Include files  @>
+
+@ Include files.
+
+@<Include files@>=
+#include <stdlib.h>
+#include <stdio.h>
+#include <fstream>
+
+#include <gnutls/gnutls.h>
+#include <gnutls/x509.h>
+
+#include <algorithm>
+#include <iomanip>
+#include <ios>
+#include <iostream>
+#include <limits.h>
+#include <map>
+#include <string>
+#include <time.h>
+#include <math.h>
+#include <sstream>   
+#include <pthread.h>
+
+#include <set>
+#include <vector>
+#include <deque>
+
+#if HAVE_CONFIG_H
+# include <config.h>
+#endif
+
+#if IS_ROCKS_GOEGRID
+#undef HAVE_LIBMYSQLCLIENT
+#endif 
+
+#if HAVE_LIBMYSQLCLIENT
+#include <mysql.h>
+#endif 
+
+using namespace std;
+
+#include "dstngnmt.h++"
+#include "glblvrbl.h++"
+#include "glblfncs.h++"
+
+#include "parser.h++"
+#include "scanner.h++"
+
+#include "rspnstp.h++"
+#include "glsinftp.h++"
+#include "scprpmtp.h++"
+#include "utilfncs.h++"
+
+#ifndef _XOPEN_SOURCE
+#define _XOPEN_SOURCE
+#endif 
+
+@q ** (2) class Session_Data_Type.  @>
+@ {\bf class Session\_Data\_Type}.
+\initials{LDF 2012.01.03.}
+
+\LOG
+\initials{LDF 2012.01.03.}
+Added this |struct| declaration.
+
+\initials{LDF 2012.02.14.}
+Changed |Session_Data_Type| from a |struct| to a |class|.
+Added |friend| declaration for |class Scan_Parse_Parameter_Type|.
+\ENDLOG
+
+@<|class Session_Data_Type| declaration@>=
+
+class Session_Data_Type
+{
+
+    friend class Scan_Parse_Parameter_Type;
+
+    string session_id;
+
+
+    @<|Session_Data_Type| function declarations@>@;
+   
+};
+
+@q ** (2) |Session_Data_Type| functions.  @>
+@ {\bf Session\_Data\_Type} functions.
+\initials{LDF 2012.01.03.}
+
+\LOG
+\initials{LDF 2012.01.03.}
+Added this section.
+\ENDLOG
+
+@q *** (3) Constructors.  @>
+@ Constructors.
+\initials{LDF 2012.01.03.}
+
+\LOG
+\initials{LDF 2012.01.03.}
+Added this section.
+\ENDLOG
+
+@q **** (4) Default constructor.  @>
+@ Default constructor.
+\initials{LDF 2012.01.03.}
+
+\LOG
+\initials{LDF 2012.01.03.}
+Added this function.
+\ENDLOG
+
+@<|Session_Data_Type| function declarations@>=
+Session_Data_Type(void);
+
+@
+@<|Session_Data_Type| function definitions@>=
+Session_Data_Type::Session_Data_Type(void)
+{
+
+    return;
+
+}  /* End of |Session_Data_Type::Session_Data_Type(void)| definition  */
+
+
+@q **** (4) Constructor with |string| argument.  @>
+@ Constructor with |string| argument. 
+\initials{LDF 2012.01.03.}
+
+\LOG
+\initials{LDF 2012.01.03.}
+Added this function.
+\ENDLOG
+
+@<|Session_Data_Type| function declarations@>=
+Session_Data_Type(string s);
+
+@
+@<|Session_Data_Type| function definitions@>=
+Session_Data_Type::Session_Data_Type(string s)
+{
+
+    session_id = s;
+
+    return;
+
+}  /* End of |Session_Data_Type::Session_Data_Type(string, string)| definition  */
+
+@q **** (4) Copy constructor.  @>
+@ Copy constructor.
+\initials{LDF 2012.01.03.}
+
+\LOG
+\initials{LDF 2012.01.03.}
+Added this function.
+\ENDLOG
+
+
+@q ***** (5) Declaration  @>
+
+@<|Session_Data_Type| function declarations@>=
+
+Session_Data_Type(const Session_Data_Type& s);
+
+@q ***** (5) Definition  @>
+@
+@<|Session_Data_Type| function definitions@>=
+Session_Data_Type::Session_Data_Type(const Session_Data_Type& s)
+{
+
+    bool DEBUG = false;  /* |true|  */
+    set_debug_level(DEBUG);
+
+    if (DEBUG)
+    {
+       lock_cerr_mutex(); 
+       cerr << "Entering `Session_Data_Type' copy constructor." << endl;
+       unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */ 
+
+   *this = s;
+
+   return;
+}
+
+
+@q *** (3) Destructor.  @>
+@ Destructor.
+\initials{LDF 2012.01.03.}
+
+\LOG
+\initials{LDF 2012.01.03.}
+Added this function.
+\ENDLOG
+
+@<|Session_Data_Type| function declarations@>=
+~Session_Data_Type(void);
+
+@
+@<|Session_Data_Type| function definitions@>=
+Session_Data_Type::~Session_Data_Type(void)
+{
+
+    return;
+
+}  /* End of |Session_Data_Type| destructor definition  */
+
+@q *** (3) Operators.  @>
+@ Operators.
+\initials{LDF 2012.01.03.}
+
+\LOG
+\initials{LDF 2012.01.03.}
+Added this section.
+\ENDLOG
+
+@q **** (4) Assignment operator.  @>
+@ Assignment operator.
+\initials{LDF 2012.01.03.}
+
+\LOG
+\initials{LDF 2012.01.03.}
+Added this function.
+\ENDLOG
+
+@q ***** (5) Declaration  @>
+
+@<|Session_Data_Type| function declarations@>=
+
+const Session_Data_Type&
+operator=(const Session_Data_Type& s);
+
+@q ***** (5) Definition  @>
+@
+@<|Session_Data_Type| function definitions@>=
+const Session_Data_Type&
+Session_Data_Type::operator=(const Session_Data_Type& s)
+{
+
+    bool DEBUG = false;  /* |true|  */
+    set_debug_level(DEBUG);
+
+    if (DEBUG)
+    {
+       lock_cerr_mutex(); 
+       cerr << "Entering `Session_Data_Type' assignment operator." << endl;
+       unlock_cerr_mutex(); 
+
+    }  /* |if (DEBUG)|  */ 
+   
+    
+    return s;
+
+}  /* End of |Session_Data_Type::operator=(const Session_Data_Type e)| definition  */
+
+@q *** (3) Show.  @>
+@ Show.
+\initials{LDF 2012.01.03.}
+
+\LOG
+\initials{LDF 2012.01.03.}
+Added this function.
+\ENDLOG
+
+@<|Session_Data_Type| function declarations@>=
+int
+show(string s = "", Scan_Parse_Parameter_Type* param = 0) const;
+
+@
+@<|Session_Data_Type| function definitions@>=
+int
+Session_Data_Type::show(string s, Scan_Parse_Parameter_Type* param) const
+{
+
+   if (s != "")
+      cerr << s;
+   else 
+      cerr << "Showing `Session_Data_Type':";
+   cerr << endl;
+
+   cerr << "session_id:  "                      << session_id
+        << endl;
+
+    return 0;
+
+}  /* End of |Session_Data_Type::show| definition  */
+
+
+@q ** (2) Putting `sssndttp.web' together.  @>
+
+@ Putting {\tt sssndttp\PERIOD web} together.
+
+@q *** (3) This is what's compiled.  @>
+
+This is what's compiled.  
+\initials{LDF 2012.01.03.}
+
+@c
+@<Include files@>@;@/
+@<|class Session_Data_Type| declaration@>@;@/
+@<|Session_Data_Type| function definitions@>@;@/
+
+@q *** (3) This is what's written to the header file.  @>
+
+@ This is what's written to the header file.  
+\initials{LDF 2012.01.03.}
+
+@(sssndttp.h@>=
+#ifndef SSSNDTTP_H
+#define SSSNDTTP_H 1
+using namespace std;
+@<|class Session_Data_Type| declaration@>@;@/
+#endif 
+
+@q * (1) Emacs-Lisp code for use in indirect buffers  @>
+
+@q (progn (cweb-mode) (outline-minor-mode) (abbrev-mode t))           @>
+
+@q * (1) Local variables for Emacs @>
+
+@q Local Variables: @>
+@q mode:CWEB @>
+@q eval:(display-time) @>
+@q abbrev-mode: t @>
+@q eval:(read-abbrev-file) @>
+@q indent-tabs-mode:nil @>
+@q eval:(outline-minor-mode) @>
+@q fill-column:80 @>
+@q End: @>
+
+
+
+
+
+

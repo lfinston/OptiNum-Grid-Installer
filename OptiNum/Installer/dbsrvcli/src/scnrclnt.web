@@ -1,0 +1,2859 @@
+@q scnrclnt.web                                                 @>
+@q Created by Laurence D. Finston  Mon Jan 11 11:05:50 CET 2010 @>
+
+@q * (1) Top @>
+
+@q * (1) Copyright and License.@>
+
+@q This file is part of the OptiNum Grid Installer @>
+@q Copyright (C) 2010, 2011, 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen @>
+
+@q The OptiNum Grid Installer is free software; you can redistribute it and/or modify @>
+@q it under the terms of the GNU General Public License as published by @>
+@q the Free Software Foundation; either version 3 of the License, or @>
+@q (at your option) any later version.  @>
+
+@q The OptiNum Grid Installer is distributed in the hope that it will be useful, @>
+@q but WITHOUT ANY WARRANTY; without even the implied warranty of @>
+@q MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the @>
+@q GNU General Public License for more details.  @>
+
+@q You should have received a copy of the GNU General Public License          @>
+@q along with the OptiNum Grid Installer; if not, write to the Free Software                    @>
+@q Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA @>
+
+@q ("@@" stands for a single at-sign in the following paragraph.) @>
+
+@q Please send bug reports to Laurence.Finston@@gwdg.de@>
+
+@q Laurence D. Finston                                                   @>
+@q Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen  @>
+@q Am Fassberg 11         					         @>
+@q 37077 Goettingen              					 @>
+@q Germany                           					 @>                                
+
+@q Laurence.Finston@@gwdg.de (@@ stands for a single "at" sign.)@>
+
+@q  * (1) Scanner for Client.  @>
+@* Client Scanner.
+\initials{LDF Undated.}
+
+Some of the code in this file has been take from the GNU 3DLDF project.  
+The copyright for this code is owned by the Free Software Foundation.
+\initials{LDF 2010.01.11.}
+
+@ Version control identifier.
+
+@<Version control identifier@>=
+static char version_control_id[] 
+   = "$Id: scnrclnt.web 8416 2012-07-30 07:57:02Z finston $";
+
+@
+@<Include files@>=
+
+#include <stdlib.h>
+#include <stdio.h>
+#include <fstream>
+#include <getopt.h> 
+#include <iomanip>
+#include <ios>
+#include <iostream>
+#include <map>
+#include <string>
+#include <time.h>
+#include <math.h>
+#include <sstream>   
+
+#include <set>
+#include <vector>
+#include <deque>
+
+#include <gcrypt.h> /* for |gcry_control| */
+#include <gnutls/gnutls.h>
+
+#if HAVE_CONFIG_H
+# include <config.h>
+#endif
+
+#if IS_ROCKS_GOEGRID
+#undef HAVE_LIBMYSQLCLIENT
+#endif 
+
+#if HAVE_LIBMYSQLCLIENT
+#include <mysql.h>
+#endif 
+
+#include "entries.h++"
+#include "dstngnmt.h++"
+#include "glblvrbl.h++"
+#include "glblfncs.h++"
+#include "prsrclnt.h++"
+#include "rspnstp.h++"
+#include "glsinftp.h++"
+#include "scprpmtp.h++"
+#include "utilfncs.h++"
+
+@q ** (2) Define |YY_INPUT|.  @>
+@ Define {\tt YY\_INPUT}.  
+\initials{LDF 2008.09.08.}
+
+\LOG
+\initials{LDF 2008.09.08.}
+Added this macro definition.  It's needed if the function |open_or_terminate| 
+is used.  |open_or_terminate| is defined in \filename{procfncs.web}.
+
+\initials{LDF 2010.03.05.}
+Commented-out this macro definition.
+\ENDLOG
+
+@<Define |YY_INPUT|@>=
+
+#if 0 
+
+#define YY_INPUT(buf,result,max_size) \
+    { \
+    signed char c = (signed char) fgetc(yyin); \
+    result = (c == EOF) ? YY_NULL : (buf[0] = c, 1); \
+    }
+
+#endif 
+
+@q  ** (2) Start conditions.  @>
+@ Start conditions.
+
+@<Start conditions@>=
+
+@q  ** (2) Options.  @>
+@ Options.
+
+@<Options@>=
+@=%option header-file="scnrclnt.h++"@>
+@=%option bison-bridge@>
+@=%option reentrant@>
+@=%option prefix="zz"@>
+
+@q ** (2) Name definitions.  @>
+@ Name definitions.  
+@<Name definitions@>=
+
+
+@q  * (1) Local variables for |zzlex|.  @>
+@ Local variables for {\bf zzlex}.
+\initials{LDF Undated.}
+
+|scanner_trace| is |false| per default.  It can be set to |true| using the (synonymous)
+command-line options \.{flex-trace} and \.{scanner\_trace}.
+\initials{LDF 2012.05.15.}
+
+\LOG
+\initials{LDF 2012.05.15.}
+Now setting |SCANNER_DEBUG = scanner_trace|.
+\ENDLOG 
+
+@<Local variables for |zzlex|@>=
+
+bool SCANNER_DEBUG = scanner_trace;  
+
+@q ** (2) Code to be executed each time |zzlex| is entered.  @>
+
+@ Code to be executed each time {\bf zzlex} is entered.
+
+@<Execute on entry to |zzlex|@>=
+
+
+@= Scan_Parse_Parameter_Type* param = static_cast<Scan_Parse_Parameter_Type*>(yyextra); @>
+
+@= set_debug_level(SCANNER_DEBUG);@>@/
+
+@q  ** (2) Rules.  @>
+@ Rules.
+
+@q *** (3) Punctuation.  @>
+
+@ Punctuation.
+
+@q *** (3) Whitespace.  @>
+@ Whitespace.
+
+@<Rules@>=
+@=[[:space:]]+ {@>
+
+#if 0 
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << endl << "In `zzlex':  Whitespace" << endl;
+      
+   }
+#endif 
+
+@=}@>
+
+@q *** (3) Delimited whitespace 1 (<>).  @>
+@ Delimited whitespace 1 ($\langle\rangle$).
+\initials{LDF 2010.02.12.}
+
+\LOG
+\initials{LDF 2010.02.12.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=\<[[:space:]]*\> {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << endl 
+           << "In `zzlex':  Delimited whitespace 1 (<>)." << endl;
+      
+   }
+
+   /* Ignore  */
+
+@=}@>
+
+@q *** (3) Delimited whitespace 2 ("").  @>
+@ Delimited whitespace 2 (\.{""}).
+\initials{LDF 2010.02.12.}
+
+\LOG
+\initials{LDF 2010.02.12.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=\"[[:space:]]*\" {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << endl 
+           << "In `zzlex':  Delimited whitespace 2 (\"\")." 
+           << endl;
+      
+   }
+
+   /* Ignore  */
+
+@=}@>
+
+@q *** (3) Comments.  @>
+@ Comments.  
+
+\LOG
+\initials{LDF 2008.07.14.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=#.*$ {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  Comment" << endl;
+      
+   }
+
+
+@=}@>
+
+@q *** (3) END.  @>
+@ END.
+
+@<Rules@>=
+@=END {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  END" << endl;
+      
+   }
+
+   return END_ZZ;
+
+@=}@>
+
+
+@q *** (3) SEND.  @>
+@ SEND.
+
+@<Rules@>=
+@=SEND {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  SEND" << endl;
+      
+   }
+
+   return SEND_ZZ;
+
+@=}@>
+
+
+@q *** (3) GET.  @>
+@ GET.
+\initials{LDF 2011.11.03.}
+
+\LOG
+\initials{LDF 2011.11.03.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=GET {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  GET" << endl;
+      
+   }
+
+   return GET_ZZ;
+
+@=}@>
+
+
+@q *** (3) SERVER.  @>
+@ {\bf SERVER}.
+\initials{LDF 2010.01.21.}
+
+\LOG
+\initials{LDF 2010.01.21.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=SERVER {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  SERVER" << endl;
+      
+   }
+
+   return SERVER_ZZ;
+
+@=}@>
+
+@q *** (3) PARSE.  @>
+@ {\bf PARSE}.
+\initials{LDF 2010.04.16.}
+
+\LOG
+\initials{LDF 2010.04.16.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=PARSE {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  PARSE" << endl;
+      
+   }
+
+   return PARSE_ZZ;
+
+@=}@>
+
+
+
+@q *** (3) ERROR.  @>
+@ {\bf ERROR}.
+\initials{LDF 2010.04.16.}
+
+\LOG
+\initials{LDF 2010.04.16.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=ERROR {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  ERROR" << endl;
+      
+   }
+
+   return ERROR_ZZ;
+
+@=}@>
+
+@q *** (3) SENDING.  @>
+@ {\bf SENDING}.
+
+@<Rules@>=
+@=SENDING {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  SENDING" << endl;
+      
+   }
+
+   return SENDING_ZZ;
+
+@=}@>
+
+@q *** (3) INSTALLATION_SCRIPT.  @>
+
+@ \.{INSTALLATION\_SCRIPT}.
+\initials{LDF 2010.01.12.}
+
+\LOG
+\initials{LDF 2010.01.12.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=INSTALLATION_SCRIPT {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  INSTALLATION_SCRIPT" 
+           << endl
+           << "Returning `INSTALLATION_SCRIPT_ZZ'." 
+           << endl;
+      
+   } /* |if (SCANNER_DEBUG)| */
+
+   return INSTALLATION_SCRIPT_ZZ;
+
+@=}@>
+
+
+@q *** (3) INSTALLATION_SCRIPT_ENCRYPTED.  @>
+
+@ \.{INSTALLATION\_SCRIPT\_ENCRYPTED}.
+\initials{LDF 2011.03.31.}
+
+\LOG
+\initials{LDF 2011.03.31.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=INSTALLATION_SCRIPT_ENCRYPTED {@>
+
+   if (SCANNER_DEBUG)
+   {
+      cerr << "In `zzlex':  INSTALLATION_SCRIPT_ENCRYPTED" 
+           << endl
+           << "Returning `INSTALLATION_SCRIPT_ENCRYPTED_ZZ'." 
+           << endl;
+      
+   } /* |if (SCANNER_DEBUG)| */
+
+   return INSTALLATION_SCRIPT_ENCRYPTED_ZZ;
+
+@=}@>
+
+@q *** (3) DOWNLOAD_URL.  @>
+
+@ \.{DOWNLOAD\_URL}.
+\initials{LDF 2010.02.02.}
+
+\LOG
+\initials{LDF 2010.02.02.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=DOWNLOAD_URL {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  DOWNLOAD_URL" 
+           << endl
+           << "Returning `DOWNLOAD_URL_ZZ'." 
+           << endl;
+      
+   } /* |if (SCANNER_DEBUG)| */
+
+   return DOWNLOAD_URL_ZZ;
+
+@=}@>
+
+@q *** (3) DOWNLOAD_URL_ENCRYPTED.  @>
+
+@ \.{DOWNLOAD\_URL\_ENCRYPTED}.
+\initials{LDF 2011.02.04.}
+
+\LOG
+\initials{LDF 2011.02.04.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=DOWNLOAD_URL_ENCRYPTED {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  DOWNLOAD_URL_ENCRYPTED" 
+           << endl
+           << "Returning `DOWNLOAD_URL_ENCRYPTED_ZZ'." 
+           << endl;
+      
+   } /* |if (SCANNER_DEBUG)| */
+
+   return DOWNLOAD_URL_ENCRYPTED_ZZ;
+
+@=}@>
+
+@q *** (3) DOWNLOAD_INFO.  @>
+
+@ \.{DOWNLOAD\_INFO}.
+\initials{LDF 2010.04.15.}
+
+\LOG
+\initials{LDF 2010.04.15.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=DOWNLOAD_INFO {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  DOWNLOAD_INFO" 
+           << endl
+           << "Returning `DOWNLOAD_INFO_ZZ'." 
+           << endl;
+      
+   } /* |if (SCANNER_DEBUG)| */
+
+   return DOWNLOAD_INFO_ZZ;
+
+@=}@>
+
+
+@q *** (3) DOWNLOAD_COMMAND.  @>
+
+@ \.{DOWNLOAD\_COMMAND}.
+\initials{LDF 2010.03.26.}
+
+\LOG
+\initials{LDF 2010.03.26.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=DOWNLOAD_COMMAND {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  DOWNLOAD_COMMAND" 
+           << endl
+           << "Returning `DOWNLOAD_COMMAND_ZZ'." 
+           << endl;
+      
+   } /* |if (SCANNER_DEBUG)| */
+
+   return DOWNLOAD_COMMAND_ZZ;
+
+@=}@>
+
+@q *** (3) DOWNLOAD_COMMAND_ENCRYPTED.  @>
+
+@ \.{DOWNLOAD\_COMMAND\_ENCRYPTED}.
+\initials{LDF 2011.02.04.}
+
+\LOG
+\initials{LDF 2011.02.04.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=DOWNLOAD_COMMAND_ENCRYPTED {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  DOWNLOAD_COMMAND_ENCRYPTED" 
+           << endl
+           << "Returning `DOWNLOAD_COMMAND_ENCRYPTED_ZZ'." 
+           << endl;
+      
+   } /* |if (SCANNER_DEBUG)| */
+
+   return DOWNLOAD_COMMAND_ENCRYPTED_ZZ;
+
+@=}@>
+
+@q *** (3) AUTHORIZATION.  @>
+@ AUTHORIZATION.
+\initials{LDF 2011.05.06.}
+
+\LOG
+\initials{LDF 2011.05.06.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=AUTHORIZATION {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  AUTHORIZATION." << endl
+           << "Returning `AUTHORIZATION_ZZ'."
+           << endl;
+   }
+
+   return AUTHORIZATION_ZZ;
+
+@=}@>
+
+@q *** (3) ORDER.  @>
+
+@ \.{ORDER}.
+\initials{LDF 2010.03.05.}
+
+\LOG
+\initials{LDF 2010.03.05.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=ORDER {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  ORDER" 
+           << endl
+           << "Returning `ORDER_ZZ'." 
+           << endl;
+      
+   } /* |if (SCANNER_DEBUG)| */
+
+   return ORDER_ZZ;
+
+@=}@>
+
+
+@q *** (3) PREREQUISITE.  @>
+
+@ \.{PREREQUISITE}.
+\initials{LDF 2010.03.15.}
+
+\LOG
+\initials{LDF 2010.03.15.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=PREREQUISITE {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  PREREQUISITE" 
+           << endl
+           << "Returning `PREREQUISITE_ZZ'." 
+           << endl;
+      
+   } /* |if (SCANNER_DEBUG)| */
+
+   return PREREQUISITE_ZZ;
+
+@=}@>
+
+@q *** (3) PREREQUISITES.  @>
+
+@ \.{PREREQUISITES}.
+\initials{LDF 2010.03.04.}
+
+\LOG
+\initials{LDF 2010.03.04.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=PREREQUISITES {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  PREREQUISITES" 
+           << endl
+           << "Returning `PREREQUISITES_ZZ'." 
+           << endl;
+      
+   } /* |if (SCANNER_DEBUG)| */
+
+   return PREREQUISITES_ZZ;
+
+@=}@>
+
+@q *** (3) FOR.  @>
+@ FOR.
+
+@<Rules@>=
+@=FOR {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  FOR" << endl;
+      
+   }
+
+   return FOR_ZZ;
+
+@=}@>
+
+@q *** (3) FROM.  @>
+@ FROM.
+\initials{LDF 2011.12.16.}
+
+\LOG
+\initials{LDF 2011.12.16.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=FROM {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  FROM" << endl;
+      
+   }
+
+   return FROM_ZZ;
+
+@=}@>
+
+
+@q *** (3) TO.  @>
+@ TO.
+\initials{LDF 2010.03.15.}
+
+\LOG
+\initials{LDF 2010.03.15.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=TO {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  TO" << endl;
+      
+   }
+
+   return TO_ZZ;
+
+@=}@>
+
+
+@q *** (3) ENTRY.  @>
+@ ENTRY.
+
+@<Rules@>=
+@=ENTRY {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  ENTRY" << endl;
+      
+   }
+
+   return ENTRY_ZZ;
+
+@=}@>
+
+@q *** (3) ENTRIES.  @>
+@ ENTRIES.
+\initials{LDF 2010.05.21.}
+
+\LOG
+\initials{LDF 2010.05.21.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=ENTRIES {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  ENTRIES" << endl;
+      
+   }
+
+   return ENTRIES_ZZ;
+
+@=}@>
+
+
+@q *** (3) CERTIFICATE.  @>
+@ CERTIFICATE.
+\initials{LDF 2010.10.27.}
+
+\LOG
+\initials{LDF 2010.10.27.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=CERTIFICATE {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  CERTIFICATE" << endl;
+      
+   }
+
+   return CERTIFICATE_ZZ;
+
+@=}@>
+
+
+@q *** (3) CERTIFICATES.  @>
+@ CERTIFICATES.
+\initials{LDF 2010.10.27.}
+
+\LOG
+\initials{LDF 2010.10.27.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=CERTIFICATES {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  CERTIFICATES" << endl;
+      
+   }
+
+   return CERTIFICATES_ZZ;
+
+@=}@>
+
+
+@q *** (3) PROXY_CREDENTIAL.  @>
+@ PROXY\_CREDENTIAL.
+\initials{LDF 2011.09.26.}
+
+\LOG
+\initials{LDF 2011.09.26.}
+Added this rule.
+
+\initials{LDF 2012.05.15.}
+Changed ``CERTIFICATE'' to ``CREDENTIAL''.
+\ENDLOG
+
+@<Rules@>=
+@=PROXY_CREDENTIAL {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  PROXY_CREDENTIAL" << endl;
+      
+   }
+
+   return PROXY_CREDENTIAL_ZZ;
+
+@=}@>
+
+
+@q *** (3) EXPIRED.  @>
+@ EXPIRED
+\initials{LDF 2012.02.07.}
+
+\LOG
+\initials{LDF 2012.02.07.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=EXPIRED {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  EXPIRED" << endl;
+      
+   }
+
+   return EXPIRED_ZZ;
+
+@=}@>
+
+@q *** (3) PRIVILEGES.  @>
+@ PRIVILEGES.
+\initials{LDF 2012.05.07.}
+
+\LOG
+\initials{LDF 2012.05.07.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=PRIVILEGES {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  PRIVILEGES" << endl;
+      
+   }
+
+   return PRIVILEGES_ZZ;
+
+@=}@>
+
+@q *** (3) OTHER.  @>
+@ OTHER
+\initials{LDF 2012.02.07.}
+
+\LOG
+\initials{LDF 2012.02.07.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=OTHER {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  OTHER" << endl;
+      
+   }
+
+   return OTHER_ZZ;
+
+@=}@>
+
+@q *** (3) REASON.  @>
+@ REASON
+\initials{LDF 2012.02.07.}
+
+\LOG
+\initials{LDF 2012.02.07.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=REASON {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  REASON" << endl;
+      
+   }
+
+   return REASON_ZZ;
+
+@=}@>
+
+
+
+
+
+@q *** (3) RECEIVE.  @>
+@ RECEIVE.
+\initials{LDF 2010.01.12.}
+
+\LOG
+\initials{LDF 2010.01.12.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=RECEIVE {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  RECEIVE" << endl;
+      
+   }
+
+   return RECEIVE_ZZ;
+
+@=}@>
+
+
+@q *** (3) FILE.  @>
+@ FILE.
+\initials{LDF 2010.01.12.}
+
+\LOG
+\initials{LDF 2010.01.12.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=FILE {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  FILE" << endl;
+      
+   }
+
+   return FILE_ZZ;
+
+@=}@>
+
+
+@q *** (3) SUCCEEDED.  @>
+@ SUCCEEDED.
+\initials{LDF 2010.01.12.}
+
+\LOG
+\initials{LDF 2010.01.12.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=SUCCEEDED {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  SUCCEEDED" << endl;
+      
+   }
+
+   return SUCCEEDED_ZZ;
+
+@=}@>
+
+
+@q *** (3) SUCCESSFULLY.  @>
+@ SUCCESSFULLY.
+\initials{LDF 2010.09.17.}
+
+\LOG
+\initials{LDF 2010.09.17.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=SUCCESSFULLY {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  SUCCESSFULLY" << endl;
+      
+   }
+
+   return SUCCESSFULLY_ZZ;
+
+@=}@>
+
+@q *** (3) FAILED.  @>
+@ FAILED.
+\initials{LDF 2010.01.12.}
+
+\LOG
+\initials{LDF 2010.01.12.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=FAILED {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  FAILED" << endl;
+      
+   }
+
+   return FAILED_ZZ;
+
+@=}@>
+
+@q *** (3) ADD.  @>
+@ ADD.
+\initials{LDF 2010.03.15.}
+
+\LOG
+\initials{LDF 2010.03.15.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=ADD {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  ADD" << endl;
+      
+   }
+
+   return ADD_ZZ;
+
+@=}@>
+
+@q *** (3) ADDED.  @>
+@ ADDED.
+\initials{LDF 2010.03.16.}
+
+\LOG
+\initials{LDF 2010.03.16.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=ADDED {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  ADDED" << endl;
+      
+   }
+
+   return ADDED_ZZ;
+
+@=}@>
+
+@q *** (3) ADDING.  @>
+@ ADDING.
+\initials{LDF 2010.09.15.}
+
+\LOG
+\initials{LDF 2010.09.15.}
+Adding this rule.
+\ENDLOG
+
+@<Rules@>=
+@=ADDING {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  ADDING" << endl;
+      
+   }
+
+   return ADDING_ZZ;
+
+@=}@>
+
+@q *** (3) MARK.  @>
+@ MARK.
+\initials{LDF 2012.01.13.}
+
+\LOG
+\initials{LDF 2012.01.13.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=MARK {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  MARK" << endl;
+      
+   }
+
+   return MARK_ZZ;
+
+@=}@>
+
+@q *** (3) MARKED.  @>
+@ MARKED.
+\initials{LDF 2012.01.13.}
+
+\LOG
+\initials{LDF 2012.01.13.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=MARKED {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  MARKED" << endl;
+      
+   }
+
+   return MARKED_ZZ;
+
+@=}@>
+
+
+@q *** (3) EDIT.  @>
+@ EDIT.
+\initials{LDF 2012.05.02.}
+
+\LOG
+\initials{LDF 2012.05.02.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=EDIT {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  EDIT" << endl;
+      
+   }
+
+   return EDIT_ZZ;
+
+@=}@>
+
+@q *** (3) EDITED.  @>
+@ EDITED.
+\initials{LDF 2012.05.02.}
+
+\LOG
+\initials{LDF 2012.05.02.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=EDITED {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  EDITED" << endl;
+      
+   }
+
+   return EDITED_ZZ;
+
+@=}@>
+
+
+
+@q *** (3) UNMARK.  @>
+@ UNMARK.
+\initials{LDF 2012.01.13.}
+
+\LOG
+\initials{LDF 2012.01.13.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=UNMARK {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  UNMARK" << endl;
+      
+   }
+
+   return UNMARK_ZZ;
+
+@=}@>
+
+
+@q *** (3) UNMARKED.  @>
+@ UNMARKED.
+\initials{LDF 2012.01.13.}
+
+\LOG
+\initials{LDF 2012.01.13.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=UNMARKED {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  UNMARKED" << endl;
+      
+   }
+
+   return UNMARKED_ZZ;
+
+@=}@>
+
+
+@q *** (3) AS.  @>
+@ AS.
+\initials{LDF 2012.01.13.}
+
+\LOG
+\initials{LDF 2012.01.13.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=AS {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  AS" << endl;
+      
+   }
+
+   return AS_ZZ;
+
+@=}@>
+
+
+
+@q *** (3) DELETE.  @>
+@ DELETE.
+\initials{LDF 2010.09.09.}
+
+\LOG
+\initials{LDF 2010.09.09.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=DELETE {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  DELETE" << endl;
+      
+   }
+
+   return DELETE_ZZ;
+
+@=}@>
+
+
+@q *** (3) DELETED.  @>
+@ DELETED.
+\initials{LDF 2010.09.09.}
+
+\LOG
+\initials{LDF 2010.09.09.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=DELETED {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  DELETED" << endl;
+      
+   }
+
+   return DELETED_ZZ;
+
+@=}@>
+
+
+@q *** (3) FOUND.  @>
+@ \.{FOUND}.
+\initials{LDF 2010.03.05.}
+
+\LOG
+\initials{LDF 2010.03.05.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=FOUND {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  FOUND" << endl;
+      
+   }
+
+   return FOUND_ZZ;
+
+@=}@>
+
+@q *** (3) NOT_FOUND.  @>
+@ \.{NOT\_FOUND}.
+\initials{LDF 2010.02.02.}
+
+\LOG
+\initials{LDF 2010.02.02.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=NOT_FOUND {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  NOT_FOUND" << endl;
+      
+   }
+
+   return NOT_FOUND_ZZ;
+
+@=}@>
+
+@q *** (3) NO.  @>
+@ \.{NO}.
+\initials{LDF 2010.03.15.}
+
+\LOG
+\initials{LDF 2010.03.15.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=NO {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  NO" << endl;
+      
+   }
+
+   return NO_ZZ;
+
+@=}@>
+
+@q *** (3) NOT.  @>
+@ \.{NOT}.
+\initials{LDF 2010.09.15.}
+
+\LOG
+\initials{LDF 2010.09.15.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=NOT {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  NOT" << endl;
+      
+   }
+
+   return NOT_ZZ;
+
+@=}@>
+
+
+@q *** (3) IN.  @>
+@ \.{IN}.
+\initials{LDF 2011.12.16.}
+
+\LOG
+\initials{LDF 2011.12.16.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=IN {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  IN" << endl;
+      
+   }
+
+   return IN_ZZ;
+
+@=}@>
+
+
+
+@q *** (3) ALLOWED.  @>
+@ \.{ALLOWED}.
+\initials{LDF 2010.11.04.}
+
+\LOG
+\initials{LDF 2010.11.04.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=ALLOWED {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  ALLOWED" << endl;
+      
+   }
+
+   return ALLOWED_ZZ;
+
+@=}@>
+
+@q *** (3) AMBIGUOUS.  @>
+@ \.{AMBIGUOUS}.
+\initials{LDF 2010.09.10.}
+
+\LOG
+\initials{LDF 2010.09.10.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=AMBIGUOUS {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  AMBIGUOUS" << endl;
+      
+   }
+
+   return AMBIGUOUS_ZZ;
+
+@=}@>
+
+@q *** (3) MULTIPLE.  @>
+@ \.{MULTIPLE}.
+\initials{LDF 2010.09.10.}
+
+\LOG
+\initials{LDF 2010.09.10.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=MULTIPLE {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  MULTIPLE" << endl;
+      
+   }
+
+   return MULTIPLE_ZZ;
+
+@=}@>
+
+@q *** (3) DISTINGUISHED_NAME.  @>
+@ \.{DISTINGUISHED\_NAME}.
+\initials{LDF 2010.02.11.}
+
+\LOG
+\initials{LDF 2010.02.11.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=DISTINGUISHED_NAME {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  DISTINGUISHED_NAME" << endl;
+      
+   }
+
+   return DISTINGUISHED_NAME_ZZ;
+
+@=}@>
+
+@q *** (3) VALIDATED.  @>
+@ \.{VALIDATED}.
+\initials{LDF 2010.02.11.}
+
+\LOG
+\initials{LDF 2010.02.11.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=VALIDATED {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  VALIDATED" << endl;
+      
+   }
+
+   return VALIDATED_ZZ;
+
+@=}@>
+
+@q *** (3) VALIDATION.  @>
+@ \.{VALIDATION}.
+\initials{LDF 2010.04.27.}
+
+\LOG
+\initials{LDF 2010.04.27.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=VALIDATION {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  VALIDATION" << endl;
+      
+   }
+
+   return VALIDATION_ZZ;
+
+@=}@>
+
+
+
+@q *** (3) REPLACING.  @>
+@ \.{REPLACING}.
+\initials{LDF 2010.05.20.}
+
+\LOG
+\initials{LDF 2010.05.20.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=REPLACING {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  REPLACING" << endl;
+      
+   }
+
+   return REPLACING_ZZ;
+
+@=}@>
+
+
+@q *** (3) REPLACED.  @>
+@ \.{REPLACED}.
+\initials{LDF 2011.11.14.}
+
+\LOG
+\initials{LDF 2011.11.14.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=REPLACED {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  REPLACED" << endl;
+      
+   }
+
+   return REPLACED_ZZ;
+
+@=}@>
+
+
+
+@q *** (3) DUPLICATE.  @>
+@ \.{DUPLICATE}.
+\initials{LDF 2010.03.15.}
+
+\LOG
+\initials{LDF 2010.03.15.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=DUPLICATE {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  DUPLICATE" << endl;
+      
+   }
+
+   return DUPLICATE_ZZ;
+
+@=}@>
+
+
+@q *** (3) ENVIRONMENT.  @>
+@ \.{ENVIRONMENT}.
+\initials{LDF 2010.03.19.}
+
+\LOG
+\initials{LDF 2010.03.19.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=ENVIRONMENT {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  ENVIRONMENT" << endl;
+      
+   }
+
+   return ENVIRONMENT_ZZ;
+
+@=}@>
+
+@q *** (3) HOST.  @>
+@ \.{HOST}.
+\initials{LDF 2012.03.16.}
+
+\LOG
+\initials{LDF 2012.03.16.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=HOST {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  HOST" << endl;
+      
+   }
+
+   return HOST_ZZ;
+
+@=}@>
+
+@q *** (3) SHELLSCRIPT.  @>
+@ \.{SHELLSCRIPT}.
+\initials{LDF 2012.03.20.}
+
+\LOG
+\initials{LDF 2012.03.20.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=SHELLSCRIPT {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  SHELLSCRIPT" << endl;
+      
+   }
+
+   return SHELLSCRIPT_ZZ;
+
+@=}@>
+
+
+@q *** (3) SHELLSCRIPTS.  @>
+@ \.{SHELLSCRIPTS}.
+\initials{LDF 2012.03.21.}
+
+\LOG
+\initials{LDF 2012.03.21.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=SHELLSCRIPTS {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  SHELLSCRIPTS" << endl;
+      
+   }
+
+   return SHELLSCRIPTS_ZZ;
+
+@=}@>
+
+
+@q *** (3) ADMIN.  @>
+@ \.{ADMIN}.
+\initials{LDF 2012.03.22.}
+
+\LOG
+\initials{LDF 2012.03.22.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=ADMIN {@>
+
+   if (SCANNER_DEBUG)
+   {
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `zzlex':  ADMIN" << endl
+           << "Returning `ADMIN_ZZ'."
+           << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return ADMIN_ZZ;
+
+@=}@>
+
+@q *** (3) ENABLE.  @>
+@ \.{ENABLE}.
+\initials{LDF 2012.03.26.}
+
+\LOG
+\initials{LDF 2012.03.26.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=ENABLE {@>
+
+   if (SCANNER_DEBUG)
+   {
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `zzlex':  ENABLE" << endl
+           << "Returning `ENABLE_ZZ'."
+           << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return ENABLE_ZZ;
+
+@=}@>
+
+@q *** (3) ENABLED.  @>
+@ \.{ENABLED}.
+\initials{LDF 2012.03.26.}
+
+\LOG
+\initials{LDF 2012.03.26.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=ENABLED {@>
+
+   if (SCANNER_DEBUG)
+   {
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `zzlex':  ENABLED" << endl
+           << "Returning `ENABLED_ZZ'."
+           << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return ENABLED_ZZ;
+
+@=}@>
+
+
+@q *** (3) DISABLE.  @>
+@ \.{DISABLE}.
+\initials{LDF 2012.03.26.}
+
+\LOG
+\initials{LDF 2012.03.26.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=DISABLE {@>
+
+   if (SCANNER_DEBUG)
+   {
+      lock_cerr_mutex(); 
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `zzlex':  DISABLE" << endl
+           << "Returning `DISABLE_ZZ'."
+           << endl;
+      unlock_cerr_mutex(); 
+      
+   }
+
+   return DISABLE_ZZ;
+
+@=}@>
+
+@q *** (3) DISABLED.  @>
+@ \.{DISABLED}.
+\initials{LDF 2011.11.21.}
+
+\LOG
+\initials{LDF 2011.11.21.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=DISABLED {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  DISABLED" << endl;
+      
+   }
+
+   return DISABLED_ZZ;
+
+@=}@>
+
+@q *** (3) FETCH.  @>
+@ \.{FETCH}.
+\initials{LDF 2012.03.22.}
+
+\LOG
+\initials{LDF 2012.03.22.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=FETCH {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  FETCH" << endl;
+      
+   }
+
+   return FETCH_ZZ;
+
+@=}@>
+
+@q *** (3) SHOW.  @>
+@ \.{SHOW}.
+\initials{LDF 2010.05.21.}
+
+\LOG
+\initials{LDF 2010.05.21.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=SHOW {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  SHOW" << endl;
+      
+   }
+
+   return SHOW_ZZ;
+
+@=}@>
+
+@q *** (3) SHOWING.  @>
+@ \.{SHOWING}.
+\initials{LDF 2012.05.02.}
+
+\LOG
+\initials{LDF 2012.05.02.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=SHOWING {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  SHOWING" << endl;
+      
+   }
+
+   return SHOWING_ZZ;
+
+@=}@>
+
+
+@q *** (3) STORE.  @>
+@ \.{STORE}.
+\initials{LDF 2012.03.22.}
+
+\LOG
+\initials{LDF 2012.03.22.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=STORE {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  STORE" << endl;
+      
+   }
+
+   return STORE_ZZ;
+
+@=}@>
+
+
+
+@q *** (3) INFO.  @>
+@ \.{INFO}.
+\initials{LDF 2010.05.21.}
+
+\LOG
+\initials{LDF 2010.05.21.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=INFO {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  INFO" << endl;
+      
+   }
+
+   return INFO_ZZ;
+
+@=}@>
+
+@q *** (3) SET.  @>
+@ \.{SET}.
+\initials{LDF 2010.06.30.}
+
+\LOG
+\initials{LDF 2010.06.30.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=SET {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  SET" << endl;
+      
+   }
+
+   return SET_ZZ;
+
+@=}@>
+
+@q *** (3) EFFECTIVE_USER.  @>
+@ \.{EFFECTIVE\_USER}.
+\initials{LDF 2010.06.30.}
+
+\LOG
+\initials{LDF 2010.06.30.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=EFFECTIVE_USER {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  EFFECTIVE_USER" << endl;
+      
+   }
+
+   return EFFECTIVE_USER_ZZ;
+
+@=}@>
+
+@q *** (3) USER.  @>
+@ \.{USER}.
+\initials{LDF 2010.11.04.}
+
+\LOG
+\initials{LDF 2010.11.04.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=USER {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  USER" << endl;
+      
+   }
+
+   return USER_ZZ;
+
+@=}@>
+
+
+@q *** (3) NAME.  @>
+@ \.{NAME}.
+\initials{LDF 2011.10.27.}
+
+\LOG
+\initials{LDF 2011.10.27.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=NAME {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  NAME" << endl;
+      
+   }
+
+   return NAME_ZZ;
+
+@=}@>
+
+
+@q *** (3) REMOTE.  @>
+@ \.{REMOTE}.
+\initials{LDF 2011.10.14.}
+
+\LOG
+\initials{LDF 2011.10.14.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=REMOTE {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  REMOTE" << endl;
+      
+   }
+
+   return REMOTE_ZZ;
+
+@=}@>
+
+@q *** (3) INSTALLATION.  @>
+@ \.{INSTALLATION}.
+\initials{LDF 2011.10.14.}
+
+\LOG
+\initials{LDF 2011.10.14.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=INSTALLATION {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  INSTALLATION" << endl;
+      
+   }
+
+   return INSTALLATION_ZZ;
+
+@=}@>
+
+@q *** (3) WARNING.  @>
+@ \.{WARNING}.
+\initials{LDF 2011.10.28.}
+
+\LOG
+\initials{LDF 2011.10.28.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=WARNING {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  WARNING" << endl;
+      
+   }
+
+   return WARNING_ZZ;
+
+@=}@>
+
+@q *** (3) PACKAGE_NAME.  @>
+@ \.{PACKAGE\_NAME}.
+\initials{LDF 2011.10.14.}
+
+\LOG
+\initials{LDF 2011.10.14.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=PACKAGE_NAME {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  PACKAGE_NAME" << endl;
+      
+   }
+
+   return PACKAGE_NAME_ZZ;
+
+@=}@>
+
+@q *** (3) PACKAGE_VERSION.  @>
+@ \.{PACKAGE\_VERSION}.
+\initials{LDF 2011.10.14.}
+
+\LOG
+\initials{LDF 2011.10.14.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=PACKAGE_VERSION {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  PACKAGE_VERSION" << endl;
+      
+   }
+
+   return PACKAGE_VERSION_ZZ;
+
+@=}@>
+
+
+@q *** (3) PACKAGE_VERSIONS.  @>
+@ \.{PACKAGE\_VERSIONS}.
+\initials{LDF 2011.10.28.}
+
+\LOG
+\initials{LDF 2011.10.28.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=PACKAGE_VERSIONS {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  PACKAGE_VERSIONS" << endl;
+      
+   }
+
+   return PACKAGE_VERSIONS_ZZ;
+
+@=}@>
+
+
+@q *** (3) NO_VERSION.  @>
+@ \.{NO\_VERSION}.
+\initials{LDF 2011.10.28.}
+
+\LOG
+\initials{LDF 2011.10.28.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=NO_VERSION {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  NO_VERSION" << endl;
+      
+   }
+
+   return NO_VERSION_ZZ;
+
+@=}@>
+
+@q *** (3) GLOBUS_SITE.  @>
+@ \.{GLOBUS\_SITE}.
+\initials{LDF 2011.10.28.}
+
+\LOG
+\initials{LDF 2011.10.28.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=GLOBUS_SITE {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  GLOBUS_SITE" << endl;
+      
+   }
+
+   return GLOBUS_SITE_ZZ;
+
+@=}@>
+
+
+@q *** (3) GLOBUS_SITES.  @>
+@ \.{GLOBUS\_SITES}.
+\initials{LDF 2012.04.13.}
+
+\LOG
+\initials{LDF 2012.04.13.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=GLOBUS_SITES {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  GLOBUS_SITES" << endl;
+      
+   }
+
+   return GLOBUS_SITES_ZZ;
+
+@=}@>
+
+
+@q *** (3) STDOUT_FILENAME.  @>
+@ \.{STDOUT\_FILE}.
+\initials{LDF 2011.10.14.}
+
+\LOG
+\initials{LDF 2011.10.14.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=STDOUT_FILENAME {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  STDOUT_FILENAME" << endl;
+      
+   }
+
+   return STDOUT_FILENAME_ZZ;
+
+@=}@>
+
+@q *** (3) STDERR_FILENAME.  @>
+@ \.{STDERR\_FILE}.
+\initials{LDF 2011.10.14.}
+
+\LOG
+\initials{LDF 2011.10.14.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=STDERR_FILENAME {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  STDERR_FILENAME" << endl;
+      
+   }
+
+   return STDERR_FILENAME_ZZ;
+
+@=}@>
+
+@q *** (3) TIMEOUT.  @>
+@ \.{TIMEOUT}.
+\initials{LDF 2011.10.21.}
+
+\LOG
+\initials{LDF 2011.10.21.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=TIMEOUT {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  TIMEOUT" << endl;
+      
+   }
+
+   return TIMEOUT_ZZ;
+
+@=}@>
+
+
+@q *** (3) SECRET_KEY.  @>
+@ SECRET\_KEY.
+\initials{LDF 2011.11.03.}
+
+\LOG
+\initials{LDF 2011.11.03.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=SECRET_KEY {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  SECRET_KEY" << endl;
+      
+   }
+
+   return SECRET_KEY_ZZ;
+
+@=}@>
+
+@q *** (3) PUBLIC_KEY.  @>
+@ PUBLIC\_KEY.
+\initials{LDF 2011.11.03.}
+
+\LOG
+\initials{LDF 2011.11.03.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=PUBLIC_KEY {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  PUBLIC_KEY" << endl;
+      
+   }
+
+   return PUBLIC_KEY_ZZ;
+
+@=}@>
+
+@q *** (3) KEY_PAIR.  @>
+@ KEY\_PAIR.
+\initials{LDF 2011.11.03.}
+
+\LOG
+\initials{LDF 2011.11.03.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=KEY_PAIR {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  KEY_PAIR" << endl;
+      
+   }
+
+   return KEY_PAIR_ZZ;
+
+@=}@>
+
+
+@q *** (3) DISTRIBUTE.  @>
+@ \.{DISTRIBUTE}.
+\initials{LDF 2011.11.21.}
+
+\LOG
+\initials{LDF 2011.11.21.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=DISTRIBUTE {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  DISTRIBUTE" << endl;
+      
+   }
+
+   return DISTRIBUTE_ZZ;
+
+@=}@>
+
+
+@q *** (3) DISTRIBUTING.  @>
+@ \.{DISTRIBUTING}.
+\initials{LDF 2011.11.21.}
+
+\LOG
+\initials{LDF 2011.11.21.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=DISTRIBUTING {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  DISTRIBUTING" << endl;
+      
+   }
+
+   return DISTRIBUTING_ZZ;
+
+@=}@>
+
+@q *** (3) DATABASE.  @>
+@ \.{DATABASE}.
+\initials{LDF 2011.12.16.}
+
+\LOG
+\initials{LDF 2011.12.16.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=DATABASE {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  DATABASE" << endl;
+      
+   }
+
+   return DATABASE_ZZ;
+
+@=}@>
+
+
+@q *** (3) SESSION_ID.  @>
+@ \.{SESSION\_ID}.
+\initials{LDF 2011.12.22.}
+
+\LOG
+\initials{LDF 2011.12.22.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=SESSION_ID {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << endl << "[Thread " << param->thread_ctr << "] "
+           << "In `zzlex':  SESSION_ID." << endl;
+      
+   }
+
+   return SESSION_ID_ZZ;
+
+@=}@>
+
+@q *** (3) Delimited value string 1:  <...>.  @>
+@ Delimited value string 1:  $\langle\ldots\rangle$.  
+\initials{LDF 2010.02.12.}
+
+\LOG
+\initials{LDF 2010.02.12.}
+Added this rule.
+
+\initials{LDF 2010.05.11.}
+Added tilde.
+\ENDLOG
+
+@<Rules@>=
+@=\<[[:alnum:]./;:~@@\-()\?=][[:blank:][:alnum:]./;:\-_=~@@()\?=]*\> {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << endl 
+           << "In `zzlex':  Delimited string, type 1 (<...>): " 
+           << yytext << endl;
+   }
+ 
+   string temp_str = yytext;
+
+   string::size_type s = temp_str.size();
+
+   temp_str.erase(0, 1);
+   temp_str.erase(s - 2, s - 1);
+
+   strcpy(yylval->string_value, temp_str.c_str());
+  
+   return STRING_ZZ;
+
+@=}@>
+
+
+@q *** (3) Delimited value string 2:  "...".  @>
+@ Delimited value string 2:  \.{\char`\"}$\ldots$\.{\char`\"}.  
+\initials{LDF 2010.02.12.}
+
+\LOG
+\initials{LDF 2010.02.12.}
+Added this rule.
+
+\initials{LDF 2010.05.11.}
+Added tilde.
+\ENDLOG
+
+@<Rules@>=
+@=\"[[:alnum:]./;:~@@\-()\?=][[:blank:][:alnum:]./;:\-_=~@@()\?=]*\" {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << endl 
+           << "In `zzlex':  Delimited string, type 2 (\"...\"): " << yytext 
+           << endl;
+   }
+ 
+   string temp_str = yytext;
+
+   string::size_type s = temp_str.size();
+
+   temp_str.erase(0, 1);
+   temp_str.erase(s - 2, s - 1);
+
+   strcpy(yylval->string_value, temp_str.c_str());
+  
+
+   return STRING_ZZ;
+
+@=}@>
+
+
+@q *** (3) Integer.  @>
+@ Integer.  
+\initials{LDF 2010.01.12.}
+
+\LOG
+\initials{LDF 2010.01.12.}
+Added this rule.
+
+\initials{LDF 2012.03.21.}
+Made it possible for there to be an optional plus or minus sign.
+\ENDLOG
+
+@<Rules@>=
+@=[+-]?[0-9][0-9]* {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  INTEGER_ZZ: " << yytext << endl;
+      
+   }
+
+   sscanf(yytext, "%d", &yylval->int_value);
+   
+   return INTEGER_ZZ;
+
+
+@=}@>
+
+@q *** (3) Value string.  @>
+@ Value string.  
+\initials{LDF 2009.10.05.}
+
+\LOG
+\initials{LDF 2009.10.05.}
+Added this rule.
+
+\initials{LDF 2010.05.11.}
+Added tilde.
+
+@:BUG FIX@> BUG FIX:  Moved this rule below the rule for integers.
+\ENDLOG
+
+@<Rules@>=
+@=[:;[:alnum:]./~@@()\?=][[:alnum:]./:;\-_~@@()\?=]+ {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  String: " << yytext << endl;
+      
+   }
+
+   strcpy(yylval->string_value, yytext);
+   return STRING_ZZ;
+
+
+@=}@>
+
+
+@q *** (3) Server Finished.  @>
+@ Server Finished.
+
+@<Rules@>=
+@="Server Finished" {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  Server Finished" << endl;
+      
+   }
+
+   return SERVER_FINISHED_ZZ;
+
+@=}@>
+
+
+@q *** (3) End-of-file (EOF).  @>
+@ End-of-file (EOF).
+
+
+@<Rules@>=
+@=<<EOF>> {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  EOF.  Returning `END_ZZ'" << endl;
+      
+   }
+
+   return END_ZZ;
+
+@=}@>
+
+@q *** (3) Other characters.  @>
+@ Other characters.
+\initials{LDF 2010.05.18.}
+
+\LOG
+\initials{LDF 2010.05.18.}
+Added this rule.
+\ENDLOG
+
+@<Rules@>=
+@=. {@>
+
+   if (SCANNER_DEBUG)
+   {
+      
+      cerr << "In `zzlex':  Other character:  `" << yytext << "'.  Continuing." 
+           << endl;
+      
+   }
+
+   /* Do nothing.  */
+
+@=}@>
+
+
+
+@q ** (2) Additional functions.  @>
+
+@ Additional functions.
+
+@<|zzwrap| definition@>=
+
+int
+zzwrap(yyscan_t parameter)
+{
+    return 1;
+}
+
+@
+@<|zzerror| definition@>=
+
+int
+zzerror(void* v, char const* s)
+{
+    return 0;
+}
+
+@ Putting scanner together.
+@c
+@=%{@>
+@<Include files@>@;@/
+@<Define |YY_INPUT|@>@;@/
+using namespace std;
+@=%}@>
+@<Start conditions@>@;@/
+@<Options@>@;@/
+@<Name definitions@>@;@/
+@=%%@>
+@=%{@>
+@<Local variables for |zzlex|@>@;@/
+@=%}@>
+@<Execute on entry to |zzlex|@>@;@/
+@q Rules @>
+@<Rules@>@;@/
+@=%%@>
+@q User code@>
+@<Version control identifier@>@;@/
+@<|zzwrap| definition@>@;@/
+@<|zzerror| definition@>@;@/
+
+ 
+@q * (1) Emacs-Lisp code for use in indirect buffers  @>
+
+@q (progn (cweb-mode) (outline-minor-mode))           @>
+
+@q * (1) Local variables for Emacs @>
+
+@q * Local variables for Emacs.@>
+@q Local Variables: @>
+@q mode:CWEB @>
+@q eval:(display-time) @>
+@q abbrev-mode:t @>
+@q eval:(read-abbrev-file) @>
+@q indent-tabs-mode:nil @>
+@q eval:(outline-minor-mode) @>
+@q fill-column:80 @>
+@q End: @>
+

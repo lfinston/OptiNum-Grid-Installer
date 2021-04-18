@@ -1,0 +1,682 @@
+@q glblfncs.web@>
+@q Created by Laurence D. Finston (LDF) Mon Sep 28 11:20:04 CEST 2009  @>
+
+@q * (1) Top @>
+
+@q * (1) Copyright and License.@>
+
+@q This file is part of the OptiNum Grid Installer @>
+@q Copyright (C) 2010, 2011, 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen @>
+
+@q The OptiNum Grid Installer is free software; you can redistribute it and/or modify @>
+@q it under the terms of the GNU General Public License as published by @>
+@q the Free Software Foundation; either version 3 of the License, or @>
+@q (at your option) any later version.  @>
+
+@q The OptiNum Grid Installer is distributed in the hope that it will be useful, @>
+@q but WITHOUT ANY WARRANTY; without even the implied warranty of @>
+@q MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the @>
+@q GNU General Public License for more details.  @>
+
+@q You should have received a copy of the GNU General Public License          @>
+@q along with the OptiNum Grid Installer; if not, write to the Free Software                    @>
+@q Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA @>
+
+@q ("@@" stands for a single at-sign in the following paragraph.) @>
+
+@q Please send bug reports to Laurence.Finston@@gwdg.de@>
+
+@q Laurence D. Finston                                                   @>
+@q Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen  @>
+@q Am Fassberg 11         					         @>
+@q 37077 Goettingen              					 @>
+@q Germany                           					 @>                                
+
+@q Laurence.Finston@@gwdg.de (@@ stands for a single "at" sign.)@>
+
+@q * (2)  Global functions (glblfncs.web).  @>
+@* Global functions (glblfncs\PERIOD web).
+
+@q ** (2) Include files  @>
+
+@ Include files.
+
+@<Include files@>=
+#include <stdlib.h>
+#include <stdio.h>
+
+#include <errno.h>
+#include <fstream>
+#include <iomanip>
+#include <ios>
+#include <iostream>
+#include <limits.h>
+#include <map>
+#include <math.h>
+#include <pthread.h>
+#include <string>
+#include <string.h>
+#include <sstream>   
+#include <time.h>
+#include <unistd.h>
+
+#include <netdb.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+
+#include <arpa/inet.h>
+
+#include <deque>
+#include <vector>
+
+#if HAVE_CONFIG_H
+#include <config.h>
+#endif
+
+#if IS_ROCKS_GOEGRID
+#undef HAVE_LIBMYSQLCLIENT
+#endif 
+
+#include "entries.h++"
+#include "dstngnmt.h++"
+#include "glblvrbl.h++"
+#include "cmdlnopt.h++"
+#include "utilfncs.h++"
+
+using namespace std;
+
+@q * (1) Global Functions.  @>
+@ Global Functions.
+\initials{LDF 2009.09.29.}
+
+\LOG
+\initials{LDF 2009.09.29.}
+Added this section.
+\ENDLOG
+
+@q ** (2) Set certificate files.  @>
+@ Set certificate files.  
+\initials{LDF 2009.12.08.}
+
+\LOG
+\initials{LDF 2009.12.08.}
+Added this function.  It contains code removed from |main| 
+in \filename{optdbsrv.web}.
+\ENDLOG
+
+@<|set_cert_files| declaration@>=
+
+
+@q **** (4) @>
+@
+@<|set_cert_files| declaration@>=
+int
+set_cert_files(string& curr_key_filename, 
+               string& curr_cert_filename,
+               string& curr_ca_filename, 
+               string& curr_crl_filename);  
+
+
+@
+@<|set_cert_files| definition@>=
+int
+set_cert_files(string& curr_key_filename, 
+               string& curr_cert_filename,
+               string& curr_ca_filename, 
+               string& curr_crl_filename)
+{
+
+   bool DEBUG = false;  /* |true|  */
+   set_debug_level(DEBUG);
+
+   if (DEBUG)
+   {
+       lock_cerr_mutex();  
+       cerr << "Entering `set_cert_files'." << endl;
+       unlock_cerr_mutex();    
+   }
+
+   if (ca_filenames.size() > 0)
+   {
+       curr_ca_filename = ca_filenames[0];
+   }
+
+   if (DEBUG) 
+   {
+      lock_cerr_mutex(); 
+      cerr << "curr_ca_filename == " << curr_ca_filename << endl;
+      unlock_cerr_mutex();
+   }
+
+   FILE* fp = fopen(curr_ca_filename.c_str(), "r");
+
+@q ***** (5) @>
+@
+!! TODO:  Add more error handling.  Also, perhaps make it possible to 
+process more certificates.
+\initials{LDF 2009.12.01.}
+
+@<|set_cert_files| definition@>=
+
+   if (!fp)
+   {
+       lock_cerr_mutex(); 
+       cerr << "ERROR!  In `set_cert_files':"
+            << endl 
+            << "CA certificate file `" << curr_ca_filename << "' doesn't exist."
+            << endl 
+            << "Exiting `set_cert_files' unsuccessfully with exit value 1."
+            << endl;
+
+       perror("fopen error.");
+ 
+       unlock_cerr_mutex(); 
+
+       return 1;
+
+   }  /* |if (!fp)|  */
+
+   else if (DEBUG)
+   {
+       lock_cerr_mutex(); 
+       cerr << "In `set_cert_files':"
+            << endl 
+            << "CA certificate file `" << curr_ca_filename << "' exists."
+            << endl;
+       unlock_cerr_mutex(); 
+
+   }  /* |else if (DEBUG)|  */
+
+
+   fclose(fp);
+   fp = 0;
+
+@q **** (4) CRL File.  @>
+
+@ CRL File.  
+\initials{LDF 2009.12.02.}
+
+\LOG
+\initials{LDF 2009.12.02.}
+Added this section.
+\ENDLOG
+
+@<|set_cert_files| definition@>=
+
+  if (crl_filenames.size() > 0)
+  {
+      curr_crl_filename = crl_filenames[0];
+  }
+
+@q ***** (5) @>
+
+@ A CRL file (revocation list) is optional, so we don't bother with this code if 
+|curr_crl_filename| is empty.
+\initials{LDF 2009.12.08.}
+
+@<|set_cert_files| definition@>=
+
+  if (curr_crl_filename != "")
+  {
+  
+     fp = fopen(curr_crl_filename.c_str(), "r");
+
+@q ***** (5) @>
+@
+!! TODO:  Add more error handling.  Also, perhaps make it possible to 
+process more certificates.
+\initials{LDF 2009.12.01.}
+
+@<|set_cert_files| definition@>=
+
+     if (!fp)
+     {
+         lock_cerr_mutex(); 
+         cerr << "ERROR!  In `set_cert_files':"
+              << endl 
+              << "CRL file `" << curr_crl_filename << "' doesn't exist."
+              << endl 
+              << "Exiting `set_cert_files' unsuccessfully with exit value 1."
+              << endl;
+         unlock_cerr_mutex(); 
+
+         return 1;
+
+     }  /* |if (!fp)|  */
+
+     else if (DEBUG)
+     {
+         lock_cerr_mutex(); 
+         cerr << "In `set_cert_files':"
+              << endl 
+              << "CRL file `" << curr_crl_filename << "' exists."
+              << endl;
+         unlock_cerr_mutex(); 
+
+     }  /* |else if (DEBUG)|  */
+
+
+     fclose(fp);
+     fp = 0;
+
+   }  /* |if (curr_crl_filename != "")|  */
+
+@q **** (4) Key File and Certificate File.  @>
+
+@ Key File and Certificate File.  
+\initials{LDF 2009.12.02.}
+
+\LOG
+\initials{LDF 2009.12.02.}
+Added this section.
+\ENDLOG
+
+@<|set_cert_files| definition@>=
+
+
+  if (key_filenames.size() > 0)
+  {
+      curr_key_filename = key_filenames[0];
+  }
+
+  fp = fopen(curr_key_filename.c_str(), "r");
+
+
+@q ***** (5) @>
+@
+!! TODO:  Add more error handling.  Also, perhaps make it possible to 
+process more keys.
+\initials{LDF 2009.12.01.}
+
+@<|set_cert_files| definition@>=
+
+  if (!fp)
+  {
+      lock_cerr_mutex(); 
+      cerr << "ERROR!  In `set_cert_files':"
+           << endl 
+           << "Key file `" << curr_key_filename << "' doesn't exist."
+           << endl 
+           << "Exiting `set_cert_files' unsuccessfully with exit value 1."
+           << endl;
+      unlock_cerr_mutex(); 
+
+      return 1;
+
+  }  /* |if (!fp)|  */
+
+  else if (DEBUG)
+  {
+      lock_cerr_mutex(); 
+      cerr << "In `set_cert_files':"
+           << endl 
+           << "Key file `" << curr_key_filename << "' exists."
+           << endl;
+      unlock_cerr_mutex(); 
+
+  }  /* |else if (DEBUG)|  */
+
+
+  fclose(fp);
+  fp = 0;
+
+
+@q ***** (5) Certificate filename.  @>
+
+@ Certificate filename.  
+\initials{LDF 2009.12.03.}
+
+@<|set_cert_files| definition@>=
+
+  if (cert_filenames.size() > 0)
+  {
+      curr_cert_filename = cert_filenames[0];
+  }
+
+  fp = fopen(curr_cert_filename.c_str(), "r");
+
+@q ***** (5) @>
+@
+!! TODO:  Add more error handling.  Also, perhaps make it possible to 
+process more certificates.
+\initials{LDF 2009.12.01.}
+
+@<|set_cert_files| definition@>=
+
+  if (!fp)
+  {
+      lock_cerr_mutex(); 
+      cerr << "ERROR!  In `set_cert_files':"
+           << endl 
+           << "Certificate file `" << curr_cert_filename << "' doesn't exist."
+           << endl 
+           << "Exiting `set_cert_files' unsuccessfully with exit value 1."
+           << endl;
+      unlock_cerr_mutex(); 
+
+      return 1;
+
+  }  /* |if (!fp)|  */
+
+  else if (DEBUG)
+  {
+      lock_cerr_mutex(); 
+      cerr << "In `set_cert_files':"
+           << endl 
+           << "Certificate file `" << curr_cert_filename << "' exists."
+           << endl;
+      unlock_cerr_mutex(); 
+
+  }  /* |else if (DEBUG)|  */
+
+
+  fclose(fp);
+  fp = 0;
+
+  return 0;
+
+}  /* End of |set_cert_files| definition  */
+
+
+@q ** (2) Initialize maps.  @>
+@ Initialize maps.
+\initials{LDF 2009.12.21.}
+
+\LOG
+\initials{LDF 2009.12.21.}
+Added this function.
+\ENDLOG
+
+
+@q *** (3) Declaration @>
+
+@<|init_maps| declaration@>=
+
+int
+init_maps(void);
+
+@q *** (3) Definition @>
+@
+@<|init_maps| definition@>=
+int
+init_maps(void)
+{
+@q **** (4) Initialize |dn_fields|.  @>
+@ Initialize |dn_fields|.  
+\initials{LDF 2009.12.21.}
+
+The field names and the corresponding sequences of integers and periods can be found 
+in \filename{x509guide.txt} in the same directory as this file (\filename{glblfncs.web}).
+\initials{LDF 2009.12.22.}
+
+\LOG
+\initials{LDF 2009.12.21.}
+Added this section.
+
+\initials{LDF 2009.12.22.}
+Added elements with the names of the fields as the keys and the sequences of 
+integers and periods as the values.
+\ENDLOG
+
+
+@<|init_maps| definition@>=
+
+   dn_fields["2.5.4.6"]  = "countryName";
+   dn_fields["2.5.4.10"] = "organization";
+   dn_fields["2.5.4.11"] = "organizationalUnitName";
+   dn_fields["2.5.4.3"]  = "commonName";
+   dn_fields["2.5.4.7"]  = "localityName";
+   dn_fields["2.5.4.8"]  = "stateOrProvinceName";
+
+
+   dn_fields["countryName"]            = "2.5.4.6";
+   dn_fields["organization"]           = "2.5.4.10";
+   dn_fields["organizationalUnitName"] = "2.5.4.11";
+   dn_fields["commonName"]             = "2.5.4.3";
+   dn_fields["localityName"]           = "2.5.4.7";
+   dn_fields["stateOrProvinceName"]    = "2.5.4.8";
+
+@q **** (4) @>
+
+   return 0;
+
+}  /* End of |init_maps| definition  */
+
+
+@q ** (2) Mutex functions.  @>
+@ Mutex functions.
+\initials{LDF 2010.02.04.}
+
+\LOG
+\initials{LDF 2010.02.04.}
+Added this section.
+\ENDLOG
+
+@q *** (3) Lock |cerr_mutex|.  @>
+@ Lock {\it cerr\_mutex\/}.  
+\initials{LDF 2010.02.04.}
+
+\LOG
+\initials{LDF 2010.02.04.}
+Added this function.
+\ENDLOG
+
+@q **** (4) Declaration @>
+@
+@<Mutex function declarations@>=
+
+void
+lock_cerr_mutex(void);
+
+@q **** (4) Definition  @>
+@
+@<Mutex function definitions@>=
+
+void
+lock_cerr_mutex(void)
+{
+
+#if HAVE_LIBMYSQLCLIENT
+    pthread_mutex_lock(&cerr_mutex);
+#endif 
+
+    return;
+}
+
+@q *** (3) Unlock |cerr_mutex|.  @>
+@ Unlock {\it cerr\_mutex\/}.  
+\initials{LDF 2010.02.04.}
+
+\LOG
+\initials{LDF 2010.02.04.}
+Added this function.
+\ENDLOG
+
+@q **** (4) Declaration  @>
+
+@<Mutex function declarations@>=
+
+void
+unlock_cerr_mutex(void);
+
+@q **** (4) Definition @>
+@
+@<Mutex function definitions@>=
+
+void
+unlock_cerr_mutex(void)
+{
+
+#if HAVE_LIBMYSQLCLIENT
+    pthread_mutex_unlock(&cerr_mutex);
+#endif 
+
+    return;
+
+}
+
+@q ** (2) Date and time functions.  @>
+@ Date and time functions.
+\initials{LDF 2010.03.11.}
+
+\LOG
+\initials{LDF 2010.03.11.}
+Added this section.
+\ENDLOG
+
+@q *** (3) Get datestamp.  @>
+
+@ Get datestamp.
+\initials{LDF 2010.03.11.}
+
+\LOG
+\initials{LDF 2010.03.11.}
+Added this function.
+\ENDLOG
+
+\LOG
+\initials{LDF 2012.01.12.}
+@:BUG FIX@> BUG FIX:  Removed calls to |lock_cerr_mutex| and |unlock_cerr_mutex|.  
+This function is usually (or always) called when writing output to standard error,
+so |cerr_mutex| is already locked.
+\ENDLOG
+
+@:TODO@> !! TODO  Look up |clock_t|, |times|, etc., to get processor times.
+This isn't urgent.
+\initials{LDF 2010.03.11.}
+
+@q **** (4) Declaration  @>
+
+@<|get_datestamp| declaration@>=
+string
+get_datestamp(void);
+
+@q **** (4) Definition  @>
+@
+@<|get_datestamp| definition@>=
+
+string
+get_datestamp(void)
+{
+
+    bool DEBUG = false;  /* |true|  */
+    set_debug_level(DEBUG);
+
+    string s = "";
+
+    char outstr[64];
+
+    memset(outstr, 0, 64);
+
+    time_t t;
+    struct tm *tmp;
+
+    t = time(NULL);
+    tmp = localtime(&t);
+
+    if (tmp == NULL) 
+    {
+
+
+        cerr << "ERROR!  In `get_datestamp':  `localtime' failed, returning 0:"
+             << endl;
+
+        perror("localtime");
+
+        cerr << "Not creating datestamp.  Exiting function with empty `string' "
+             << "as return value."
+             << endl;
+
+        return s;
+
+    }
+
+    else if (strftime(outstr, sizeof(outstr), "%a %F %T %Z %z", tmp) == 0) 
+    {
+        cerr << "ERROR!  In `get_datestamp':  `strftime' failed, returning 0."
+             << endl
+             << "Not creating datestamp.  Exiting function with empty `string' "
+             << "as return value."
+             << endl;
+
+        return s;
+
+    }
+    else
+    {
+        
+        s = outstr;
+
+
+        if (DEBUG) 
+        {
+
+           cerr << "Result string is " << s << endl;
+
+        } /* |if (DEBUG)|  */
+
+        return s;
+ 
+    }  /* |else|  */
+
+}  /* End of |get_datestamp| definition  */
+
+@q *** (3) @>
+
+
+@q ** (2) Putting `glblfncs.web' together.  @>
+
+@ Putting {\tt glblfncs\PERIOD web} together.
+
+@q *** (3) This is what's compiled.  @>
+
+This is what's compiled.  
+\initials{LDF 2008.07.23.}
+
+@c
+using namespace std;
+@<Include files@>@;@/
+@<Mutex function declarations@>@;@/
+@<|set_cert_files| declaration@>@;@/
+@<|init_maps| declaration@>@;@/
+@<|set_cert_files| definition@>@;@/
+@<|init_maps| definition@>@;@/
+@<|get_datestamp| definition@>@;@/
+@<Mutex function definitions@>@;@/
+
+@q *** (3) This is what's written to the header file.  @>
+
+@ This is what's written to the header file.  
+\initials{LDF 2008.07.23.}
+
+@(glblfncs.h@>=
+#ifndef GLBLFNCS_H
+#define GLBLFNCS_H 1
+using namespace std;
+@<Mutex function declarations@>@;@/
+@<|set_cert_files| declaration@>@;@/
+@<|init_maps| declaration@>@;@/
+@<|get_datestamp| declaration@>@;@/
+#endif 
+
+@q * (1) Emacs-Lisp code for use in indirect buffers  @>
+
+@q (progn (cweb-mode) (outline-minor-mode) (abbrev-mode t))           @>
+
+@q * (1) Local variables for Emacs @>
+
+@q Local Variables: @>
+@q mode:CWEB @>
+@q eval:(display-time) @>
+@q abbrev-mode: t @>
+@q eval:(read-abbrev-file) @>
+@q indent-tabs-mode:nil @>
+@q eval:(outline-minor-mode) @>
+@q fill-column:80 @>
+@q End: @>
+
+
+
+
+
