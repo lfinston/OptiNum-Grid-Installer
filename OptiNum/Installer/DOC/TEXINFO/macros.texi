@@ -1,0 +1,85 @@
+@c macros.texi
+@c This file is part of the Optinum Grid Installer User and Reference Manual.
+@c Created by Laurence D. Finston (LDF) Thu Jul  8 11:00:00 CEST 2010
+
+@c Copyright (C) 2010, 2011, 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbh Goettingen
+
+@c Author:  Laurence D. Finston (LDF)
+
+@c See the section "GNU Free Documentation License" in the file 
+@c fdl.texi for copying conditions.
+
+@c * (1) Macros
+
+@macro LRARROW {}
+@iftex 
+@tex
+$\\longrightarrow$
+@end tex
+@end iftex
+@c
+@ifnottex 
+-->
+@end ifnottex 
+@end macro
+
+@macro MAPS {}
+@iftex 
+@tex
+$\\longrightarrow$%
+@end tex
+@end iftex
+@c
+@ifnottex 
+:@c
+@end ifnottex 
+@end macro
+
+@macro VERT {}
+@iftex 
+@tex
+$\\vert$%
+@end tex
+@end iftex
+@c
+@ifnottex 
+|@c
+@end ifnottex 
+@end macro
+
+@macro NONTERM {arg}
+@iftex 
+@tex
+\\begingroup
+\\catcode`\\_=\\active
+\\let\\_=\\space
+$\\langle${\\rm\arg\}$\\rangle$%
+\\endgroup
+@end tex
+@end iftex
+@c
+@ifnottex 
+<\arg\>@c
+@end ifnottex 
+@end macro
+
+@macro cpp {}
+@iftex
+@tex
+@CPLUSPLUS
+@end tex
+@end iftex
+@ifnottex
+C++
+@end ifnottex
+@end macro
+
+@c * (1) Local Variables for Emacs
+  
+@c Local Variables:
+@c mode:Texinfo
+@c abbrev-mode:t
+@c eval:(outline-minor-mode t)
+@c outline-regexp:"@c *\\*+"
+@c eval:(set (make-local-variable 'run-texi2dvi-on-file) "installer.texi")
+@c End:

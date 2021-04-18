@@ -1,0 +1,109 @@
+@c friends.texi
+@c Created by Laurence D. Finston (LDF) 2012-02-27 17:21:58 +0100 (Mon, 27 Feb 2012)
+
+@c Copyright (C) 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbh Goettingen
+@c Author:  Laurence D. Finston (LDF)
+@c See the section "GNU Free Documentation License" in the file 
+@c fdl.texi for copying conditions.
+
+@c This file contains lists of friends, with cross-references.  LDF 2012.02.28.
+
+***********************************************************************************
+
+@noindent
+Classes:
+@table @code
+@item Distinguished_Name_Type
+@ref{Distinguished_Name_Type Reference} 
+
+
+@item Entry_Type
+@ref{Entry_Type Reference}
+
+@item GPG_Key_Pair_Type
+@ref{GPG_Key_Pair_Type Reference}
+
+@item X509_Cert_Type
+@ref{X509_Cert_Type Reference}
+
+
+@item Scan_Parse_Parameter_Type
+@ref{Scan_Parse_Parameter_Type Reference}.
+
+@item less_timeout
+@itemx equal_package_name_version_globus_site
+@itemx less_package_name
+@itemx less_package_version
+@itemx less_package_name_version
+@itemx less_package_name_globus_site_version
+@itemx equal_package_name_globus_site
+@ref{Comparison Classes for Entry_Type}.
+@end table
+
+@noindent
+Functions:
+@table @code
+
+@item accept_data
+@ref{Parser Function Reference} 
+
+@item client_connect_auth
+@itemx client_connect_non_auth
+@ref{Client Connection Function Reference}.
+
+@item connect_func
+@item connect_func_non_auth
+@ref{Server Connection Function Reference}.
+
+@item exchange_data_with_client
+@ref{Exchange Data With Client}.
+
+@item exchange_data_with_server
+@ref{Exchange Data With Server} 
+
+@item extract_dn_fields
+@ref{TLS Functions} 
+
+@item hidden_install
+@ref{Hidden Software Installation} 
+
+@item init_globus_site_map
+@ref{Utility Function Reference} 
+
+@item install_packages
+@ref{Software Installation}.
+
+@item listen_auth
+@itemx listen_non_auth
+@ref{TLS Functions} 
+
+@item parse_input
+@ref{Parser Function Reference} 
+
+@item remote_install_func
+@ref{Remote Installation}.
+
+@item remote_install_rule_func
+@ref{Parser Function Reference}.
+
+@item sub_distribute_key_pair
+@ref{GPG Key Distribution}.
+
+@item verify_cert2
+@itemx verify_certificate_chain
+@itemx verify_last_cert
+@ref{TLS Functions} 
+
+@item yylex
+@ref{Scanner Server Functions} 
+
+@item yyparse
+@ref{Parser Server Functions}.
+
+@item zzlex
+@ref{Scanner Client Functions} 
+
+@item zzparse
+@ref{Parser Client Functions}.
+
+@end table

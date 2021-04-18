@@ -1,0 +1,156 @@
+@c envrshsc.texi
+
+@c Created by Laurence D. Finston (LDF) Thu May 24 11:21:56 CEST 2012
+@c This file is part of the Optinum Grid Installer User and Reference Manual.
+@c Copyright (C) 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbh Goettingen
+@c Author:  Laurence D. Finston (LDF)
+@c See the section "GNU Free Documentation License" in the file 
+@c fdl.texi for copying conditions.
+
+
+@c *** (3) Environment Shellscripts (optdbcli)
+
+@node Environment Shellscripts (optdbcli), Showing Privileges (optdbcli), Showing X.509 Certificates (optdbcli), Using the Client Program optdbcli
+
+@section Environment Shellscripts
+
+@menu
+* Sending Environment Shellscripts (optdbcli)::
+* Showing Environment Shellscripts (optdbcli)::
+@end menu
+
+
+@c *** (3) Sending Environment Shellscripts (optdbcli)
+@node Sending Environment Shellscripts (optdbcli), Showing Environment Shellscripts (optdbcli), , Environment Shellscripts (optdbcli)
+
+@subsection Sending Environment Shellscripts
+
+@iftex
+@tex
+\syntaxgroup
+\SetupA{statement} CLIENT TO SEND ENVIRONMENT SHELLSCRIPT STRING GLOBUS_SITE\hfil\break 
+\hbox{\hskip\dimen1}STRING <admin_optional>
+
+<admin_optional>: {\Empty} | ADMIN
+\par
+\endgroup
+@end tex
+@end iftex 
+
+@ifnottex
+@display
+statement: CLIENT TO SEND ENVIRONMENT SHELLSCRIPT STRING GLOBUS_SITE STRING admin_optional
+
+admin_optional: /* empty */ | ADMIN
+@end display
+@end ifnottex
+
+
+@cindex remote installation
+@c
+@dfn{Environment shellscripts} are used during @dfn{remote installation}.  @xref{Remote Installation}.
+They are executed in the shell in which the installation takes place.  An environment shellscript will therefore
+typically contain assignments to variables such as @samp{PATH}, @samp{LD_LIBRARY_PATH}, @samp{CFLAGS}, 
+@samp{LDFLAGS} etc., in order to ensure that programs, libraries, header files, and other things needed 
+for installation are found.
+
+An environment shellscript is specific to a particular Globus site.  An administrator 
+of a Globus site entry in the database (who may or may not be the administrator of
+the Globus site itself) may store one or more environment shellscripts for that Globus site
+in the @samp{Environment_Shellscripts} database table.  
+@xref{Environment_Shellscripts Database Table}.
+(There may be more than one such administrator for a given Globus site.)  
+When a user (i.e., any user) starts a remote installation, passing that Globus site as an argument, 
+this shellscript or these shellscripts will be fetched from the database and executed in the shell
+before the installation is started.  They are fetched and executed in the order in which they appear 
+in the database, i.e., according to the value stored in the `environment_shellscript_id' field for 
+the corresponding row in the table.  In general, this means that they will be executed 
+in the order in which they were stored in the database. 
+
+In addition, any user can store one or more environment shellscripts in the database.  
+When @emph{this user} (i.e., not other users) starts a remote installation, these shellscripts
+will be fetched from the database and executed in the shell before the installation is started, 
+but after the ones supplied by the administrators.  Like these, they are executed 
+in the order in which they were stored in the database.  
+
+See also @ref{Environment Shellscript Functions}, and 
+@ref{Environment_Shellscripts Database Table, , Environment_Shellscripts}.
+
+
+@c *** (3) Showing Environment Shellscripts (optdbcli)
+@node Showing Environment Shellscripts (optdbcli), , Sending Environment Shellscripts (optdbcli), Environment Shellscripts (optdbcli)
+
+@subsection Showing Environment Shellscripts
+
+@cindex environment shellscripts
+The complete syntax of the @samp{show environment shellscripts} command is as
+follows:
+
+@iftex
+@tex
+\syntaxgroup
+\Setup{statement} SHOW ENVIRONMENT SHELLSCRIPTS
+ <show_environment_shellscript_option_list>
+
+<show_environment_shellscript_option_list>: {\Empty}\hfil\break 
+\hbox{\hskip 1cm | <show_environment_shellscript_option_list> <show_environment_shellscript_option>}
+
+\Setup{show_environment_shellscript_option} USER
+   | GLOBUS_SITE STRING
+   | GLOBUS_SITES ALL
+\par
+\endgroup
+@end tex
+@end iftex 
+
+@ifnottex
+@display
+statement: SHOW ENVIRONMENT SHELLSCRIPTS show_environment_shellscript_option_list
+
+show_environment_shellscript_option_list: /* empty */
+                                        | show_environment_shellscript_option_list show_environment_shellscript_option
+
+show_environment_shellscript_option: USER
+                                   | GLOBUS_SITE STRING
+                                   | GLOBUS_SITES ALL
+@end display
+@end ifnottex
+
+A user can show his or her own environment shellscripts and/or the ``admin'' shellscripts for a particular Globus sites
+or all Globus sites.
+
+Example:
+@example
+show environment shellscripts globus_sites all
+@result{} 
+*** Environment shellscripts ***
+
+environment_shellscript_id:  1
+user_id:  12
+user_name:  dgon0015
+commonName:  Laurence Finston
+organizationalUnitName:  Gesellschaft fuer wissenschaftliche \
+   Datenverarbeitung mbH
+globus_site_id:  1
+hostname:  optinum-srv.gwdg.de
+admin:  1
+disabled:  0
+shellscript:  #### Environment variables for optinum-srv.gwdg.de
+
+export LIBS="$LIBS -lmysqlclient"
+export LDFLAGS="$LDFLAGS -L/opt/optinum/dbsrvcli/lib"
+export CFLAGS="$CFLAGS -I/opt/optinum/dbsrvcli/include"
+export CXXFLAGS="$CFLAGS -I/opt/optinum/dbsrvcli/include"
+@end example
+
+See also @ref{Environment Shellscript Functions}.
+
+@c * (1) Local Variables for Emacs
+  
+@c Local Variables:
+@c mode:Texinfo
+@c abbrev-mode:t
+@c eval:(outline-minor-mode t)
+@c outline-regexp:"@c *\\*+"
+@c eval:(set (make-local-variable 'run-texi2dvi-on-file) "installer.texi")
+@c End:

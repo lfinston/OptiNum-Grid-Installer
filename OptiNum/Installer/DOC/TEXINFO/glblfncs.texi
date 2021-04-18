@@ -1,0 +1,52 @@
+@c glblfncs.texi
+@c Created by Laurence D. Finston (LDF) Thu Feb  9 16:26:24 CET 2012
+
+@c This file is part of the Optinum Grid Installer User and Reference Manual.
+@c Copyright (C) 2010, 2011, 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbh Goettingen
+@c Author:  Laurence D. Finston (LDF)
+@c See the section "GNU Free Documentation License" in the file 
+@c fdl.texi for copying conditions.
+
+@node Global Functions optdbcli/optdbsrv, Server Connection Function Reference, Global Variables and Constants optdbcli/optdbsrv, Top 
+
+@chapter Global Functions optdbcli/optdbsrv
+
+These functions are defined in @file{glblfncs.web}.  They don't
+require many declarations of data types, functions and/or variables
+declared in the OptiNum Installer package, so the corresponding header
+file can be included in files where other header files from the
+package are not included, or before these header files are included.
+
+
+@deftypefun int set_cert_files (string @var{&curr_key_filename},  @
+                                string @var{&curr_cert_filename}, @
+                                string @var{&curr_ca_filename},   @
+                                string @var{&curr_crl_filename})  
+@end deftypefun
+
+@deftypefun int init_maps (void)
+@end deftypefun
+
+@deftypefun void lock_cerr_mutex (void)
+@deftypefunx void unlock_cerr_mutex (void)
+@end deftypefun
+
+@deftypefun string get_datestamp (void)
+@end deftypefun
+
+@c * (1)
+
+@c Emacs-Lisp code for use in indirect buffers:
+@c
+@c (progn (texinfo-mode) (outline-minor-mode t) (setq outline-regexp "@c *\\*+"))
+
+@c * (1) Local Variables for Emacs
+  
+@c Local Variables:
+@c mode:Texinfo
+@c abbrev-mode:t
+@c eval:(outline-minor-mode t)
+@c outline-regexp:"@c *\\*+"
+@c eval:(set (make-local-variable 'run-texi2dvi-on-file) "installer.texi")
+@c End:
+

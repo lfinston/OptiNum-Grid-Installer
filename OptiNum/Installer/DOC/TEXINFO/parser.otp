@@ -1,0 +1,3901 @@
+Terminals unused in grammar
+
+   HYPHEN_YY
+   COLON_YY
+   EXCLAMATION_POINT_YY
+   FILE_YY
+   GET_YY
+   EXTRACT_YY
+   AND_YY
+   LEVEL_YY
+   HOST_YY
+   SECRET_KEY_YY
+   UNSIGNED_INTEGER_YY
+   FLOAT_YY
+
+
+State 109 conflicts: 2 shift/reduce
+State 402 conflicts: 1 shift/reduce
+
+
+Grammar
+
+    0 $accept: program $end
+
+    1 program: statement_list END_YY
+
+    2 statement_list: /* empty */
+    3               | statement_list statement
+
+    4 statement: START_ENTRY_YY entry_statement_list END_ENTRY_YY
+
+    5 entry_statement_list: /* empty */
+    6                     | entry_statement_list keyword_value_pair
+    7                     | entry_statement_list prerequisite_statement
+    8                     | entry_statement_list PRIVATE_YY
+    9                     | entry_statement_list PUBLIC_YY
+
+   10 keyword_value_pair: PACKAGE_NAME_YY STRING_YY
+   11                   | PACKAGE_VERSION_YY STRING_YY
+   12                   | PACKAGE_VERSION_YY INTEGER_YY
+   13                   | DOWNLOAD_URL_YY STRING_YY
+   14                   | DOWNLOAD_URL_ENCRYPTED_YY STRING_YY
+   15                   | DOWNLOAD_COMMAND_YY STRING_YY
+   16                   | DOWNLOAD_COMMAND_ENCRYPTED_YY STRING_YY
+   17                   | INSTALLATION_SCRIPT_YY STRING_YY
+   18                   | INSTALLATION_SCRIPT_ENCRYPTED_YY STRING_YY
+   19                   | OWNER_YY STRING_YY
+   20                   | AUTHORIZATION_YY STRING_YY
+
+   21 prerequisite_statement: PREREQUISITE_YY STRING_YY
+   22                       | PREREQUISITE_YY STRING_YY STRING_YY
+
+   23 statement: CLIENT_YY SENDING_YY installation_script STRING_YY INTEGER_YY INTEGER_YY entry_string_list
+   24          | CLIENT_YY SENDING_YY download_info_encrypted STRING_YY INTEGER_YY INTEGER_YY entry_string_list
+   25          | CLIENT_YY SENDING_YY AUTHORIZATION_YY STRING_YY INTEGER_YY INTEGER_YY entry_string_list
+   26          | CLIENT_FINISHED_YY
+   27          | FETCH_YY INSTALLATION_SCRIPT_YY FOR_YY ENTRY_YY entry_string_list ORDER_YY INTEGER_YY
+   28          | FETCH_YY DOWNLOAD_INFO_YY FOR_YY ENTRY_YY entry_string_list ORDER_YY INTEGER_YY
+   29          | FETCH_YY AUTHORIZATION_YY FOR_YY ENTRY_YY entry_string_list ORDER_YY INTEGER_YY
+   30          | FETCH_YY PREREQUISITES_YY FOR_YY ENTRY_YY entry_string_list
+   31          | RECEIVE_YY INSTALLATION_SCRIPT_YY SUCCEEDED_YY FOR_YY ENTRY_YY entry_string_list
+   32          | RECEIVE_YY INSTALLATION_SCRIPT_YY FAILED_YY FOR_YY ENTRY_YY entry_string_list
+   33          | RECEIVE_YY DOWNLOAD_INFO_YY SUCCEEDED_YY FOR_YY ENTRY_YY entry_string_list
+   34          | RECEIVE_YY DOWNLOAD_INFO_YY FAILED_YY FOR_YY ENTRY_YY entry_string_list
+   35          | RECEIVE_YY DOWNLOAD_URL_YY ENCRYPTED_YY SUCCEEDED_YY FOR_YY ENTRY_YY entry_string_list
+   36          | RECEIVE_YY DOWNLOAD_URL_YY ENCRYPTED_YY FAILED_YY FOR_YY ENTRY_YY entry_string_list
+   37          | RECEIVE_YY DOWNLOAD_COMMAND_YY ENCRYPTED_YY SUCCEEDED_YY FOR_YY ENTRY_YY entry_string_list
+   38          | RECEIVE_YY DOWNLOAD_COMMAND_YY ENCRYPTED_YY FAILED_YY FOR_YY ENTRY_YY entry_string_list
+   39          | RECEIVE_YY AUTHORIZATION_YY SUCCEEDED_YY FOR_YY ENTRY_YY entry_string_list
+   40          | RECEIVE_YY AUTHORIZATION_YY FAILED_YY FOR_YY ENTRY_YY entry_string_list
+   41          | VALIDATE_YY DISTINGUISHED_NAME_YY STRING_YY
+
+   42 prerequisite_string_list: /* empty */
+   43                         | prerequisite_string_list STRING_YY
+
+   44 entry_string_list: /* empty */
+   45                  | entry_string_list STRING_YY
+
+   46 statement: ADD_YY PREREQUISITE_YY prerequisite_string_list FOR_YY ENTRY_YY entry_string_list
+   47          | DELETE_YY ENTRY_YY entry_string_list FINALLY_YY
+   48          | DELETE_YY ALL_YY ENTRIES_YY FOR_YY USER_YY FINALLY_YY
+   49          | MARK_YY AS_YY DELETED_YY ENTRY_YY entry_string_list
+   50          | MARK_YY AS_YY DELETED_YY ALL_YY ENTRIES_YY FOR_YY USER_YY
+   51          | UNDELETE_YY ENTRY_YY entry_string_list
+   52          | UNDELETE_YY ALL_YY DELETED_YY ENTRIES_YY FOR_YY USER_YY
+   53          | DELETE_YY PREREQUISITE_YY prerequisite_string_list FOR_YY ENTRY_YY entry_string_list
+   54          | DELETE_YY PREREQUISITES_YY FOR_YY ENTRY_YY entry_string_list
+   55          | CLIENT_YY TO_YY SEND_YY ENVIRONMENT_YY SHELLSCRIPT_YY STRING_YY GLOBUS_SITE_YY STRING_YY admin_optional
+
+   56 admin_optional: /* empty */
+   57               | ADMIN_YY
+
+   58 statement: CLIENT_YY SENDING_YY ENVIRONMENT_YY SHELLSCRIPT_YY GLOBUS_SITE_YY STRING_YY admin_optional
+   59          | FETCH_YY ENVIRONMENT_YY SHELLSCRIPTS_YY FOR_YY GLOBUS_SITE_YY STRING_YY
+   60          | RECEIVE_YY ENVIRONMENT_YY SHELLSCRIPT_YY SUCCEEDED_YY FOR_YY GLOBUS_SITE_YY STRING_YY
+   61          | RECEIVE_YY ENVIRONMENT_YY SHELLSCRIPT_YY FAILED_YY FOR_YY GLOBUS_SITE_YY STRING_YY
+   62          | DELETE_YY ENVIRONMENT_YY SHELLSCRIPTS_YY
+   63          | DELETE_YY ENVIRONMENT_YY SHELLSCRIPTS_YY FOR_YY GLOBUS_SITE_YY STRING_YY
+   64          | DELETE_YY ENVIRONMENT_YY SHELLSCRIPT_YY INTEGER_YY
+
+   65 entry_or_entries: ENTRY_YY
+   66                 | ENTRIES_YY
+
+   67 statement: SHOW_YY entry_or_entries entry_string_list show_option_list
+
+   68 show_option_list: /* empty */
+   69                 | show_option_list show_option
+
+   70 show_option: ALL_YY
+   71            | USER_YY
+   72            | PUBLIC_YY
+   73            | WITH_PREREQUISITES_YY
+   74            | WITH_DEPENDENTS_YY
+   75            | WITH_INSTALLATION_SCRIPT_YY
+   76            | HTML_YY
+   77            | JAVASCRIPT_YY
+   78            | LEVELS_YY level_list
+
+   79 level_list: /* empty */
+   80           | level_list INTEGER_YY INTEGER_YY
+   81           | level_list INTEGER_YY INTEGER_YY SEMI_COLON_YY
+   82           | level_list INTEGER_YY INTEGER_YY SLASH_YY
+
+   83 statement: SHOW_YY CERTIFICATE_YY USER_YY html_optional
+   84          | SHOW_YY CERTIFICATES_YY ALL_YY html_optional
+
+   85 html_optional: /* empty */
+   86              | HTML_YY
+
+   87 statement: SHOW_YY ENVIRONMENT_YY SHELLSCRIPTS_YY show_environment_shellscript_option_list
+
+   88 show_environment_shellscript_option_list: /* empty */
+   89                                         | show_environment_shellscript_option_list show_environment_shellscript_option
+
+   90 show_environment_shellscript_option: USER_YY
+   91                                    | GLOBUS_SITE_YY STRING_YY
+   92                                    | GLOBUS_SITES_YY ALL_YY
+
+   93 statement: ENABLE_YY ENVIRONMENT_YY SHELLSCRIPT_YY INTEGER_YY
+   94          | DISABLE_YY ENVIRONMENT_YY SHELLSCRIPT_YY INTEGER_YY
+   95          | CLIENT_YY RECEIVE_YY ENTRY_YY INFO_YY SUCCEEDED_YY
+   96          | CLIENT_YY RECEIVE_YY ENTRY_YY INFO_YY FAILED_YY
+   97          | SET_YY EFFECTIVE_USER_YY STRING_YY
+   98          | ADD_YY installation_script STRING_YY TO_YY ENTRY_YY entry_string_list
+
+   99 installation_script: INSTALLATION_SCRIPT_YY
+  100                    | INSTALLATION_SCRIPT_ENCRYPTED_YY
+
+  101 statement: ADD_YY download_info STRING_YY TO_YY ENTRY_YY entry_string_list
+
+  102 download_info: DOWNLOAD_URL_YY
+  103              | DOWNLOAD_COMMAND_YY
+  104              | download_info_encrypted
+
+  105 download_info_encrypted: DOWNLOAD_URL_ENCRYPTED_YY
+  106                        | DOWNLOAD_COMMAND_ENCRYPTED_YY
+
+  107 statement: ADD_YY AUTHORIZATION_YY STRING_YY TO_YY ENTRY_YY entry_string_list
+  108          | CLIENT_YY TO_YY TRANSFER_YY PROXY_CREDENTIAL_YY STRING_YY
+  109          | PROXY_CREDENTIAL_YY STRING_YY INVALID_YY CLIENT_YY NOT_YY TO_YY TRANSFER_YY
+  110          | CLIENT_YY SENDING_YY PROXY_CREDENTIAL_YY
+
+  111 install_or_reinstall: INSTALL_YY
+  112                     | REINSTALL_YY
+
+  113 package_version_optional: /* empty */
+  114                         | PACKAGE_VERSION_YY STRING_YY
+
+  115 stdout_filename_optional: /* empty */
+  116                         | STDOUT_FILENAME_YY STRING_YY
+
+  117 stderr_filename_optional: /* empty */
+  118                         | STDERR_FILENAME_YY STRING_YY
+
+  119 timeout_optional: /* empty */
+  120                 | TIMEOUT_YY INTEGER_YY
+
+  121 reinstall_prerequisites_optional: /* empty */
+  122                                 | REINSTALL_YY PREREQUISITES_YY
+  123                                 | NO_YY REINSTALL_YY PREREQUISITES_YY
+
+  124 link_expression_list: /* empty */
+  125                     | link_expression_list link_expression
+
+  126 link_expression: NO_LINKS_YY
+  127                | WITH_LINKS_YY
+  128                | LINK_DIRECTORY_YY STRING_YY
+
+  129 statement: install_or_reinstall PACKAGE_NAME_YY STRING_YY package_version_optional GLOBUS_SITE_YY STRING_YY stdout_filename_optional 
+stderr_filename_optional timeout_optional reinstall_prerequisites_optional link_expression_list
+  130          | CLIENT_YY TO_YY TRANSFER_YY KEY_PAIR_YY
+  131          | CLIENT_YY SENDING_YY KEY_PAIR_YY STRING_YY STRING_YY
+  132          | CLIENT_YY ERROR_YY NOT_YY SENDING_YY KEY_PAIR_YY
+  133          | FETCH_YY KEY_PAIR_YY
+  134          | RECEIVE_YY KEY_PAIR_YY SUCCEEDED_YY
+  135          | RECEIVE_YY KEY_PAIR_YY FAILED_YY
+
+  136 globus_site_list: GLOBUS_SITES_YY ALL_YY
+  137                 | GLOBUS_SITE_YY ALL_YY
+  138                 | sub_globus_site_list
+
+  139 sub_globus_site_list: GLOBUS_SITE_YY STRING_YY
+  140                     | GLOBUS_SITES_YY STRING_YY
+  141                     | sub_globus_site_list STRING_YY
+
+  142 statement: DISTRIBUTE_YY KEY_PAIR_YY globus_site_list
+  143          | DELETE_YY KEY_PAIR_YY FROM_YY DATABASE_YY
+  144          | DELETE_YY PUBLIC_KEY_YY FROM_YY DATABASE_YY
+  145          | SESSION_ID_YY STRING_YY
+  146          | ADD_YY GLOBUS_SITE_YY STRING_YY globus_site_option_list
+
+  147 globus_site_option_list: /* empty */
+  148                        | globus_site_option_list globus_site_option
+
+  149 globus_site_option: INTERACTIVE_NODE_YY STRING_YY
+  150                   | APPEND_LD_LIBRARY_PATH_YY STRING_YY
+  151                   | APPEND_PATH_YY STRING_YY
+  152                   | OPTDBCLI_PATH_YY STRING_YY
+  153                   | IP_ADDRESS_YY STRING_YY
+  154                   | INTERACTIVE_NODE_IP_ADDRESS_YY STRING_YY
+  155                   | ENABLED_YY
+  156                   | DISABLED_YY
+  157                   | REPLACE_YY
+
+  158 statement: SHOW_YY globus_site_list html_optional
+  159          | DELETE_YY GLOBUS_SITE_YY STRING_YY FINALLY_YY
+  160          | MARK_YY AS_YY DELETED_YY GLOBUS_SITE_YY STRING_YY
+  161          | UNDELETE_YY GLOBUS_SITE_YY STRING_YY enable_optional
+
+  162 enable_optional: /* empty */
+  163                | ENABLE_YY
+  164                | DISABLE_YY
+
+  165 statement: ENABLE_YY GLOBUS_SITE_YY STRING_YY
+  166          | DISABLE_YY GLOBUS_SITE_YY STRING_YY
+
+  167 add_or_delete: ADD_YY
+  168              | DELETE_YY
+
+  169 statement: add_or_delete ADMIN_YY GLOBUS_SITE_YY STRING_YY USER_YY INTEGER_YY
+  170          | EDIT_YY GLOBUS_SITE_YY STRING_YY SET_YY globus_site_option_list
+  171          | EDIT_YY GLOBUS_SITE_YY STRING_YY UNSET_YY globus_site_option_list_1
+
+  172 globus_site_option_list_1: /* empty */
+  173                          | globus_site_option_list_1 globus_site_option_1
+
+  174 globus_site_option_1: INTERACTIVE_NODE_YY
+  175                     | APPEND_LD_LIBRARY_PATH_YY
+  176                     | APPEND_PATH_YY
+  177                     | OPTDBCLI_PATH_YY
+  178                     | IP_ADDRESS_YY
+  179                     | INTERACTIVE_NODE_IP_ADDRESS_YY
+
+  180 statement: SHOW_YY PRIVILEGES_YY USER_YY html_optional
+  181          | SHOW_YY PRIVILEGES_YY ALL_YY html_optional
+
+
+Terminals, with rules where they appear
+
+$end (0) 0
+error (256)
+HYPHEN_YY (258)
+COLON_YY (259)
+SEMI_COLON_YY (260) 81
+SLASH_YY (261) 82
+EXCLAMATION_POINT_YY (262)
+FOR_YY (263) 27 28 29 30 31 32 33 34 35 36 37 38 39 40 46 48 50 52
+    53 54 59 60 61 63
+TO_YY (264) 55 98 101 107 108 109 130
+NOT_YY (265) 109 132
+ERROR_YY (266) 132
+NO_YY (267) 123
+ADD_YY (268) 46 98 101 107 146 167
+DELETE_YY (269) 47 48 53 54 62 63 64 143 144 159 168
+DELETED_YY (270) 49 50 52 160
+UNDELETE_YY (271) 51 52 161
+EDIT_YY (272) 170 171
+REPLACE_YY (273) 157
+ENTRY_YY (274) 27 28 29 30 31 32 33 34 35 36 37 38 39 40 46 47 49 51
+    53 54 65 95 96 98 101 107
+START_ENTRY_YY (275) 4
+END_ENTRY_YY (276) 4
+END_YY (277) 1
+RECEIVE_YY (278) 31 32 33 34 35 36 37 38 39 40 60 61 95 96 134 135
+FILE_YY (279)
+SUCCEEDED_YY (280) 31 33 35 37 39 60 95 134
+FAILED_YY (281) 32 34 36 38 40 61 96 135
+MARK_YY (282) 49 50 160
+AS_YY (283) 49 50 160
+FINALLY_YY (284) 47 48 159
+STRING_YY (285) 10 11 13 14 15 16 17 18 19 20 21 22 23 24 25 41 43
+    45 55 58 59 60 61 63 91 97 98 101 107 108 109 114 116 118 128 129
+    131 139 140 141 145 146 149 150 151 152 153 154 159 160 161 165
+    166 169 170 171
+PACKAGE_NAME_YY (286) 10 129
+PACKAGE_VERSION_YY (287) 11 12 114
+DOWNLOAD_INFO_YY (288) 28 33 34
+DOWNLOAD_URL_YY (289) 13 35 36 102
+DOWNLOAD_URL_ENCRYPTED_YY (290) 14 105
+DOWNLOAD_COMMAND_YY (291) 15 37 38 103
+DOWNLOAD_COMMAND_ENCRYPTED_YY (292) 16 106
+PREREQUISITE_YY (293) 21 22 46 53
+PREREQUISITES_YY (294) 30 54 122 123
+ORDER_YY (295) 27 28 29
+INSTALLATION_SCRIPT_YY (296) 17 27 31 32 99
+INSTALLATION_SCRIPT_ENCRYPTED_YY (297) 18 100
+AUTHORIZATION_YY (298) 20 25 29 39 40 107
+CLIENT_FINISHED_YY (299) 26
+CLIENT_YY (300) 23 24 25 55 58 95 96 108 109 110 130 131 132
+SENDING_YY (301) 23 24 25 58 110 131 132
+FETCH_YY (302) 27 28 29 30 59 133
+GET_YY (303)
+EXTRACT_YY (304)
+VALIDATE_YY (305) 41
+DISTINGUISHED_NAME_YY (306) 41
+ENVIRONMENT_YY (307) 55 58 59 60 61 62 63 64 87 93 94
+SHELLSCRIPT_YY (308) 55 58 60 61 64 93 94
+SHELLSCRIPTS_YY (309) 59 62 63 87
+ADMIN_YY (310) 57 169
+ENABLE_YY (311) 93 163 165
+ENABLED_YY (312) 155
+DISABLE_YY (313) 94 164 166
+DISABLED_YY (314) 156
+SHOW_YY (315) 67 83 84 87 158 180 181
+ALL_YY (316) 48 50 52 70 84 92 136 137 181
+ENTRIES_YY (317) 48 50 52 66
+AND_YY (318)
+USER_YY (319) 48 50 52 71 83 90 169 180
+SET_YY (320) 97 170
+UNSET_YY (321) 171
+PUBLIC_YY (322) 9 72
+PRIVATE_YY (323) 8
+WITH_PREREQUISITES_YY (324) 73
+WITH_DEPENDENTS_YY (325) 74
+WITH_INSTALLATION_SCRIPT_YY (326) 75
+HTML_YY (327) 76 86
+JAVASCRIPT_YY (328) 77
+LEVEL_YY (329)
+LEVELS_YY (330) 78
+INFO_YY (331) 95 96
+EFFECTIVE_USER_YY (332) 97
+CERTIFICATE_YY (333) 83
+CERTIFICATES_YY (334) 84
+PRIVILEGES_YY (335) 180 181
+ENCRYPTED_YY (336) 35 36 37 38
+OWNER_YY (337) 19
+TRANSFER_YY (338) 108 109 130
+PROXY_CREDENTIAL_YY (339) 108 109 110
+INVALID_YY (340) 109
+SEND_YY (341) 55
+INSTALL_YY (342) 111
+REINSTALL_YY (343) 112 122 123
+GLOBUS_SITE_YY (344) 55 58 59 60 61 63 91 129 137 139 146 159 160 161
+    165 166 169 170 171
+HOST_YY (345)
+GLOBUS_SITES_YY (346) 92 136 140
+STDOUT_FILENAME_YY (347) 116
+STDERR_FILENAME_YY (348) 118
+TIMEOUT_YY (349) 120
+INTERACTIVE_NODE_YY (350) 149 174
+APPEND_LD_LIBRARY_PATH_YY (351) 150 175
+APPEND_PATH_YY (352) 151 176
+OPTDBCLI_PATH_YY (353) 152 177
+IP_ADDRESS_YY (354) 153 178
+INTERACTIVE_NODE_IP_ADDRESS_YY (355) 154 179
+NO_LINKS_YY (356) 126
+WITH_LINKS_YY (357) 127
+LINK_DIRECTORY_YY (358) 128
+SECRET_KEY_YY (359)
+PUBLIC_KEY_YY (360) 144
+KEY_PAIR_YY (361) 130 131 132 133 134 135 142 143
+DISTRIBUTE_YY (362) 142
+FROM_YY (363) 143 144
+DATABASE_YY (364) 143 144
+SESSION_ID_YY (365) 145
+INTEGER_YY (366) 12 23 24 25 27 28 29 64 80 81 82 93 94 120 169
+UNSIGNED_INTEGER_YY (367)
+FLOAT_YY (368)
+
+
+Nonterminals, with rules where they appear
+
+$accept (114)
+    on left: 0
+program (115)
+    on left: 1, on right: 0
+statement_list (116)
+    on left: 2 3, on right: 1 3
+statement (117)
+    on left: 4 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40
+    41 46 47 48 49 50 51 52 53 54 55 58 59 60 61 62 63 64 67 83 84
+    87 93 94 95 96 97 98 101 107 108 109 110 129 130 131 132 133 134
+    135 142 143 144 145 146 158 159 160 161 165 166 169 170 171 180
+    181, on right: 3
+entry_statement_list (118)
+    on left: 5 6 7 8 9, on right: 4 6 7 8 9
+keyword_value_pair (119)
+    on left: 10 11 12 13 14 15 16 17 18 19 20, on right: 6
+prerequisite_statement (120)
+    on left: 21 22, on right: 7
+prerequisite_string_list (121)
+    on left: 42 43, on right: 43 46 53
+entry_string_list (122)
+    on left: 44 45, on right: 23 24 25 27 28 29 30 31 32 33 34 35 36
+    37 38 39 40 45 46 47 49 51 53 54 67 98 101 107
+admin_optional (123)
+    on left: 56 57, on right: 55 58
+entry_or_entries (124)
+    on left: 65 66, on right: 67
+show_option_list (125)
+    on left: 68 69, on right: 67 69
+show_option (126)
+    on left: 70 71 72 73 74 75 76 77 78, on right: 69
+level_list (127)
+    on left: 79 80 81 82, on right: 78 80 81 82
+html_optional (128)
+    on left: 85 86, on right: 83 84 158 180 181
+show_environment_shellscript_option_list (129)
+    on left: 88 89, on right: 87 89
+show_environment_shellscript_option (130)
+    on left: 90 91 92, on right: 89
+installation_script (131)
+    on left: 99 100, on right: 23 98
+download_info (132)
+    on left: 102 103 104, on right: 101
+download_info_encrypted (133)
+    on left: 105 106, on right: 24 104
+install_or_reinstall (134)
+    on left: 111 112, on right: 129
+package_version_optional (135)
+    on left: 113 114, on right: 129
+stdout_filename_optional (136)
+    on left: 115 116, on right: 129
+stderr_filename_optional (137)
+    on left: 117 118, on right: 129
+timeout_optional (138)
+    on left: 119 120, on right: 129
+reinstall_prerequisites_optional (139)
+    on left: 121 122 123, on right: 129
+link_expression_list (140)
+    on left: 124 125, on right: 125 129
+link_expression (141)
+    on left: 126 127 128, on right: 125
+globus_site_list (142)
+    on left: 136 137 138, on right: 142 158
+sub_globus_site_list (143)
+    on left: 139 140 141, on right: 138 141
+globus_site_option_list (144)
+    on left: 147 148, on right: 146 148 170
+globus_site_option (145)
+    on left: 149 150 151 152 153 154 155 156 157, on right: 148
+enable_optional (146)
+    on left: 162 163 164, on right: 161
+add_or_delete (147)
+    on left: 167 168, on right: 169
+globus_site_option_list_1 (148)
+    on left: 172 173, on right: 171 173
+globus_site_option_1 (149)
+    on left: 174 175 176 177 178 179, on right: 173
+
+
+state 0
+
+    0 $accept: . program $end
+
+    $default  reduce using rule 2 (statement_list)
+
+    program         go to state 1
+    statement_list  go to state 2
+
+
+state 1
+
+    0 $accept: program . $end
+
+    $end  shift, and go to state 3
+
+
+state 2
+
+    1 program: statement_list . END_YY
+    3 statement_list: statement_list . statement
+
+    ADD_YY               shift, and go to state 4
+    DELETE_YY            shift, and go to state 5
+    UNDELETE_YY          shift, and go to state 6
+    EDIT_YY              shift, and go to state 7
+    START_ENTRY_YY       shift, and go to state 8
+    END_YY               shift, and go to state 9
+    RECEIVE_YY           shift, and go to state 10
+    MARK_YY              shift, and go to state 11
+    CLIENT_FINISHED_YY   shift, and go to state 12
+    CLIENT_YY            shift, and go to state 13
+    FETCH_YY             shift, and go to state 14
+    VALIDATE_YY          shift, and go to state 15
+    ENABLE_YY            shift, and go to state 16
+    DISABLE_YY           shift, and go to state 17
+    SHOW_YY              shift, and go to state 18
+    SET_YY               shift, and go to state 19
+    PROXY_CREDENTIAL_YY  shift, and go to state 20
+    INSTALL_YY           shift, and go to state 21
+    REINSTALL_YY         shift, and go to state 22
+    DISTRIBUTE_YY        shift, and go to state 23
+    SESSION_ID_YY        shift, and go to state 24
+
+    statement             go to state 25
+    install_or_reinstall  go to state 26
+    add_or_delete         go to state 27
+
+
+state 3
+
+    0 $accept: program $end .
+
+    $default  accept
+
+
+state 4
+
+   46 statement: ADD_YY . PREREQUISITE_YY prerequisite_string_list FOR_YY ENTRY_YY entry_string_list
+   98          | ADD_YY . installation_script STRING_YY TO_YY ENTRY_YY entry_string_list
+  101          | ADD_YY . download_info STRING_YY TO_YY ENTRY_YY entry_string_list
+  107          | ADD_YY . AUTHORIZATION_YY STRING_YY TO_YY ENTRY_YY entry_string_list
+  146          | ADD_YY . GLOBUS_SITE_YY STRING_YY globus_site_option_list
+  167 add_or_delete: ADD_YY .
+
+    DOWNLOAD_URL_YY                   shift, and go to state 28
+    DOWNLOAD_URL_ENCRYPTED_YY         shift, and go to state 29
+    DOWNLOAD_COMMAND_YY               shift, and go to state 30
+    DOWNLOAD_COMMAND_ENCRYPTED_YY     shift, and go to state 31
+    PREREQUISITE_YY                   shift, and go to state 32
+    INSTALLATION_SCRIPT_YY            shift, and go to state 33
+    INSTALLATION_SCRIPT_ENCRYPTED_YY  shift, and go to state 34
+    AUTHORIZATION_YY                  shift, and go to state 35
+    GLOBUS_SITE_YY                    shift, and go to state 36
+
+    $default  reduce using rule 167 (add_or_delete)
+
+    installation_script      go to state 37
+    download_info            go to state 38
+    download_info_encrypted  go to state 39
+
+
+state 5
+
+   47 statement: DELETE_YY . ENTRY_YY entry_string_list FINALLY_YY
+   48          | DELETE_YY . ALL_YY ENTRIES_YY FOR_YY USER_YY FINALLY_YY
+   53          | DELETE_YY . PREREQUISITE_YY prerequisite_string_list FOR_YY ENTRY_YY entry_string_list
+   54          | DELETE_YY . PREREQUISITES_YY FOR_YY ENTRY_YY entry_string_list
+   62          | DELETE_YY . ENVIRONMENT_YY SHELLSCRIPTS_YY
+   63          | DELETE_YY . ENVIRONMENT_YY SHELLSCRIPTS_YY FOR_YY GLOBUS_SITE_YY STRING_YY
+   64          | DELETE_YY . ENVIRONMENT_YY SHELLSCRIPT_YY INTEGER_YY
+  143          | DELETE_YY . KEY_PAIR_YY FROM_YY DATABASE_YY
+  144          | DELETE_YY . PUBLIC_KEY_YY FROM_YY DATABASE_YY
+  159          | DELETE_YY . GLOBUS_SITE_YY STRING_YY FINALLY_YY
+  168 add_or_delete: DELETE_YY .
+
+    ENTRY_YY          shift, and go to state 40
+    PREREQUISITE_YY   shift, and go to state 41
+    PREREQUISITES_YY  shift, and go to state 42
+    ENVIRONMENT_YY    shift, and go to state 43
+    ALL_YY            shift, and go to state 44
+    GLOBUS_SITE_YY    shift, and go to state 45
+    PUBLIC_KEY_YY     shift, and go to state 46
+    KEY_PAIR_YY       shift, and go to state 47
+
+    $default  reduce using rule 168 (add_or_delete)
+
+
+state 6
+
+   51 statement: UNDELETE_YY . ENTRY_YY entry_string_list
+   52          | UNDELETE_YY . ALL_YY DELETED_YY ENTRIES_YY FOR_YY USER_YY
+  161          | UNDELETE_YY . GLOBUS_SITE_YY STRING_YY enable_optional
+
+    ENTRY_YY        shift, and go to state 48
+    ALL_YY          shift, and go to state 49
+    GLOBUS_SITE_YY  shift, and go to state 50
+
+
+state 7
+
+  170 statement: EDIT_YY . GLOBUS_SITE_YY STRING_YY SET_YY globus_site_option_list
+  171          | EDIT_YY . GLOBUS_SITE_YY STRING_YY UNSET_YY globus_site_option_list_1
+
+    GLOBUS_SITE_YY  shift, and go to state 51
+
+
+state 8
+
+    4 statement: START_ENTRY_YY . entry_statement_list END_ENTRY_YY
+
+    $default  reduce using rule 5 (entry_statement_list)
+
+    entry_statement_list  go to state 52
+
+
+state 9
+
+    1 program: statement_list END_YY .
+
+    $default  reduce using rule 1 (program)
+
+
+state 10
+
+   31 statement: RECEIVE_YY . INSTALLATION_SCRIPT_YY SUCCEEDED_YY FOR_YY ENTRY_YY entry_string_list
+   32          | RECEIVE_YY . INSTALLATION_SCRIPT_YY FAILED_YY FOR_YY ENTRY_YY entry_string_list
+   33          | RECEIVE_YY . DOWNLOAD_INFO_YY SUCCEEDED_YY FOR_YY ENTRY_YY entry_string_list
+   34          | RECEIVE_YY . DOWNLOAD_INFO_YY FAILED_YY FOR_YY ENTRY_YY entry_string_list
+   35          | RECEIVE_YY . DOWNLOAD_URL_YY ENCRYPTED_YY SUCCEEDED_YY FOR_YY ENTRY_YY entry_string_list
+   36          | RECEIVE_YY . DOWNLOAD_URL_YY ENCRYPTED_YY FAILED_YY FOR_YY ENTRY_YY entry_string_list
+   37          | RECEIVE_YY . DOWNLOAD_COMMAND_YY ENCRYPTED_YY SUCCEEDED_YY FOR_YY ENTRY_YY entry_string_list
+   38          | RECEIVE_YY . DOWNLOAD_COMMAND_YY ENCRYPTED_YY FAILED_YY FOR_YY ENTRY_YY entry_string_list
+   39          | RECEIVE_YY . AUTHORIZATION_YY SUCCEEDED_YY FOR_YY ENTRY_YY entry_string_list
+   40          | RECEIVE_YY . AUTHORIZATION_YY FAILED_YY FOR_YY ENTRY_YY entry_string_list
+   60          | RECEIVE_YY . ENVIRONMENT_YY SHELLSCRIPT_YY SUCCEEDED_YY FOR_YY GLOBUS_SITE_YY STRING_YY
+   61          | RECEIVE_YY . ENVIRONMENT_YY SHELLSCRIPT_YY FAILED_YY FOR_YY GLOBUS_SITE_YY STRING_YY
+  134          | RECEIVE_YY . KEY_PAIR_YY SUCCEEDED_YY
+  135          | RECEIVE_YY . KEY_PAIR_YY FAILED_YY
+
+    DOWNLOAD_INFO_YY        shift, and go to state 53
+    DOWNLOAD_URL_YY         shift, and go to state 54
+    DOWNLOAD_COMMAND_YY     shift, and go to state 55
+    INSTALLATION_SCRIPT_YY  shift, and go to state 56
+    AUTHORIZATION_YY        shift, and go to state 57
+    ENVIRONMENT_YY          shift, and go to state 58
+    KEY_PAIR_YY             shift, and go to state 59
+
+
+state 11
+
+   49 statement: MARK_YY . AS_YY DELETED_YY ENTRY_YY entry_string_list
+   50          | MARK_YY . AS_YY DELETED_YY ALL_YY ENTRIES_YY FOR_YY USER_YY
+  160          | MARK_YY . AS_YY DELETED_YY GLOBUS_SITE_YY STRING_YY
+
+    AS_YY  shift, and go to state 60
+
+
+state 12
+
+   26 statement: CLIENT_FINISHED_YY .
+
+    $default  reduce using rule 26 (statement)
+
+
+state 13
+
+   23 statement: CLIENT_YY . SENDING_YY installation_script STRING_YY INTEGER_YY INTEGER_YY entry_string_list
+   24          | CLIENT_YY . SENDING_YY download_info_encrypted STRING_YY INTEGER_YY INTEGER_YY entry_string_list
+   25          | CLIENT_YY . SENDING_YY AUTHORIZATION_YY STRING_YY INTEGER_YY INTEGER_YY entry_string_list
+   55          | CLIENT_YY . TO_YY SEND_YY ENVIRONMENT_YY SHELLSCRIPT_YY STRING_YY GLOBUS_SITE_YY STRING_YY admin_optional
+   58          | CLIENT_YY . SENDING_YY ENVIRONMENT_YY SHELLSCRIPT_YY GLOBUS_SITE_YY STRING_YY admin_optional
+   95          | CLIENT_YY . RECEIVE_YY ENTRY_YY INFO_YY SUCCEEDED_YY
+   96          | CLIENT_YY . RECEIVE_YY ENTRY_YY INFO_YY FAILED_YY
+  108          | CLIENT_YY . TO_YY TRANSFER_YY PROXY_CREDENTIAL_YY STRING_YY
+  110          | CLIENT_YY . SENDING_YY PROXY_CREDENTIAL_YY
+  130          | CLIENT_YY . TO_YY TRANSFER_YY KEY_PAIR_YY
+  131          | CLIENT_YY . SENDING_YY KEY_PAIR_YY STRING_YY STRING_YY
+  132          | CLIENT_YY . ERROR_YY NOT_YY SENDING_YY KEY_PAIR_YY
+
+    TO_YY       shift, and go to state 61
+    ERROR_YY    shift, and go to state 62
+    RECEIVE_YY  shift, and go to state 63
+    SENDING_YY  shift, and go to state 64
+
+
+state 14
+
+   27 statement: FETCH_YY . INSTALLATION_SCRIPT_YY FOR_YY ENTRY_YY entry_string_list ORDER_YY INTEGER_YY
+   28          | FETCH_YY . DOWNLOAD_INFO_YY FOR_YY ENTRY_YY entry_string_list ORDER_YY INTEGER_YY
+   29          | FETCH_YY . AUTHORIZATION_YY FOR_YY ENTRY_YY entry_string_list ORDER_YY INTEGER_YY
+   30          | FETCH_YY . PREREQUISITES_YY FOR_YY ENTRY_YY entry_string_list
+   59          | FETCH_YY . ENVIRONMENT_YY SHELLSCRIPTS_YY FOR_YY GLOBUS_SITE_YY STRING_YY
+  133          | FETCH_YY . KEY_PAIR_YY
+
+    DOWNLOAD_INFO_YY        shift, and go to state 65
+    PREREQUISITES_YY        shift, and go to state 66
+    INSTALLATION_SCRIPT_YY  shift, and go to state 67
+    AUTHORIZATION_YY        shift, and go to state 68
+    ENVIRONMENT_YY          shift, and go to state 69
+    KEY_PAIR_YY             shift, and go to state 70
+
+
+state 15
+
+   41 statement: VALIDATE_YY . DISTINGUISHED_NAME_YY STRING_YY
+
+    DISTINGUISHED_NAME_YY  shift, and go to state 71
+
+
+state 16
+
+   93 statement: ENABLE_YY . ENVIRONMENT_YY SHELLSCRIPT_YY INTEGER_YY
+  165          | ENABLE_YY . GLOBUS_SITE_YY STRING_YY
+
+    ENVIRONMENT_YY  shift, and go to state 72
+    GLOBUS_SITE_YY  shift, and go to state 73
+
+
+state 17
+
+   94 statement: DISABLE_YY . ENVIRONMENT_YY SHELLSCRIPT_YY INTEGER_YY
+  166          | DISABLE_YY . GLOBUS_SITE_YY STRING_YY
+
+    ENVIRONMENT_YY  shift, and go to state 74
+    GLOBUS_SITE_YY  shift, and go to state 75
+
+
+state 18
+
+   67 statement: SHOW_YY . entry_or_entries entry_string_list show_option_list
+   83          | SHOW_YY . CERTIFICATE_YY USER_YY html_optional
+   84          | SHOW_YY . CERTIFICATES_YY ALL_YY html_optional
+   87          | SHOW_YY . ENVIRONMENT_YY SHELLSCRIPTS_YY show_environment_shellscript_option_list
+  158          | SHOW_YY . globus_site_list html_optional
+  180          | SHOW_YY . PRIVILEGES_YY USER_YY html_optional
+  181          | SHOW_YY . PRIVILEGES_YY ALL_YY html_optional
+
+    ENTRY_YY         shift, and go to state 76
+    ENVIRONMENT_YY   shift, and go to state 77
+    ENTRIES_YY       shift, and go to state 78
+    CERTIFICATE_YY   shift, and go to state 79
+    CERTIFICATES_YY  shift, and go to state 80
+    PRIVILEGES_YY    shift, and go to state 81
+    GLOBUS_SITE_YY   shift, and go to state 82
+    GLOBUS_SITES_YY  shift, and go to state 83
+
+    entry_or_entries      go to state 84
+    globus_site_list      go to state 85
+    sub_globus_site_list  go to state 86
+
+
+state 19
+
+   97 statement: SET_YY . EFFECTIVE_USER_YY STRING_YY
+
+    EFFECTIVE_USER_YY  shift, and go to state 87
+
+
+state 20
+
+  109 statement: PROXY_CREDENTIAL_YY . STRING_YY INVALID_YY CLIENT_YY NOT_YY TO_YY TRANSFER_YY
+
+    STRING_YY  shift, and go to state 88
+
+
+state 21
+
+  111 install_or_reinstall: INSTALL_YY .
+
+    $default  reduce using rule 111 (install_or_reinstall)
+
+
+state 22
+
+  112 install_or_reinstall: REINSTALL_YY .
+
+    $default  reduce using rule 112 (install_or_reinstall)
+
+
+state 23
+
+  142 statement: DISTRIBUTE_YY . KEY_PAIR_YY globus_site_list
+
+    KEY_PAIR_YY  shift, and go to state 89
+
+
+state 24
+
+  145 statement: SESSION_ID_YY . STRING_YY
+
+    STRING_YY  shift, and go to state 90
+
+
+state 25
+
+    3 statement_list: statement_list statement .
+
+    $default  reduce using rule 3 (statement_list)
+
+
+state 26
+
+  129 statement: install_or_reinstall . PACKAGE_NAME_YY STRING_YY package_version_optional GLOBUS_SITE_YY STRING_YY stdout_filename_optional 
+stderr_filename_optional timeout_optional reinstall_prerequisites_optional link_expression_list
+
+    PACKAGE_NAME_YY  shift, and go to state 91
+
+
+state 27
+
+  169 statement: add_or_delete . ADMIN_YY GLOBUS_SITE_YY STRING_YY USER_YY INTEGER_YY
+
+    ADMIN_YY  shift, and go to state 92
+
+
+state 28
+
+  102 download_info: DOWNLOAD_URL_YY .
+
+    $default  reduce using rule 102 (download_info)
+
+
+state 29
+
+  105 download_info_encrypted: DOWNLOAD_URL_ENCRYPTED_YY .
+
+    $default  reduce using rule 105 (download_info_encrypted)
+
+
+state 30
+
+  103 download_info: DOWNLOAD_COMMAND_YY .
+
+    $default  reduce using rule 103 (download_info)
+
+
+state 31
+
+  106 download_info_encrypted: DOWNLOAD_COMMAND_ENCRYPTED_YY .
+
+    $default  reduce using rule 106 (download_info_encrypted)
+
+
+state 32
+
+   46 statement: ADD_YY PREREQUISITE_YY . prerequisite_string_list FOR_YY ENTRY_YY entry_string_list
+
+    $default  reduce using rule 42 (prerequisite_string_list)
+
+    prerequisite_string_list  go to state 93
+
+
+state 33
+
+   99 installation_script: INSTALLATION_SCRIPT_YY .
+
+    $default  reduce using rule 99 (installation_script)
+
+
+state 34
+
+  100 installation_script: INSTALLATION_SCRIPT_ENCRYPTED_YY .
+
+    $default  reduce using rule 100 (installation_script)
+
+
+state 35
+
+  107 statement: ADD_YY AUTHORIZATION_YY . STRING_YY TO_YY ENTRY_YY entry_string_list
+
+    STRING_YY  shift, and go to state 94
+
+
+state 36
+
+  146 statement: ADD_YY GLOBUS_SITE_YY . STRING_YY globus_site_option_list
+
+    STRING_YY  shift, and go to state 95
+
+
+state 37
+
+   98 statement: ADD_YY installation_script . STRING_YY TO_YY ENTRY_YY entry_string_list
+
+    STRING_YY  shift, and go to state 96
+
+
+state 38
+
+  101 statement: ADD_YY download_info . STRING_YY TO_YY ENTRY_YY entry_string_list
+
+    STRING_YY  shift, and go to state 97
+
+
+state 39
+
+  104 download_info: download_info_encrypted .
+
+    $default  reduce using rule 104 (download_info)
+
+
+state 40
+
+   47 statement: DELETE_YY ENTRY_YY . entry_string_list FINALLY_YY
+
+    $default  reduce using rule 44 (entry_string_list)
+
+    entry_string_list  go to state 98
+
+
+state 41
+
+   53 statement: DELETE_YY PREREQUISITE_YY . prerequisite_string_list FOR_YY ENTRY_YY entry_string_list
+
+    $default  reduce using rule 42 (prerequisite_string_list)
+
+    prerequisite_string_list  go to state 99
+
+
+state 42
+
+   54 statement: DELETE_YY PREREQUISITES_YY . FOR_YY ENTRY_YY entry_string_list
+
+    FOR_YY  shift, and go to state 100
+
+
+state 43
+
+   62 statement: DELETE_YY ENVIRONMENT_YY . SHELLSCRIPTS_YY
+   63          | DELETE_YY ENVIRONMENT_YY . SHELLSCRIPTS_YY FOR_YY GLOBUS_SITE_YY STRING_YY
+   64          | DELETE_YY ENVIRONMENT_YY . SHELLSCRIPT_YY INTEGER_YY
+
+    SHELLSCRIPT_YY   shift, and go to state 101
+    SHELLSCRIPTS_YY  shift, and go to state 102
+
+
+state 44
+
+   48 statement: DELETE_YY ALL_YY . ENTRIES_YY FOR_YY USER_YY FINALLY_YY
+
+    ENTRIES_YY  shift, and go to state 103
+
+
+state 45
+
+  159 statement: DELETE_YY GLOBUS_SITE_YY . STRING_YY FINALLY_YY
+
+    STRING_YY  shift, and go to state 104
+
+
+state 46
+
+  144 statement: DELETE_YY PUBLIC_KEY_YY . FROM_YY DATABASE_YY
+
+    FROM_YY  shift, and go to state 105
+
+
+state 47
+
+  143 statement: DELETE_YY KEY_PAIR_YY . FROM_YY DATABASE_YY
+
+    FROM_YY  shift, and go to state 106
+
+
+state 48
+
+   51 statement: UNDELETE_YY ENTRY_YY . entry_string_list
+
+    $default  reduce using rule 44 (entry_string_list)
+
+    entry_string_list  go to state 107
+
+
+state 49
+
+   52 statement: UNDELETE_YY ALL_YY . DELETED_YY ENTRIES_YY FOR_YY USER_YY
+
+    DELETED_YY  shift, and go to state 108
+
+
+state 50
+
+  161 statement: UNDELETE_YY GLOBUS_SITE_YY . STRING_YY enable_optional
+
+    STRING_YY  shift, and go to state 109
+
+
+state 51
+
+  170 statement: EDIT_YY GLOBUS_SITE_YY . STRING_YY SET_YY globus_site_option_list
+  171          | EDIT_YY GLOBUS_SITE_YY . STRING_YY UNSET_YY globus_site_option_list_1
+
+    STRING_YY  shift, and go to state 110
+
+
+state 52
+
+    4 statement: START_ENTRY_YY entry_statement_list . END_ENTRY_YY
+    6 entry_statement_list: entry_statement_list . keyword_value_pair
+    7                     | entry_statement_list . prerequisite_statement
+    8                     | entry_statement_list . PRIVATE_YY
+    9                     | entry_statement_list . PUBLIC_YY
+
+    END_ENTRY_YY                      shift, and go to state 111
+    PACKAGE_NAME_YY                   shift, and go to state 112
+    PACKAGE_VERSION_YY                shift, and go to state 113
+    DOWNLOAD_URL_YY                   shift, and go to state 114
+    DOWNLOAD_URL_ENCRYPTED_YY         shift, and go to state 115
+    DOWNLOAD_COMMAND_YY               shift, and go to state 116
+    DOWNLOAD_COMMAND_ENCRYPTED_YY     shift, and go to state 117
+    PREREQUISITE_YY                   shift, and go to state 118
+    INSTALLATION_SCRIPT_YY            shift, and go to state 119
+    INSTALLATION_SCRIPT_ENCRYPTED_YY  shift, and go to state 120
+    AUTHORIZATION_YY                  shift, and go to state 121
+    PUBLIC_YY                         shift, and go to state 122
+    PRIVATE_YY                        shift, and go to state 123
+    OWNER_YY                          shift, and go to state 124
+
+    keyword_value_pair      go to state 125
+    prerequisite_statement  go to state 126
+
+
+state 53
+
+   33 statement: RECEIVE_YY DOWNLOAD_INFO_YY . SUCCEEDED_YY FOR_YY ENTRY_YY entry_string_list
+   34          | RECEIVE_YY DOWNLOAD_INFO_YY . FAILED_YY FOR_YY ENTRY_YY entry_string_list
+
+    SUCCEEDED_YY  shift, and go to state 127
+    FAILED_YY     shift, and go to state 128
+
+
+state 54
+
+   35 statement: RECEIVE_YY DOWNLOAD_URL_YY . ENCRYPTED_YY SUCCEEDED_YY FOR_YY ENTRY_YY entry_string_list
+   36          | RECEIVE_YY DOWNLOAD_URL_YY . ENCRYPTED_YY FAILED_YY FOR_YY ENTRY_YY entry_string_list
+
+    ENCRYPTED_YY  shift, and go to state 129
+
+
+state 55
+
+   37 statement: RECEIVE_YY DOWNLOAD_COMMAND_YY . ENCRYPTED_YY SUCCEEDED_YY FOR_YY ENTRY_YY entry_string_list
+   38          | RECEIVE_YY DOWNLOAD_COMMAND_YY . ENCRYPTED_YY FAILED_YY FOR_YY ENTRY_YY entry_string_list
+
+    ENCRYPTED_YY  shift, and go to state 130
+
+
+state 56
+
+   31 statement: RECEIVE_YY INSTALLATION_SCRIPT_YY . SUCCEEDED_YY FOR_YY ENTRY_YY entry_string_list
+   32          | RECEIVE_YY INSTALLATION_SCRIPT_YY . FAILED_YY FOR_YY ENTRY_YY entry_string_list
+
+    SUCCEEDED_YY  shift, and go to state 131
+    FAILED_YY     shift, and go to state 132
+
+
+state 57
+
+   39 statement: RECEIVE_YY AUTHORIZATION_YY . SUCCEEDED_YY FOR_YY ENTRY_YY entry_string_list
+   40          | RECEIVE_YY AUTHORIZATION_YY . FAILED_YY FOR_YY ENTRY_YY entry_string_list
+
+    SUCCEEDED_YY  shift, and go to state 133
+    FAILED_YY     shift, and go to state 134
+
+
+state 58
+
+   60 statement: RECEIVE_YY ENVIRONMENT_YY . SHELLSCRIPT_YY SUCCEEDED_YY FOR_YY GLOBUS_SITE_YY STRING_YY
+   61          | RECEIVE_YY ENVIRONMENT_YY . SHELLSCRIPT_YY FAILED_YY FOR_YY GLOBUS_SITE_YY STRING_YY
+
+    SHELLSCRIPT_YY  shift, and go to state 135
+
+
+state 59
+
+  134 statement: RECEIVE_YY KEY_PAIR_YY . SUCCEEDED_YY
+  135          | RECEIVE_YY KEY_PAIR_YY . FAILED_YY
+
+    SUCCEEDED_YY  shift, and go to state 136
+    FAILED_YY     shift, and go to state 137
+
+
+state 60
+
+   49 statement: MARK_YY AS_YY . DELETED_YY ENTRY_YY entry_string_list
+   50          | MARK_YY AS_YY . DELETED_YY ALL_YY ENTRIES_YY FOR_YY USER_YY
+  160          | MARK_YY AS_YY . DELETED_YY GLOBUS_SITE_YY STRING_YY
+
+    DELETED_YY  shift, and go to state 138
+
+
+state 61
+
+   55 statement: CLIENT_YY TO_YY . SEND_YY ENVIRONMENT_YY SHELLSCRIPT_YY STRING_YY GLOBUS_SITE_YY STRING_YY admin_optional
+  108          | CLIENT_YY TO_YY . TRANSFER_YY PROXY_CREDENTIAL_YY STRING_YY
+  130          | CLIENT_YY TO_YY . TRANSFER_YY KEY_PAIR_YY
+
+    TRANSFER_YY  shift, and go to state 139
+    SEND_YY      shift, and go to state 140
+
+
+state 62
+
+  132 statement: CLIENT_YY ERROR_YY . NOT_YY SENDING_YY KEY_PAIR_YY
+
+    NOT_YY  shift, and go to state 141
+
+
+state 63
+
+   95 statement: CLIENT_YY RECEIVE_YY . ENTRY_YY INFO_YY SUCCEEDED_YY
+   96          | CLIENT_YY RECEIVE_YY . ENTRY_YY INFO_YY FAILED_YY
+
+    ENTRY_YY  shift, and go to state 142
+
+
+state 64
+
+   23 statement: CLIENT_YY SENDING_YY . installation_script STRING_YY INTEGER_YY INTEGER_YY entry_string_list
+   24          | CLIENT_YY SENDING_YY . download_info_encrypted STRING_YY INTEGER_YY INTEGER_YY entry_string_list
+   25          | CLIENT_YY SENDING_YY . AUTHORIZATION_YY STRING_YY INTEGER_YY INTEGER_YY entry_string_list
+   58          | CLIENT_YY SENDING_YY . ENVIRONMENT_YY SHELLSCRIPT_YY GLOBUS_SITE_YY STRING_YY admin_optional
+  110          | CLIENT_YY SENDING_YY . PROXY_CREDENTIAL_YY
+  131          | CLIENT_YY SENDING_YY . KEY_PAIR_YY STRING_YY STRING_YY
+
+    DOWNLOAD_URL_ENCRYPTED_YY         shift, and go to state 29
+    DOWNLOAD_COMMAND_ENCRYPTED_YY     shift, and go to state 31
+    INSTALLATION_SCRIPT_YY            shift, and go to state 33
+    INSTALLATION_SCRIPT_ENCRYPTED_YY  shift, and go to state 34
+    AUTHORIZATION_YY                  shift, and go to state 143
+    ENVIRONMENT_YY                    shift, and go to state 144
+    PROXY_CREDENTIAL_YY               shift, and go to state 145
+    KEY_PAIR_YY                       shift, and go to state 146
+
+    installation_script      go to state 147
+    download_info_encrypted  go to state 148
+
+
+state 65
+
+   28 statement: FETCH_YY DOWNLOAD_INFO_YY . FOR_YY ENTRY_YY entry_string_list ORDER_YY INTEGER_YY
+
+    FOR_YY  shift, and go to state 149
+
+
+state 66
+
+   30 statement: FETCH_YY PREREQUISITES_YY . FOR_YY ENTRY_YY entry_string_list
+
+    FOR_YY  shift, and go to state 150
+
+
+state 67
+
+   27 statement: FETCH_YY INSTALLATION_SCRIPT_YY . FOR_YY ENTRY_YY entry_string_list ORDER_YY INTEGER_YY
+
+    FOR_YY  shift, and go to state 151
+
+
+state 68
+
+   29 statement: FETCH_YY AUTHORIZATION_YY . FOR_YY ENTRY_YY entry_string_list ORDER_YY INTEGER_YY
+
+    FOR_YY  shift, and go to state 152
+
+
+state 69
+
+   59 statement: FETCH_YY ENVIRONMENT_YY . SHELLSCRIPTS_YY FOR_YY GLOBUS_SITE_YY STRING_YY
+
+    SHELLSCRIPTS_YY  shift, and go to state 153
+
+
+state 70
+
+  133 statement: FETCH_YY KEY_PAIR_YY .
+
+    $default  reduce using rule 133 (statement)
+
+
+state 71
+
+   41 statement: VALIDATE_YY DISTINGUISHED_NAME_YY . STRING_YY
+
+    STRING_YY  shift, and go to state 154
+
+
+state 72
+
+   93 statement: ENABLE_YY ENVIRONMENT_YY . SHELLSCRIPT_YY INTEGER_YY
+
+    SHELLSCRIPT_YY  shift, and go to state 155
+
+
+state 73
+
+  165 statement: ENABLE_YY GLOBUS_SITE_YY . STRING_YY
+
+    STRING_YY  shift, and go to state 156
+
+
+state 74
+
+   94 statement: DISABLE_YY ENVIRONMENT_YY . SHELLSCRIPT_YY INTEGER_YY
+
+    SHELLSCRIPT_YY  shift, and go to state 157
+
+
+state 75
+
+  166 statement: DISABLE_YY GLOBUS_SITE_YY . STRING_YY
+
+    STRING_YY  shift, and go to state 158
+
+
+state 76
+
+   65 entry_or_entries: ENTRY_YY .
+
+    $default  reduce using rule 65 (entry_or_entries)
+
+
+state 77
+
+   87 statement: SHOW_YY ENVIRONMENT_YY . SHELLSCRIPTS_YY show_environment_shellscript_option_list
+
+    SHELLSCRIPTS_YY  shift, and go to state 159
+
+
+state 78
+
+   66 entry_or_entries: ENTRIES_YY .
+
+    $default  reduce using rule 66 (entry_or_entries)
+
+
+state 79
+
+   83 statement: SHOW_YY CERTIFICATE_YY . USER_YY html_optional
+
+    USER_YY  shift, and go to state 160
+
+
+state 80
+
+   84 statement: SHOW_YY CERTIFICATES_YY . ALL_YY html_optional
+
+    ALL_YY  shift, and go to state 161
+
+
+state 81
+
+  180 statement: SHOW_YY PRIVILEGES_YY . USER_YY html_optional
+  181          | SHOW_YY PRIVILEGES_YY . ALL_YY html_optional
+
+    ALL_YY   shift, and go to state 162
+    USER_YY  shift, and go to state 163
+
+
+state 82
+
+  137 globus_site_list: GLOBUS_SITE_YY . ALL_YY
+  139 sub_globus_site_list: GLOBUS_SITE_YY . STRING_YY
+
+    STRING_YY  shift, and go to state 164
+    ALL_YY     shift, and go to state 165
+
+
+state 83
+
+  136 globus_site_list: GLOBUS_SITES_YY . ALL_YY
+  140 sub_globus_site_list: GLOBUS_SITES_YY . STRING_YY
+
+    STRING_YY  shift, and go to state 166
+    ALL_YY     shift, and go to state 167
+
+
+state 84
+
+   67 statement: SHOW_YY entry_or_entries . entry_string_list show_option_list
+
+    $default  reduce using rule 44 (entry_string_list)
+
+    entry_string_list  go to state 168
+
+
+state 85
+
+  158 statement: SHOW_YY globus_site_list . html_optional
+
+    HTML_YY  shift, and go to state 169
+
+    $default  reduce using rule 85 (html_optional)
+
+    html_optional  go to state 170
+
+
+state 86
+
+  138 globus_site_list: sub_globus_site_list .
+  141 sub_globus_site_list: sub_globus_site_list . STRING_YY
+
+    STRING_YY  shift, and go to state 171
+
+    $default  reduce using rule 138 (globus_site_list)
+
+
+state 87
+
+   97 statement: SET_YY EFFECTIVE_USER_YY . STRING_YY
+
+    STRING_YY  shift, and go to state 172
+
+
+state 88
+
+  109 statement: PROXY_CREDENTIAL_YY STRING_YY . INVALID_YY CLIENT_YY NOT_YY TO_YY TRANSFER_YY
+
+    INVALID_YY  shift, and go to state 173
+
+
+state 89
+
+  142 statement: DISTRIBUTE_YY KEY_PAIR_YY . globus_site_list
+
+    GLOBUS_SITE_YY   shift, and go to state 82
+    GLOBUS_SITES_YY  shift, and go to state 83
+
+    globus_site_list      go to state 174
+    sub_globus_site_list  go to state 86
+
+
+state 90
+
+  145 statement: SESSION_ID_YY STRING_YY .
+
+    $default  reduce using rule 145 (statement)
+
+
+state 91
+
+  129 statement: install_or_reinstall PACKAGE_NAME_YY . STRING_YY package_version_optional GLOBUS_SITE_YY STRING_YY stdout_filename_optional 
+stderr_filename_optional timeout_optional reinstall_prerequisites_optional link_expression_list
+
+    STRING_YY  shift, and go to state 175
+
+
+state 92
+
+  169 statement: add_or_delete ADMIN_YY . GLOBUS_SITE_YY STRING_YY USER_YY INTEGER_YY
+
+    GLOBUS_SITE_YY  shift, and go to state 176
+
+
+state 93
+
+   43 prerequisite_string_list: prerequisite_string_list . STRING_YY
+   46 statement: ADD_YY PREREQUISITE_YY prerequisite_string_list . FOR_YY ENTRY_YY entry_string_list
+
+    FOR_YY     shift, and go to state 177
+    STRING_YY  shift, and go to state 178
+
+
+state 94
+
+  107 statement: ADD_YY AUTHORIZATION_YY STRING_YY . TO_YY ENTRY_YY entry_string_list
+
+    TO_YY  shift, and go to state 179
+
+
+state 95
+
+  146 statement: ADD_YY GLOBUS_SITE_YY STRING_YY . globus_site_option_list
+
+    $default  reduce using rule 147 (globus_site_option_list)
+
+    globus_site_option_list  go to state 180
+
+
+state 96
+
+   98 statement: ADD_YY installation_script STRING_YY . TO_YY ENTRY_YY entry_string_list
+
+    TO_YY  shift, and go to state 181
+
+
+state 97
+
+  101 statement: ADD_YY download_info STRING_YY . TO_YY ENTRY_YY entry_string_list
+
+    TO_YY  shift, and go to state 182
+
+
+state 98
+
+   45 entry_string_list: entry_string_list . STRING_YY
+   47 statement: DELETE_YY ENTRY_YY entry_string_list . FINALLY_YY
+
+    FINALLY_YY  shift, and go to state 183
+    STRING_YY   shift, and go to state 184
+
+
+state 99
+
+   43 prerequisite_string_list: prerequisite_string_list . STRING_YY
+   53 statement: DELETE_YY PREREQUISITE_YY prerequisite_string_list . FOR_YY ENTRY_YY entry_string_list
+
+    FOR_YY     shift, and go to state 185
+    STRING_YY  shift, and go to state 178
+
+
+state 100
+
+   54 statement: DELETE_YY PREREQUISITES_YY FOR_YY . ENTRY_YY entry_string_list
+
+    ENTRY_YY  shift, and go to state 186
+
+
+state 101
+
+   64 statement: DELETE_YY ENVIRONMENT_YY SHELLSCRIPT_YY . INTEGER_YY
+
+    INTEGER_YY  shift, and go to state 187
+
+
+state 102
+
+   62 statement: DELETE_YY ENVIRONMENT_YY SHELLSCRIPTS_YY .
+   63          | DELETE_YY ENVIRONMENT_YY SHELLSCRIPTS_YY . FOR_YY GLOBUS_SITE_YY STRING_YY
+
+    FOR_YY  shift, and go to state 188
+
+    $default  reduce using rule 62 (statement)
+
+
+state 103
+
+   48 statement: DELETE_YY ALL_YY ENTRIES_YY . FOR_YY USER_YY FINALLY_YY
+
+    FOR_YY  shift, and go to state 189
+
+
+state 104
+
+  159 statement: DELETE_YY GLOBUS_SITE_YY STRING_YY . FINALLY_YY
+
+    FINALLY_YY  shift, and go to state 190
+
+
+state 105
+
+  144 statement: DELETE_YY PUBLIC_KEY_YY FROM_YY . DATABASE_YY
+
+    DATABASE_YY  shift, and go to state 191
+
+
+state 106
+
+  143 statement: DELETE_YY KEY_PAIR_YY FROM_YY . DATABASE_YY
+
+    DATABASE_YY  shift, and go to state 192
+
+
+state 107
+
+   45 entry_string_list: entry_string_list . STRING_YY
+   51 statement: UNDELETE_YY ENTRY_YY entry_string_list .
+
+    STRING_YY  shift, and go to state 184
+
+    $default  reduce using rule 51 (statement)
+
+
+state 108
+
+   52 statement: UNDELETE_YY ALL_YY DELETED_YY . ENTRIES_YY FOR_YY USER_YY
+
+    ENTRIES_YY  shift, and go to state 193
+
+
+state 109
+
+  161 statement: UNDELETE_YY GLOBUS_SITE_YY STRING_YY . enable_optional
+
+    ENABLE_YY   shift, and go to state 194
+    DISABLE_YY  shift, and go to state 195
+
+    ENABLE_YY   [reduce using rule 162 (enable_optional)]
+    DISABLE_YY  [reduce using rule 162 (enable_optional)]
+    $default    reduce using rule 162 (enable_optional)
+
+    enable_optional  go to state 196
+
+
+state 110
+
+  170 statement: EDIT_YY GLOBUS_SITE_YY STRING_YY . SET_YY globus_site_option_list
+  171          | EDIT_YY GLOBUS_SITE_YY STRING_YY . UNSET_YY globus_site_option_list_1
+
+    SET_YY    shift, and go to state 197
+    UNSET_YY  shift, and go to state 198
+
+
+state 111
+
+    4 statement: START_ENTRY_YY entry_statement_list END_ENTRY_YY .
+
+    $default  reduce using rule 4 (statement)
+
+
+state 112
+
+   10 keyword_value_pair: PACKAGE_NAME_YY . STRING_YY
+
+    STRING_YY  shift, and go to state 199
+
+
+state 113
+
+   11 keyword_value_pair: PACKAGE_VERSION_YY . STRING_YY
+   12                   | PACKAGE_VERSION_YY . INTEGER_YY
+
+    STRING_YY   shift, and go to state 200
+    INTEGER_YY  shift, and go to state 201
+
+
+state 114
+
+   13 keyword_value_pair: DOWNLOAD_URL_YY . STRING_YY
+
+    STRING_YY  shift, and go to state 202
+
+
+state 115
+
+   14 keyword_value_pair: DOWNLOAD_URL_ENCRYPTED_YY . STRING_YY
+
+    STRING_YY  shift, and go to state 203
+
+
+state 116
+
+   15 keyword_value_pair: DOWNLOAD_COMMAND_YY . STRING_YY
+
+    STRING_YY  shift, and go to state 204
+
+
+state 117
+
+   16 keyword_value_pair: DOWNLOAD_COMMAND_ENCRYPTED_YY . STRING_YY
+
+    STRING_YY  shift, and go to state 205
+
+
+state 118
+
+   21 prerequisite_statement: PREREQUISITE_YY . STRING_YY
+   22                       | PREREQUISITE_YY . STRING_YY STRING_YY
+
+    STRING_YY  shift, and go to state 206
+
+
+state 119
+
+   17 keyword_value_pair: INSTALLATION_SCRIPT_YY . STRING_YY
+
+    STRING_YY  shift, and go to state 207
+
+
+state 120
+
+   18 keyword_value_pair: INSTALLATION_SCRIPT_ENCRYPTED_YY . STRING_YY
+
+    STRING_YY  shift, and go to state 208
+
+
+state 121
+
+   20 keyword_value_pair: AUTHORIZATION_YY . STRING_YY
+
+    STRING_YY  shift, and go to state 209
+
+
+state 122
+
+    9 entry_statement_list: entry_statement_list PUBLIC_YY .
+
+    $default  reduce using rule 9 (entry_statement_list)
+
+
+state 123
+
+    8 entry_statement_list: entry_statement_list PRIVATE_YY .
+
+    $default  reduce using rule 8 (entry_statement_list)
+
+
+state 124
+
+   19 keyword_value_pair: OWNER_YY . STRING_YY
+
+    STRING_YY  shift, and go to state 210
+
+
+state 125
+
+    6 entry_statement_list: entry_statement_list keyword_value_pair .
+
+    $default  reduce using rule 6 (entry_statement_list)
+
+
+state 126
+
+    7 entry_statement_list: entry_statement_list prerequisite_statement .
+
+    $default  reduce using rule 7 (entry_statement_list)
+
+
+state 127
+
+   33 statement: RECEIVE_YY DOWNLOAD_INFO_YY SUCCEEDED_YY . FOR_YY ENTRY_YY entry_string_list
+
+    FOR_YY  shift, and go to state 211
+
+
+state 128
+
+   34 statement: RECEIVE_YY DOWNLOAD_INFO_YY FAILED_YY . FOR_YY ENTRY_YY entry_string_list
+
+    FOR_YY  shift, and go to state 212
+
+
+state 129
+
+   35 statement: RECEIVE_YY DOWNLOAD_URL_YY ENCRYPTED_YY . SUCCEEDED_YY FOR_YY ENTRY_YY entry_string_list
+   36          | RECEIVE_YY DOWNLOAD_URL_YY ENCRYPTED_YY . FAILED_YY FOR_YY ENTRY_YY entry_string_list
+
+    SUCCEEDED_YY  shift, and go to state 213
+    FAILED_YY     shift, and go to state 214
+
+
+state 130
+
+   37 statement: RECEIVE_YY DOWNLOAD_COMMAND_YY ENCRYPTED_YY . SUCCEEDED_YY FOR_YY ENTRY_YY entry_string_list
+   38          | RECEIVE_YY DOWNLOAD_COMMAND_YY ENCRYPTED_YY . FAILED_YY FOR_YY ENTRY_YY entry_string_list
+
+    SUCCEEDED_YY  shift, and go to state 215
+    FAILED_YY     shift, and go to state 216
+
+
+state 131
+
+   31 statement: RECEIVE_YY INSTALLATION_SCRIPT_YY SUCCEEDED_YY . FOR_YY ENTRY_YY entry_string_list
+
+    FOR_YY  shift, and go to state 217
+
+
+state 132
+
+   32 statement: RECEIVE_YY INSTALLATION_SCRIPT_YY FAILED_YY . FOR_YY ENTRY_YY entry_string_list
+
+    FOR_YY  shift, and go to state 218
+
+
+state 133
+
+   39 statement: RECEIVE_YY AUTHORIZATION_YY SUCCEEDED_YY . FOR_YY ENTRY_YY entry_string_list
+
+    FOR_YY  shift, and go to state 219
+
+
+state 134
+
+   40 statement: RECEIVE_YY AUTHORIZATION_YY FAILED_YY . FOR_YY ENTRY_YY entry_string_list
+
+    FOR_YY  shift, and go to state 220
+
+
+state 135
+
+   60 statement: RECEIVE_YY ENVIRONMENT_YY SHELLSCRIPT_YY . SUCCEEDED_YY FOR_YY GLOBUS_SITE_YY STRING_YY
+   61          | RECEIVE_YY ENVIRONMENT_YY SHELLSCRIPT_YY . FAILED_YY FOR_YY GLOBUS_SITE_YY STRING_YY
+
+    SUCCEEDED_YY  shift, and go to state 221
+    FAILED_YY     shift, and go to state 222
+
+
+state 136
+
+  134 statement: RECEIVE_YY KEY_PAIR_YY SUCCEEDED_YY .
+
+    $default  reduce using rule 134 (statement)
+
+
+state 137
+
+  135 statement: RECEIVE_YY KEY_PAIR_YY FAILED_YY .
+
+    $default  reduce using rule 135 (statement)
+
+
+state 138
+
+   49 statement: MARK_YY AS_YY DELETED_YY . ENTRY_YY entry_string_list
+   50          | MARK_YY AS_YY DELETED_YY . ALL_YY ENTRIES_YY FOR_YY USER_YY
+  160          | MARK_YY AS_YY DELETED_YY . GLOBUS_SITE_YY STRING_YY
+
+    ENTRY_YY        shift, and go to state 223
+    ALL_YY          shift, and go to state 224
+    GLOBUS_SITE_YY  shift, and go to state 225
+
+
+state 139
+
+  108 statement: CLIENT_YY TO_YY TRANSFER_YY . PROXY_CREDENTIAL_YY STRING_YY
+  130          | CLIENT_YY TO_YY TRANSFER_YY . KEY_PAIR_YY
+
+    PROXY_CREDENTIAL_YY  shift, and go to state 226
+    KEY_PAIR_YY          shift, and go to state 227
+
+
+state 140
+
+   55 statement: CLIENT_YY TO_YY SEND_YY . ENVIRONMENT_YY SHELLSCRIPT_YY STRING_YY GLOBUS_SITE_YY STRING_YY admin_optional
+
+    ENVIRONMENT_YY  shift, and go to state 228
+
+
+state 141
+
+  132 statement: CLIENT_YY ERROR_YY NOT_YY . SENDING_YY KEY_PAIR_YY
+
+    SENDING_YY  shift, and go to state 229
+
+
+state 142
+
+   95 statement: CLIENT_YY RECEIVE_YY ENTRY_YY . INFO_YY SUCCEEDED_YY
+   96          | CLIENT_YY RECEIVE_YY ENTRY_YY . INFO_YY FAILED_YY
+
+    INFO_YY  shift, and go to state 230
+
+
+state 143
+
+   25 statement: CLIENT_YY SENDING_YY AUTHORIZATION_YY . STRING_YY INTEGER_YY INTEGER_YY entry_string_list
+
+    STRING_YY  shift, and go to state 231
+
+
+state 144
+
+   58 statement: CLIENT_YY SENDING_YY ENVIRONMENT_YY . SHELLSCRIPT_YY GLOBUS_SITE_YY STRING_YY admin_optional
+
+    SHELLSCRIPT_YY  shift, and go to state 232
+
+
+state 145
+
+  110 statement: CLIENT_YY SENDING_YY PROXY_CREDENTIAL_YY .
+
+    $default  reduce using rule 110 (statement)
+
+
+state 146
+
+  131 statement: CLIENT_YY SENDING_YY KEY_PAIR_YY . STRING_YY STRING_YY
+
+    STRING_YY  shift, and go to state 233
+
+
+state 147
+
+   23 statement: CLIENT_YY SENDING_YY installation_script . STRING_YY INTEGER_YY INTEGER_YY entry_string_list
+
+    STRING_YY  shift, and go to state 234
+
+
+state 148
+
+   24 statement: CLIENT_YY SENDING_YY download_info_encrypted . STRING_YY INTEGER_YY INTEGER_YY entry_string_list
+
+    STRING_YY  shift, and go to state 235
+
+
+state 149
+
+   28 statement: FETCH_YY DOWNLOAD_INFO_YY FOR_YY . ENTRY_YY entry_string_list ORDER_YY INTEGER_YY
+
+    ENTRY_YY  shift, and go to state 236
+
+
+state 150
+
+   30 statement: FETCH_YY PREREQUISITES_YY FOR_YY . ENTRY_YY entry_string_list
+
+    ENTRY_YY  shift, and go to state 237
+
+
+state 151
+
+   27 statement: FETCH_YY INSTALLATION_SCRIPT_YY FOR_YY . ENTRY_YY entry_string_list ORDER_YY INTEGER_YY
+
+    ENTRY_YY  shift, and go to state 238
+
+
+state 152
+
+   29 statement: FETCH_YY AUTHORIZATION_YY FOR_YY . ENTRY_YY entry_string_list ORDER_YY INTEGER_YY
+
+    ENTRY_YY  shift, and go to state 239
+
+
+state 153
+
+   59 statement: FETCH_YY ENVIRONMENT_YY SHELLSCRIPTS_YY . FOR_YY GLOBUS_SITE_YY STRING_YY
+
+    FOR_YY  shift, and go to state 240
+
+
+state 154
+
+   41 statement: VALIDATE_YY DISTINGUISHED_NAME_YY STRING_YY .
+
+    $default  reduce using rule 41 (statement)
+
+
+state 155
+
+   93 statement: ENABLE_YY ENVIRONMENT_YY SHELLSCRIPT_YY . INTEGER_YY
+
+    INTEGER_YY  shift, and go to state 241
+
+
+state 156
+
+  165 statement: ENABLE_YY GLOBUS_SITE_YY STRING_YY .
+
+    $default  reduce using rule 165 (statement)
+
+
+state 157
+
+   94 statement: DISABLE_YY ENVIRONMENT_YY SHELLSCRIPT_YY . INTEGER_YY
+
+    INTEGER_YY  shift, and go to state 242
+
+
+state 158
+
+  166 statement: DISABLE_YY GLOBUS_SITE_YY STRING_YY .
+
+    $default  reduce using rule 166 (statement)
+
+
+state 159
+
+   87 statement: SHOW_YY ENVIRONMENT_YY SHELLSCRIPTS_YY . show_environment_shellscript_option_list
+
+    $default  reduce using rule 88 (show_environment_shellscript_option_list)
+
+    show_environment_shellscript_option_list  go to state 243
+
+
+state 160
+
+   83 statement: SHOW_YY CERTIFICATE_YY USER_YY . html_optional
+
+    HTML_YY  shift, and go to state 169
+
+    $default  reduce using rule 85 (html_optional)
+
+    html_optional  go to state 244
+
+
+state 161
+
+   84 statement: SHOW_YY CERTIFICATES_YY ALL_YY . html_optional
+
+    HTML_YY  shift, and go to state 169
+
+    $default  reduce using rule 85 (html_optional)
+
+    html_optional  go to state 245
+
+
+state 162
+
+  181 statement: SHOW_YY PRIVILEGES_YY ALL_YY . html_optional
+
+    HTML_YY  shift, and go to state 169
+
+    $default  reduce using rule 85 (html_optional)
+
+    html_optional  go to state 246
+
+
+state 163
+
+  180 statement: SHOW_YY PRIVILEGES_YY USER_YY . html_optional
+
+    HTML_YY  shift, and go to state 169
+
+    $default  reduce using rule 85 (html_optional)
+
+    html_optional  go to state 247
+
+
+state 164
+
+  139 sub_globus_site_list: GLOBUS_SITE_YY STRING_YY .
+
+    $default  reduce using rule 139 (sub_globus_site_list)
+
+
+state 165
+
+  137 globus_site_list: GLOBUS_SITE_YY ALL_YY .
+
+    $default  reduce using rule 137 (globus_site_list)
+
+
+state 166
+
+  140 sub_globus_site_list: GLOBUS_SITES_YY STRING_YY .
+
+    $default  reduce using rule 140 (sub_globus_site_list)
+
+
+state 167
+
+  136 globus_site_list: GLOBUS_SITES_YY ALL_YY .
+
+    $default  reduce using rule 136 (globus_site_list)
+
+
+state 168
+
+   45 entry_string_list: entry_string_list . STRING_YY
+   67 statement: SHOW_YY entry_or_entries entry_string_list . show_option_list
+
+    STRING_YY  shift, and go to state 184
+
+    $default  reduce using rule 68 (show_option_list)
+
+    show_option_list  go to state 248
+
+
+state 169
+
+   86 html_optional: HTML_YY .
+
+    $default  reduce using rule 86 (html_optional)
+
+
+state 170
+
+  158 statement: SHOW_YY globus_site_list html_optional .
+
+    $default  reduce using rule 158 (statement)
+
+
+state 171
+
+  141 sub_globus_site_list: sub_globus_site_list STRING_YY .
+
+    $default  reduce using rule 141 (sub_globus_site_list)
+
+
+state 172
+
+   97 statement: SET_YY EFFECTIVE_USER_YY STRING_YY .
+
+    $default  reduce using rule 97 (statement)
+
+
+state 173
+
+  109 statement: PROXY_CREDENTIAL_YY STRING_YY INVALID_YY . CLIENT_YY NOT_YY TO_YY TRANSFER_YY
+
+    CLIENT_YY  shift, and go to state 249
+
+
+state 174
+
+  142 statement: DISTRIBUTE_YY KEY_PAIR_YY globus_site_list .
+
+    $default  reduce using rule 142 (statement)
+
+
+state 175
+
+  129 statement: install_or_reinstall PACKAGE_NAME_YY STRING_YY . package_version_optional GLOBUS_SITE_YY STRING_YY stdout_filename_optional 
+stderr_filename_optional timeout_optional reinstall_prerequisites_optional link_expression_list
+
+    PACKAGE_VERSION_YY  shift, and go to state 250
+
+    $default  reduce using rule 113 (package_version_optional)
+
+    package_version_optional  go to state 251
+
+
+state 176
+
+  169 statement: add_or_delete ADMIN_YY GLOBUS_SITE_YY . STRING_YY USER_YY INTEGER_YY
+
+    STRING_YY  shift, and go to state 252
+
+
+state 177
+
+   46 statement: ADD_YY PREREQUISITE_YY prerequisite_string_list FOR_YY . ENTRY_YY entry_string_list
+
+    ENTRY_YY  shift, and go to state 253
+
+
+state 178
+
+   43 prerequisite_string_list: prerequisite_string_list STRING_YY .
+
+    $default  reduce using rule 43 (prerequisite_string_list)
+
+
+state 179
+
+  107 statement: ADD_YY AUTHORIZATION_YY STRING_YY TO_YY . ENTRY_YY entry_string_list
+
+    ENTRY_YY  shift, and go to state 254
+
+
+state 180
+
+  146 statement: ADD_YY GLOBUS_SITE_YY STRING_YY globus_site_option_list .
+  148 globus_site_option_list: globus_site_option_list . globus_site_option
+
+    REPLACE_YY                      shift, and go to state 255
+    ENABLED_YY                      shift, and go to state 256
+    DISABLED_YY                     shift, and go to state 257
+    INTERACTIVE_NODE_YY             shift, and go to state 258
+    APPEND_LD_LIBRARY_PATH_YY       shift, and go to state 259
+    APPEND_PATH_YY                  shift, and go to state 260
+    OPTDBCLI_PATH_YY                shift, and go to state 261
+    IP_ADDRESS_YY                   shift, and go to state 262
+    INTERACTIVE_NODE_IP_ADDRESS_YY  shift, and go to state 263
+
+    $default  reduce using rule 146 (statement)
+
+    globus_site_option  go to state 264
+
+
+state 181
+
+   98 statement: ADD_YY installation_script STRING_YY TO_YY . ENTRY_YY entry_string_list
+
+    ENTRY_YY  shift, and go to state 265
+
+
+state 182
+
+  101 statement: ADD_YY download_info STRING_YY TO_YY . ENTRY_YY entry_string_list
+
+    ENTRY_YY  shift, and go to state 266
+
+
+state 183
+
+   47 statement: DELETE_YY ENTRY_YY entry_string_list FINALLY_YY .
+
+    $default  reduce using rule 47 (statement)
+
+
+state 184
+
+   45 entry_string_list: entry_string_list STRING_YY .
+
+    $default  reduce using rule 45 (entry_string_list)
+
+
+state 185
+
+   53 statement: DELETE_YY PREREQUISITE_YY prerequisite_string_list FOR_YY . ENTRY_YY entry_string_list
+
+    ENTRY_YY  shift, and go to state 267
+
+
+state 186
+
+   54 statement: DELETE_YY PREREQUISITES_YY FOR_YY ENTRY_YY . entry_string_list
+
+    $default  reduce using rule 44 (entry_string_list)
+
+    entry_string_list  go to state 268
+
+
+state 187
+
+   64 statement: DELETE_YY ENVIRONMENT_YY SHELLSCRIPT_YY INTEGER_YY .
+
+    $default  reduce using rule 64 (statement)
+
+
+state 188
+
+   63 statement: DELETE_YY ENVIRONMENT_YY SHELLSCRIPTS_YY FOR_YY . GLOBUS_SITE_YY STRING_YY
+
+    GLOBUS_SITE_YY  shift, and go to state 269
+
+
+state 189
+
+   48 statement: DELETE_YY ALL_YY ENTRIES_YY FOR_YY . USER_YY FINALLY_YY
+
+    USER_YY  shift, and go to state 270
+
+
+state 190
+
+  159 statement: DELETE_YY GLOBUS_SITE_YY STRING_YY FINALLY_YY .
+
+    $default  reduce using rule 159 (statement)
+
+
+state 191
+
+  144 statement: DELETE_YY PUBLIC_KEY_YY FROM_YY DATABASE_YY .
+
+    $default  reduce using rule 144 (statement)
+
+
+state 192
+
+  143 statement: DELETE_YY KEY_PAIR_YY FROM_YY DATABASE_YY .
+
+    $default  reduce using rule 143 (statement)
+
+
+state 193
+
+   52 statement: UNDELETE_YY ALL_YY DELETED_YY ENTRIES_YY . FOR_YY USER_YY
+
+    FOR_YY  shift, and go to state 271
+
+
+state 194
+
+  163 enable_optional: ENABLE_YY .
+
+    $default  reduce using rule 163 (enable_optional)
+
+
+state 195
+
+  164 enable_optional: DISABLE_YY .
+
+    $default  reduce using rule 164 (enable_optional)
+
+
+state 196
+
+  161 statement: UNDELETE_YY GLOBUS_SITE_YY STRING_YY enable_optional .
+
+    $default  reduce using rule 161 (statement)
+
+
+state 197
+
+  170 statement: EDIT_YY GLOBUS_SITE_YY STRING_YY SET_YY . globus_site_option_list
+
+    $default  reduce using rule 147 (globus_site_option_list)
+
+    globus_site_option_list  go to state 272
+
+
+state 198
+
+  171 statement: EDIT_YY GLOBUS_SITE_YY STRING_YY UNSET_YY . globus_site_option_list_1
+
+    $default  reduce using rule 172 (globus_site_option_list_1)
+
+    globus_site_option_list_1  go to state 273
+
+
+state 199
+
+   10 keyword_value_pair: PACKAGE_NAME_YY STRING_YY .
+
+    $default  reduce using rule 10 (keyword_value_pair)
+
+
+state 200
+
+   11 keyword_value_pair: PACKAGE_VERSION_YY STRING_YY .
+
+    $default  reduce using rule 11 (keyword_value_pair)
+
+
+state 201
+
+   12 keyword_value_pair: PACKAGE_VERSION_YY INTEGER_YY .
+
+    $default  reduce using rule 12 (keyword_value_pair)
+
+
+state 202
+
+   13 keyword_value_pair: DOWNLOAD_URL_YY STRING_YY .
+
+    $default  reduce using rule 13 (keyword_value_pair)
+
+
+state 203
+
+   14 keyword_value_pair: DOWNLOAD_URL_ENCRYPTED_YY STRING_YY .
+
+    $default  reduce using rule 14 (keyword_value_pair)
+
+
+state 204
+
+   15 keyword_value_pair: DOWNLOAD_COMMAND_YY STRING_YY .
+
+    $default  reduce using rule 15 (keyword_value_pair)
+
+
+state 205
+
+   16 keyword_value_pair: DOWNLOAD_COMMAND_ENCRYPTED_YY STRING_YY .
+
+    $default  reduce using rule 16 (keyword_value_pair)
+
+
+state 206
+
+   21 prerequisite_statement: PREREQUISITE_YY STRING_YY .
+   22                       | PREREQUISITE_YY STRING_YY . STRING_YY
+
+    STRING_YY  shift, and go to state 274
+
+    $default  reduce using rule 21 (prerequisite_statement)
+
+
+state 207
+
+   17 keyword_value_pair: INSTALLATION_SCRIPT_YY STRING_YY .
+
+    $default  reduce using rule 17 (keyword_value_pair)
+
+
+state 208
+
+   18 keyword_value_pair: INSTALLATION_SCRIPT_ENCRYPTED_YY STRING_YY .
+
+    $default  reduce using rule 18 (keyword_value_pair)
+
+
+state 209
+
+   20 keyword_value_pair: AUTHORIZATION_YY STRING_YY .
+
+    $default  reduce using rule 20 (keyword_value_pair)
+
+
+state 210
+
+   19 keyword_value_pair: OWNER_YY STRING_YY .
+
+    $default  reduce using rule 19 (keyword_value_pair)
+
+
+state 211
+
+   33 statement: RECEIVE_YY DOWNLOAD_INFO_YY SUCCEEDED_YY FOR_YY . ENTRY_YY entry_string_list
+
+    ENTRY_YY  shift, and go to state 275
+
+
+state 212
+
+   34 statement: RECEIVE_YY DOWNLOAD_INFO_YY FAILED_YY FOR_YY . ENTRY_YY entry_string_list
+
+    ENTRY_YY  shift, and go to state 276
+
+
+state 213
+
+   35 statement: RECEIVE_YY DOWNLOAD_URL_YY ENCRYPTED_YY SUCCEEDED_YY . FOR_YY ENTRY_YY entry_string_list
+
+    FOR_YY  shift, and go to state 277
+
+
+state 214
+
+   36 statement: RECEIVE_YY DOWNLOAD_URL_YY ENCRYPTED_YY FAILED_YY . FOR_YY ENTRY_YY entry_string_list
+
+    FOR_YY  shift, and go to state 278
+
+
+state 215
+
+   37 statement: RECEIVE_YY DOWNLOAD_COMMAND_YY ENCRYPTED_YY SUCCEEDED_YY . FOR_YY ENTRY_YY entry_string_list
+
+    FOR_YY  shift, and go to state 279
+
+
+state 216
+
+   38 statement: RECEIVE_YY DOWNLOAD_COMMAND_YY ENCRYPTED_YY FAILED_YY . FOR_YY ENTRY_YY entry_string_list
+
+    FOR_YY  shift, and go to state 280
+
+
+state 217
+
+   31 statement: RECEIVE_YY INSTALLATION_SCRIPT_YY SUCCEEDED_YY FOR_YY . ENTRY_YY entry_string_list
+
+    ENTRY_YY  shift, and go to state 281
+
+
+state 218
+
+   32 statement: RECEIVE_YY INSTALLATION_SCRIPT_YY FAILED_YY FOR_YY . ENTRY_YY entry_string_list
+
+    ENTRY_YY  shift, and go to state 282
+
+
+state 219
+
+   39 statement: RECEIVE_YY AUTHORIZATION_YY SUCCEEDED_YY FOR_YY . ENTRY_YY entry_string_list
+
+    ENTRY_YY  shift, and go to state 283
+
+
+state 220
+
+   40 statement: RECEIVE_YY AUTHORIZATION_YY FAILED_YY FOR_YY . ENTRY_YY entry_string_list
+
+    ENTRY_YY  shift, and go to state 284
+
+
+state 221
+
+   60 statement: RECEIVE_YY ENVIRONMENT_YY SHELLSCRIPT_YY SUCCEEDED_YY . FOR_YY GLOBUS_SITE_YY STRING_YY
+
+    FOR_YY  shift, and go to state 285
+
+
+state 222
+
+   61 statement: RECEIVE_YY ENVIRONMENT_YY SHELLSCRIPT_YY FAILED_YY . FOR_YY GLOBUS_SITE_YY STRING_YY
+
+    FOR_YY  shift, and go to state 286
+
+
+state 223
+
+   49 statement: MARK_YY AS_YY DELETED_YY ENTRY_YY . entry_string_list
+
+    $default  reduce using rule 44 (entry_string_list)
+
+    entry_string_list  go to state 287
+
+
+state 224
+
+   50 statement: MARK_YY AS_YY DELETED_YY ALL_YY . ENTRIES_YY FOR_YY USER_YY
+
+    ENTRIES_YY  shift, and go to state 288
+
+
+state 225
+
+  160 statement: MARK_YY AS_YY DELETED_YY GLOBUS_SITE_YY . STRING_YY
+
+    STRING_YY  shift, and go to state 289
+
+
+state 226
+
+  108 statement: CLIENT_YY TO_YY TRANSFER_YY PROXY_CREDENTIAL_YY . STRING_YY
+
+    STRING_YY  shift, and go to state 290
+
+
+state 227
+
+  130 statement: CLIENT_YY TO_YY TRANSFER_YY KEY_PAIR_YY .
+
+    $default  reduce using rule 130 (statement)
+
+
+state 228
+
+   55 statement: CLIENT_YY TO_YY SEND_YY ENVIRONMENT_YY . SHELLSCRIPT_YY STRING_YY GLOBUS_SITE_YY STRING_YY admin_optional
+
+    SHELLSCRIPT_YY  shift, and go to state 291
+
+
+state 229
+
+  132 statement: CLIENT_YY ERROR_YY NOT_YY SENDING_YY . KEY_PAIR_YY
+
+    KEY_PAIR_YY  shift, and go to state 292
+
+
+state 230
+
+   95 statement: CLIENT_YY RECEIVE_YY ENTRY_YY INFO_YY . SUCCEEDED_YY
+   96          | CLIENT_YY RECEIVE_YY ENTRY_YY INFO_YY . FAILED_YY
+
+    SUCCEEDED_YY  shift, and go to state 293
+    FAILED_YY     shift, and go to state 294
+
+
+state 231
+
+   25 statement: CLIENT_YY SENDING_YY AUTHORIZATION_YY STRING_YY . INTEGER_YY INTEGER_YY entry_string_list
+
+    INTEGER_YY  shift, and go to state 295
+
+
+state 232
+
+   58 statement: CLIENT_YY SENDING_YY ENVIRONMENT_YY SHELLSCRIPT_YY . GLOBUS_SITE_YY STRING_YY admin_optional
+
+    GLOBUS_SITE_YY  shift, and go to state 296
+
+
+state 233
+
+  131 statement: CLIENT_YY SENDING_YY KEY_PAIR_YY STRING_YY . STRING_YY
+
+    STRING_YY  shift, and go to state 297
+
+
+state 234
+
+   23 statement: CLIENT_YY SENDING_YY installation_script STRING_YY . INTEGER_YY INTEGER_YY entry_string_list
+
+    INTEGER_YY  shift, and go to state 298
+
+
+state 235
+
+   24 statement: CLIENT_YY SENDING_YY download_info_encrypted STRING_YY . INTEGER_YY INTEGER_YY entry_string_list
+
+    INTEGER_YY  shift, and go to state 299
+
+
+state 236
+
+   28 statement: FETCH_YY DOWNLOAD_INFO_YY FOR_YY ENTRY_YY . entry_string_list ORDER_YY INTEGER_YY
+
+    $default  reduce using rule 44 (entry_string_list)
+
+    entry_string_list  go to state 300
+
+
+state 237
+
+   30 statement: FETCH_YY PREREQUISITES_YY FOR_YY ENTRY_YY . entry_string_list
+
+    $default  reduce using rule 44 (entry_string_list)
+
+    entry_string_list  go to state 301
+
+
+state 238
+
+   27 statement: FETCH_YY INSTALLATION_SCRIPT_YY FOR_YY ENTRY_YY . entry_string_list ORDER_YY INTEGER_YY
+
+    $default  reduce using rule 44 (entry_string_list)
+
+    entry_string_list  go to state 302
+
+
+state 239
+
+   29 statement: FETCH_YY AUTHORIZATION_YY FOR_YY ENTRY_YY . entry_string_list ORDER_YY INTEGER_YY
+
+    $default  reduce using rule 44 (entry_string_list)
+
+    entry_string_list  go to state 303
+
+
+state 240
+
+   59 statement: FETCH_YY ENVIRONMENT_YY SHELLSCRIPTS_YY FOR_YY . GLOBUS_SITE_YY STRING_YY
+
+    GLOBUS_SITE_YY  shift, and go to state 304
+
+
+state 241
+
+   93 statement: ENABLE_YY ENVIRONMENT_YY SHELLSCRIPT_YY INTEGER_YY .
+
+    $default  reduce using rule 93 (statement)
+
+
+state 242
+
+   94 statement: DISABLE_YY ENVIRONMENT_YY SHELLSCRIPT_YY INTEGER_YY .
+
+    $default  reduce using rule 94 (statement)
+
+
+state 243
+
+   87 statement: SHOW_YY ENVIRONMENT_YY SHELLSCRIPTS_YY show_environment_shellscript_option_list .
+   89 show_environment_shellscript_option_list: show_environment_shellscript_option_list . show_environment_shellscript_option
+
+    USER_YY          shift, and go to state 305
+    GLOBUS_SITE_YY   shift, and go to state 306
+    GLOBUS_SITES_YY  shift, and go to state 307
+
+    $default  reduce using rule 87 (statement)
+
+    show_environment_shellscript_option  go to state 308
+
+
+state 244
+
+   83 statement: SHOW_YY CERTIFICATE_YY USER_YY html_optional .
+
+    $default  reduce using rule 83 (statement)
+
+
+state 245
+
+   84 statement: SHOW_YY CERTIFICATES_YY ALL_YY html_optional .
+
+    $default  reduce using rule 84 (statement)
+
+
+state 246
+
+  181 statement: SHOW_YY PRIVILEGES_YY ALL_YY html_optional .
+
+    $default  reduce using rule 181 (statement)
+
+
+state 247
+
+  180 statement: SHOW_YY PRIVILEGES_YY USER_YY html_optional .
+
+    $default  reduce using rule 180 (statement)
+
+
+state 248
+
+   67 statement: SHOW_YY entry_or_entries entry_string_list show_option_list .
+   69 show_option_list: show_option_list . show_option
+
+    ALL_YY                       shift, and go to state 309
+    USER_YY                      shift, and go to state 310
+    PUBLIC_YY                    shift, and go to state 311
+    WITH_PREREQUISITES_YY        shift, and go to state 312
+    WITH_DEPENDENTS_YY           shift, and go to state 313
+    WITH_INSTALLATION_SCRIPT_YY  shift, and go to state 314
+    HTML_YY                      shift, and go to state 315
+    JAVASCRIPT_YY                shift, and go to state 316
+    LEVELS_YY                    shift, and go to state 317
+
+    $default  reduce using rule 67 (statement)
+
+    show_option  go to state 318
+
+
+state 249
+
+  109 statement: PROXY_CREDENTIAL_YY STRING_YY INVALID_YY CLIENT_YY . NOT_YY TO_YY TRANSFER_YY
+
+    NOT_YY  shift, and go to state 319
+
+
+state 250
+
+  114 package_version_optional: PACKAGE_VERSION_YY . STRING_YY
+
+    STRING_YY  shift, and go to state 320
+
+
+state 251
+
+  129 statement: install_or_reinstall PACKAGE_NAME_YY STRING_YY package_version_optional . GLOBUS_SITE_YY STRING_YY stdout_filename_optional 
+stderr_filename_optional timeout_optional reinstall_prerequisites_optional link_expression_list
+
+    GLOBUS_SITE_YY  shift, and go to state 321
+
+
+state 252
+
+  169 statement: add_or_delete ADMIN_YY GLOBUS_SITE_YY STRING_YY . USER_YY INTEGER_YY
+
+    USER_YY  shift, and go to state 322
+
+
+state 253
+
+   46 statement: ADD_YY PREREQUISITE_YY prerequisite_string_list FOR_YY ENTRY_YY . entry_string_list
+
+    $default  reduce using rule 44 (entry_string_list)
+
+    entry_string_list  go to state 323
+
+
+state 254
+
+  107 statement: ADD_YY AUTHORIZATION_YY STRING_YY TO_YY ENTRY_YY . entry_string_list
+
+    $default  reduce using rule 44 (entry_string_list)
+
+    entry_string_list  go to state 324
+
+
+state 255
+
+  157 globus_site_option: REPLACE_YY .
+
+    $default  reduce using rule 157 (globus_site_option)
+
+
+state 256
+
+  155 globus_site_option: ENABLED_YY .
+
+    $default  reduce using rule 155 (globus_site_option)
+
+
+state 257
+
+  156 globus_site_option: DISABLED_YY .
+
+    $default  reduce using rule 156 (globus_site_option)
+
+
+state 258
+
+  149 globus_site_option: INTERACTIVE_NODE_YY . STRING_YY
+
+    STRING_YY  shift, and go to state 325
+
+
+state 259
+
+  150 globus_site_option: APPEND_LD_LIBRARY_PATH_YY . STRING_YY
+
+    STRING_YY  shift, and go to state 326
+
+
+state 260
+
+  151 globus_site_option: APPEND_PATH_YY . STRING_YY
+
+    STRING_YY  shift, and go to state 327
+
+
+state 261
+
+  152 globus_site_option: OPTDBCLI_PATH_YY . STRING_YY
+
+    STRING_YY  shift, and go to state 328
+
+
+state 262
+
+  153 globus_site_option: IP_ADDRESS_YY . STRING_YY
+
+    STRING_YY  shift, and go to state 329
+
+
+state 263
+
+  154 globus_site_option: INTERACTIVE_NODE_IP_ADDRESS_YY . STRING_YY
+
+    STRING_YY  shift, and go to state 330
+
+
+state 264
+
+  148 globus_site_option_list: globus_site_option_list globus_site_option .
+
+    $default  reduce using rule 148 (globus_site_option_list)
+
+
+state 265
+
+   98 statement: ADD_YY installation_script STRING_YY TO_YY ENTRY_YY . entry_string_list
+
+    $default  reduce using rule 44 (entry_string_list)
+
+    entry_string_list  go to state 331
+
+
+state 266
+
+  101 statement: ADD_YY download_info STRING_YY TO_YY ENTRY_YY . entry_string_list
+
+    $default  reduce using rule 44 (entry_string_list)
+
+    entry_string_list  go to state 332
+
+
+state 267
+
+   53 statement: DELETE_YY PREREQUISITE_YY prerequisite_string_list FOR_YY ENTRY_YY . entry_string_list
+
+    $default  reduce using rule 44 (entry_string_list)
+
+    entry_string_list  go to state 333
+
+
+state 268
+
+   45 entry_string_list: entry_string_list . STRING_YY
+   54 statement: DELETE_YY PREREQUISITES_YY FOR_YY ENTRY_YY entry_string_list .
+
+    STRING_YY  shift, and go to state 184
+
+    $default  reduce using rule 54 (statement)
+
+
+state 269
+
+   63 statement: DELETE_YY ENVIRONMENT_YY SHELLSCRIPTS_YY FOR_YY GLOBUS_SITE_YY . STRING_YY
+
+    STRING_YY  shift, and go to state 334
+
+
+state 270
+
+   48 statement: DELETE_YY ALL_YY ENTRIES_YY FOR_YY USER_YY . FINALLY_YY
+
+    FINALLY_YY  shift, and go to state 335
+
+
+state 271
+
+   52 statement: UNDELETE_YY ALL_YY DELETED_YY ENTRIES_YY FOR_YY . USER_YY
+
+    USER_YY  shift, and go to state 336
+
+
+state 272
+
+  148 globus_site_option_list: globus_site_option_list . globus_site_option
+  170 statement: EDIT_YY GLOBUS_SITE_YY STRING_YY SET_YY globus_site_option_list .
+
+    REPLACE_YY                      shift, and go to state 255
+    ENABLED_YY                      shift, and go to state 256
+    DISABLED_YY                     shift, and go to state 257
+    INTERACTIVE_NODE_YY             shift, and go to state 258
+    APPEND_LD_LIBRARY_PATH_YY       shift, and go to state 259
+    APPEND_PATH_YY                  shift, and go to state 260
+    OPTDBCLI_PATH_YY                shift, and go to state 261
+    IP_ADDRESS_YY                   shift, and go to state 262
+    INTERACTIVE_NODE_IP_ADDRESS_YY  shift, and go to state 263
+
+    $default  reduce using rule 170 (statement)
+
+    globus_site_option  go to state 264
+
+
+state 273
+
+  171 statement: EDIT_YY GLOBUS_SITE_YY STRING_YY UNSET_YY globus_site_option_list_1 .
+  173 globus_site_option_list_1: globus_site_option_list_1 . globus_site_option_1
+
+    INTERACTIVE_NODE_YY             shift, and go to state 337
+    APPEND_LD_LIBRARY_PATH_YY       shift, and go to state 338
+    APPEND_PATH_YY                  shift, and go to state 339
+    OPTDBCLI_PATH_YY                shift, and go to state 340
+    IP_ADDRESS_YY                   shift, and go to state 341
+    INTERACTIVE_NODE_IP_ADDRESS_YY  shift, and go to state 342
+
+    $default  reduce using rule 171 (statement)
+
+    globus_site_option_1  go to state 343
+
+
+state 274
+
+   22 prerequisite_statement: PREREQUISITE_YY STRING_YY STRING_YY .
+
+    $default  reduce using rule 22 (prerequisite_statement)
+
+
+state 275
+
+   33 statement: RECEIVE_YY DOWNLOAD_INFO_YY SUCCEEDED_YY FOR_YY ENTRY_YY . entry_string_list
+
+    $default  reduce using rule 44 (entry_string_list)
+
+    entry_string_list  go to state 344
+
+
+state 276
+
+   34 statement: RECEIVE_YY DOWNLOAD_INFO_YY FAILED_YY FOR_YY ENTRY_YY . entry_string_list
+
+    $default  reduce using rule 44 (entry_string_list)
+
+    entry_string_list  go to state 345
+
+
+state 277
+
+   35 statement: RECEIVE_YY DOWNLOAD_URL_YY ENCRYPTED_YY SUCCEEDED_YY FOR_YY . ENTRY_YY entry_string_list
+
+    ENTRY_YY  shift, and go to state 346
+
+
+state 278
+
+   36 statement: RECEIVE_YY DOWNLOAD_URL_YY ENCRYPTED_YY FAILED_YY FOR_YY . ENTRY_YY entry_string_list
+
+    ENTRY_YY  shift, and go to state 347
+
+
+state 279
+
+   37 statement: RECEIVE_YY DOWNLOAD_COMMAND_YY ENCRYPTED_YY SUCCEEDED_YY FOR_YY . ENTRY_YY entry_string_list
+
+    ENTRY_YY  shift, and go to state 348
+
+
+state 280
+
+   38 statement: RECEIVE_YY DOWNLOAD_COMMAND_YY ENCRYPTED_YY FAILED_YY FOR_YY . ENTRY_YY entry_string_list
+
+    ENTRY_YY  shift, and go to state 349
+
+
+state 281
+
+   31 statement: RECEIVE_YY INSTALLATION_SCRIPT_YY SUCCEEDED_YY FOR_YY ENTRY_YY . entry_string_list
+
+    $default  reduce using rule 44 (entry_string_list)
+
+    entry_string_list  go to state 350
+
+
+state 282
+
+   32 statement: RECEIVE_YY INSTALLATION_SCRIPT_YY FAILED_YY FOR_YY ENTRY_YY . entry_string_list
+
+    $default  reduce using rule 44 (entry_string_list)
+
+    entry_string_list  go to state 351
+
+
+state 283
+
+   39 statement: RECEIVE_YY AUTHORIZATION_YY SUCCEEDED_YY FOR_YY ENTRY_YY . entry_string_list
+
+    $default  reduce using rule 44 (entry_string_list)
+
+    entry_string_list  go to state 352
+
+
+state 284
+
+   40 statement: RECEIVE_YY AUTHORIZATION_YY FAILED_YY FOR_YY ENTRY_YY . entry_string_list
+
+    $default  reduce using rule 44 (entry_string_list)
+
+    entry_string_list  go to state 353
+
+
+state 285
+
+   60 statement: RECEIVE_YY ENVIRONMENT_YY SHELLSCRIPT_YY SUCCEEDED_YY FOR_YY . GLOBUS_SITE_YY STRING_YY
+
+    GLOBUS_SITE_YY  shift, and go to state 354
+
+
+state 286
+
+   61 statement: RECEIVE_YY ENVIRONMENT_YY SHELLSCRIPT_YY FAILED_YY FOR_YY . GLOBUS_SITE_YY STRING_YY
+
+    GLOBUS_SITE_YY  shift, and go to state 355
+
+
+state 287
+
+   45 entry_string_list: entry_string_list . STRING_YY
+   49 statement: MARK_YY AS_YY DELETED_YY ENTRY_YY entry_string_list .
+
+    STRING_YY  shift, and go to state 184
+
+    $default  reduce using rule 49 (statement)
+
+
+state 288
+
+   50 statement: MARK_YY AS_YY DELETED_YY ALL_YY ENTRIES_YY . FOR_YY USER_YY
+
+    FOR_YY  shift, and go to state 356
+
+
+state 289
+
+  160 statement: MARK_YY AS_YY DELETED_YY GLOBUS_SITE_YY STRING_YY .
+
+    $default  reduce using rule 160 (statement)
+
+
+state 290
+
+  108 statement: CLIENT_YY TO_YY TRANSFER_YY PROXY_CREDENTIAL_YY STRING_YY .
+
+    $default  reduce using rule 108 (statement)
+
+
+state 291
+
+   55 statement: CLIENT_YY TO_YY SEND_YY ENVIRONMENT_YY SHELLSCRIPT_YY . STRING_YY GLOBUS_SITE_YY STRING_YY admin_optional
+
+    STRING_YY  shift, and go to state 357
+
+
+state 292
+
+  132 statement: CLIENT_YY ERROR_YY NOT_YY SENDING_YY KEY_PAIR_YY .
+
+    $default  reduce using rule 132 (statement)
+
+
+state 293
+
+   95 statement: CLIENT_YY RECEIVE_YY ENTRY_YY INFO_YY SUCCEEDED_YY .
+
+    $default  reduce using rule 95 (statement)
+
+
+state 294
+
+   96 statement: CLIENT_YY RECEIVE_YY ENTRY_YY INFO_YY FAILED_YY .
+
+    $default  reduce using rule 96 (statement)
+
+
+state 295
+
+   25 statement: CLIENT_YY SENDING_YY AUTHORIZATION_YY STRING_YY INTEGER_YY . INTEGER_YY entry_string_list
+
+    INTEGER_YY  shift, and go to state 358
+
+
+state 296
+
+   58 statement: CLIENT_YY SENDING_YY ENVIRONMENT_YY SHELLSCRIPT_YY GLOBUS_SITE_YY . STRING_YY admin_optional
+
+    STRING_YY  shift, and go to state 359
+
+
+state 297
+
+  131 statement: CLIENT_YY SENDING_YY KEY_PAIR_YY STRING_YY STRING_YY .
+
+    $default  reduce using rule 131 (statement)
+
+
+state 298
+
+   23 statement: CLIENT_YY SENDING_YY installation_script STRING_YY INTEGER_YY . INTEGER_YY entry_string_list
+
+    INTEGER_YY  shift, and go to state 360
+
+
+state 299
+
+   24 statement: CLIENT_YY SENDING_YY download_info_encrypted STRING_YY INTEGER_YY . INTEGER_YY entry_string_list
+
+    INTEGER_YY  shift, and go to state 361
+
+
+state 300
+
+   28 statement: FETCH_YY DOWNLOAD_INFO_YY FOR_YY ENTRY_YY entry_string_list . ORDER_YY INTEGER_YY
+   45 entry_string_list: entry_string_list . STRING_YY
+
+    STRING_YY  shift, and go to state 184
+    ORDER_YY   shift, and go to state 362
+
+
+state 301
+
+   30 statement: FETCH_YY PREREQUISITES_YY FOR_YY ENTRY_YY entry_string_list .
+   45 entry_string_list: entry_string_list . STRING_YY
+
+    STRING_YY  shift, and go to state 184
+
+    $default  reduce using rule 30 (statement)
+
+
+state 302
+
+   27 statement: FETCH_YY INSTALLATION_SCRIPT_YY FOR_YY ENTRY_YY entry_string_list . ORDER_YY INTEGER_YY
+   45 entry_string_list: entry_string_list . STRING_YY
+
+    STRING_YY  shift, and go to state 184
+    ORDER_YY   shift, and go to state 363
+
+
+state 303
+
+   29 statement: FETCH_YY AUTHORIZATION_YY FOR_YY ENTRY_YY entry_string_list . ORDER_YY INTEGER_YY
+   45 entry_string_list: entry_string_list . STRING_YY
+
+    STRING_YY  shift, and go to state 184
+    ORDER_YY   shift, and go to state 364
+
+
+state 304
+
+   59 statement: FETCH_YY ENVIRONMENT_YY SHELLSCRIPTS_YY FOR_YY GLOBUS_SITE_YY . STRING_YY
+
+    STRING_YY  shift, and go to state 365
+
+
+state 305
+
+   90 show_environment_shellscript_option: USER_YY .
+
+    $default  reduce using rule 90 (show_environment_shellscript_option)
+
+
+state 306
+
+   91 show_environment_shellscript_option: GLOBUS_SITE_YY . STRING_YY
+
+    STRING_YY  shift, and go to state 366
+
+
+state 307
+
+   92 show_environment_shellscript_option: GLOBUS_SITES_YY . ALL_YY
+
+    ALL_YY  shift, and go to state 367
+
+
+state 308
+
+   89 show_environment_shellscript_option_list: show_environment_shellscript_option_list show_environment_shellscript_option .
+
+    $default  reduce using rule 89 (show_environment_shellscript_option_list)
+
+
+state 309
+
+   70 show_option: ALL_YY .
+
+    $default  reduce using rule 70 (show_option)
+
+
+state 310
+
+   71 show_option: USER_YY .
+
+    $default  reduce using rule 71 (show_option)
+
+
+state 311
+
+   72 show_option: PUBLIC_YY .
+
+    $default  reduce using rule 72 (show_option)
+
+
+state 312
+
+   73 show_option: WITH_PREREQUISITES_YY .
+
+    $default  reduce using rule 73 (show_option)
+
+
+state 313
+
+   74 show_option: WITH_DEPENDENTS_YY .
+
+    $default  reduce using rule 74 (show_option)
+
+
+state 314
+
+   75 show_option: WITH_INSTALLATION_SCRIPT_YY .
+
+    $default  reduce using rule 75 (show_option)
+
+
+state 315
+
+   76 show_option: HTML_YY .
+
+    $default  reduce using rule 76 (show_option)
+
+
+state 316
+
+   77 show_option: JAVASCRIPT_YY .
+
+    $default  reduce using rule 77 (show_option)
+
+
+state 317
+
+   78 show_option: LEVELS_YY . level_list
+
+    $default  reduce using rule 79 (level_list)
+
+    level_list  go to state 368
+
+
+state 318
+
+   69 show_option_list: show_option_list show_option .
+
+    $default  reduce using rule 69 (show_option_list)
+
+
+state 319
+
+  109 statement: PROXY_CREDENTIAL_YY STRING_YY INVALID_YY CLIENT_YY NOT_YY . TO_YY TRANSFER_YY
+
+    TO_YY  shift, and go to state 369
+
+
+state 320
+
+  114 package_version_optional: PACKAGE_VERSION_YY STRING_YY .
+
+    $default  reduce using rule 114 (package_version_optional)
+
+
+state 321
+
+  129 statement: install_or_reinstall PACKAGE_NAME_YY STRING_YY package_version_optional GLOBUS_SITE_YY . STRING_YY stdout_filename_optional 
+stderr_filename_optional timeout_optional reinstall_prerequisites_optional link_expression_list
+
+    STRING_YY  shift, and go to state 370
+
+
+state 322
+
+  169 statement: add_or_delete ADMIN_YY GLOBUS_SITE_YY STRING_YY USER_YY . INTEGER_YY
+
+    INTEGER_YY  shift, and go to state 371
+
+
+state 323
+
+   45 entry_string_list: entry_string_list . STRING_YY
+   46 statement: ADD_YY PREREQUISITE_YY prerequisite_string_list FOR_YY ENTRY_YY entry_string_list .
+
+    STRING_YY  shift, and go to state 184
+
+    $default  reduce using rule 46 (statement)
+
+
+state 324
+
+   45 entry_string_list: entry_string_list . STRING_YY
+  107 statement: ADD_YY AUTHORIZATION_YY STRING_YY TO_YY ENTRY_YY entry_string_list .
+
+    STRING_YY  shift, and go to state 184
+
+    $default  reduce using rule 107 (statement)
+
+
+state 325
+
+  149 globus_site_option: INTERACTIVE_NODE_YY STRING_YY .
+
+    $default  reduce using rule 149 (globus_site_option)
+
+
+state 326
+
+  150 globus_site_option: APPEND_LD_LIBRARY_PATH_YY STRING_YY .
+
+    $default  reduce using rule 150 (globus_site_option)
+
+
+state 327
+
+  151 globus_site_option: APPEND_PATH_YY STRING_YY .
+
+    $default  reduce using rule 151 (globus_site_option)
+
+
+state 328
+
+  152 globus_site_option: OPTDBCLI_PATH_YY STRING_YY .
+
+    $default  reduce using rule 152 (globus_site_option)
+
+
+state 329
+
+  153 globus_site_option: IP_ADDRESS_YY STRING_YY .
+
+    $default  reduce using rule 153 (globus_site_option)
+
+
+state 330
+
+  154 globus_site_option: INTERACTIVE_NODE_IP_ADDRESS_YY STRING_YY .
+
+    $default  reduce using rule 154 (globus_site_option)
+
+
+state 331
+
+   45 entry_string_list: entry_string_list . STRING_YY
+   98 statement: ADD_YY installation_script STRING_YY TO_YY ENTRY_YY entry_string_list .
+
+    STRING_YY  shift, and go to state 184
+
+    $default  reduce using rule 98 (statement)
+
+
+state 332
+
+   45 entry_string_list: entry_string_list . STRING_YY
+  101 statement: ADD_YY download_info STRING_YY TO_YY ENTRY_YY entry_string_list .
+
+    STRING_YY  shift, and go to state 184
+
+    $default  reduce using rule 101 (statement)
+
+
+state 333
+
+   45 entry_string_list: entry_string_list . STRING_YY
+   53 statement: DELETE_YY PREREQUISITE_YY prerequisite_string_list FOR_YY ENTRY_YY entry_string_list .
+
+    STRING_YY  shift, and go to state 184
+
+    $default  reduce using rule 53 (statement)
+
+
+state 334
+
+   63 statement: DELETE_YY ENVIRONMENT_YY SHELLSCRIPTS_YY FOR_YY GLOBUS_SITE_YY STRING_YY .
+
+    $default  reduce using rule 63 (statement)
+
+
+state 335
+
+   48 statement: DELETE_YY ALL_YY ENTRIES_YY FOR_YY USER_YY FINALLY_YY .
+
+    $default  reduce using rule 48 (statement)
+
+
+state 336
+
+   52 statement: UNDELETE_YY ALL_YY DELETED_YY ENTRIES_YY FOR_YY USER_YY .
+
+    $default  reduce using rule 52 (statement)
+
+
+state 337
+
+  174 globus_site_option_1: INTERACTIVE_NODE_YY .
+
+    $default  reduce using rule 174 (globus_site_option_1)
+
+
+state 338
+
+  175 globus_site_option_1: APPEND_LD_LIBRARY_PATH_YY .
+
+    $default  reduce using rule 175 (globus_site_option_1)
+
+
+state 339
+
+  176 globus_site_option_1: APPEND_PATH_YY .
+
+    $default  reduce using rule 176 (globus_site_option_1)
+
+
+state 340
+
+  177 globus_site_option_1: OPTDBCLI_PATH_YY .
+
+    $default  reduce using rule 177 (globus_site_option_1)
+
+
+state 341
+
+  178 globus_site_option_1: IP_ADDRESS_YY .
+
+    $default  reduce using rule 178 (globus_site_option_1)
+
+
+state 342
+
+  179 globus_site_option_1: INTERACTIVE_NODE_IP_ADDRESS_YY .
+
+    $default  reduce using rule 179 (globus_site_option_1)
+
+
+state 343
+
+  173 globus_site_option_list_1: globus_site_option_list_1 globus_site_option_1 .
+
+    $default  reduce using rule 173 (globus_site_option_list_1)
+
+
+state 344
+
+   33 statement: RECEIVE_YY DOWNLOAD_INFO_YY SUCCEEDED_YY FOR_YY ENTRY_YY entry_string_list .
+   45 entry_string_list: entry_string_list . STRING_YY
+
+    STRING_YY  shift, and go to state 184
+
+    $default  reduce using rule 33 (statement)
+
+
+state 345
+
+   34 statement: RECEIVE_YY DOWNLOAD_INFO_YY FAILED_YY FOR_YY ENTRY_YY entry_string_list .
+   45 entry_string_list: entry_string_list . STRING_YY
+
+    STRING_YY  shift, and go to state 184
+
+    $default  reduce using rule 34 (statement)
+
+
+state 346
+
+   35 statement: RECEIVE_YY DOWNLOAD_URL_YY ENCRYPTED_YY SUCCEEDED_YY FOR_YY ENTRY_YY . entry_string_list
+
+    $default  reduce using rule 44 (entry_string_list)
+
+    entry_string_list  go to state 372
+
+
+state 347
+
+   36 statement: RECEIVE_YY DOWNLOAD_URL_YY ENCRYPTED_YY FAILED_YY FOR_YY ENTRY_YY . entry_string_list
+
+    $default  reduce using rule 44 (entry_string_list)
+
+    entry_string_list  go to state 373
+
+
+state 348
+
+   37 statement: RECEIVE_YY DOWNLOAD_COMMAND_YY ENCRYPTED_YY SUCCEEDED_YY FOR_YY ENTRY_YY . entry_string_list
+
+    $default  reduce using rule 44 (entry_string_list)
+
+    entry_string_list  go to state 374
+
+
+state 349
+
+   38 statement: RECEIVE_YY DOWNLOAD_COMMAND_YY ENCRYPTED_YY FAILED_YY FOR_YY ENTRY_YY . entry_string_list
+
+    $default  reduce using rule 44 (entry_string_list)
+
+    entry_string_list  go to state 375
+
+
+state 350
+
+   31 statement: RECEIVE_YY INSTALLATION_SCRIPT_YY SUCCEEDED_YY FOR_YY ENTRY_YY entry_string_list .
+   45 entry_string_list: entry_string_list . STRING_YY
+
+    STRING_YY  shift, and go to state 184
+
+    $default  reduce using rule 31 (statement)
+
+
+state 351
+
+   32 statement: RECEIVE_YY INSTALLATION_SCRIPT_YY FAILED_YY FOR_YY ENTRY_YY entry_string_list .
+   45 entry_string_list: entry_string_list . STRING_YY
+
+    STRING_YY  shift, and go to state 184
+
+    $default  reduce using rule 32 (statement)
+
+
+state 352
+
+   39 statement: RECEIVE_YY AUTHORIZATION_YY SUCCEEDED_YY FOR_YY ENTRY_YY entry_string_list .
+   45 entry_string_list: entry_string_list . STRING_YY
+
+    STRING_YY  shift, and go to state 184
+
+    $default  reduce using rule 39 (statement)
+
+
+state 353
+
+   40 statement: RECEIVE_YY AUTHORIZATION_YY FAILED_YY FOR_YY ENTRY_YY entry_string_list .
+   45 entry_string_list: entry_string_list . STRING_YY
+
+    STRING_YY  shift, and go to state 184
+
+    $default  reduce using rule 40 (statement)
+
+
+state 354
+
+   60 statement: RECEIVE_YY ENVIRONMENT_YY SHELLSCRIPT_YY SUCCEEDED_YY FOR_YY GLOBUS_SITE_YY . STRING_YY
+
+    STRING_YY  shift, and go to state 376
+
+
+state 355
+
+   61 statement: RECEIVE_YY ENVIRONMENT_YY SHELLSCRIPT_YY FAILED_YY FOR_YY GLOBUS_SITE_YY . STRING_YY
+
+    STRING_YY  shift, and go to state 377
+
+
+state 356
+
+   50 statement: MARK_YY AS_YY DELETED_YY ALL_YY ENTRIES_YY FOR_YY . USER_YY
+
+    USER_YY  shift, and go to state 378
+
+
+state 357
+
+   55 statement: CLIENT_YY TO_YY SEND_YY ENVIRONMENT_YY SHELLSCRIPT_YY STRING_YY . GLOBUS_SITE_YY STRING_YY admin_optional
+
+    GLOBUS_SITE_YY  shift, and go to state 379
+
+
+state 358
+
+   25 statement: CLIENT_YY SENDING_YY AUTHORIZATION_YY STRING_YY INTEGER_YY INTEGER_YY . entry_string_list
+
+    $default  reduce using rule 44 (entry_string_list)
+
+    entry_string_list  go to state 380
+
+
+state 359
+
+   58 statement: CLIENT_YY SENDING_YY ENVIRONMENT_YY SHELLSCRIPT_YY GLOBUS_SITE_YY STRING_YY . admin_optional
+
+    ADMIN_YY  shift, and go to state 381
+
+    $default  reduce using rule 56 (admin_optional)
+
+    admin_optional  go to state 382
+
+
+state 360
+
+   23 statement: CLIENT_YY SENDING_YY installation_script STRING_YY INTEGER_YY INTEGER_YY . entry_string_list
+
+    $default  reduce using rule 44 (entry_string_list)
+
+    entry_string_list  go to state 383
+
+
+state 361
+
+   24 statement: CLIENT_YY SENDING_YY download_info_encrypted STRING_YY INTEGER_YY INTEGER_YY . entry_string_list
+
+    $default  reduce using rule 44 (entry_string_list)
+
+    entry_string_list  go to state 384
+
+
+state 362
+
+   28 statement: FETCH_YY DOWNLOAD_INFO_YY FOR_YY ENTRY_YY entry_string_list ORDER_YY . INTEGER_YY
+
+    INTEGER_YY  shift, and go to state 385
+
+
+state 363
+
+   27 statement: FETCH_YY INSTALLATION_SCRIPT_YY FOR_YY ENTRY_YY entry_string_list ORDER_YY . INTEGER_YY
+
+    INTEGER_YY  shift, and go to state 386
+
+
+state 364
+
+   29 statement: FETCH_YY AUTHORIZATION_YY FOR_YY ENTRY_YY entry_string_list ORDER_YY . INTEGER_YY
+
+    INTEGER_YY  shift, and go to state 387
+
+
+state 365
+
+   59 statement: FETCH_YY ENVIRONMENT_YY SHELLSCRIPTS_YY FOR_YY GLOBUS_SITE_YY STRING_YY .
+
+    $default  reduce using rule 59 (statement)
+
+
+state 366
+
+   91 show_environment_shellscript_option: GLOBUS_SITE_YY STRING_YY .
+
+    $default  reduce using rule 91 (show_environment_shellscript_option)
+
+
+state 367
+
+   92 show_environment_shellscript_option: GLOBUS_SITES_YY ALL_YY .
+
+    $default  reduce using rule 92 (show_environment_shellscript_option)
+
+
+state 368
+
+   78 show_option: LEVELS_YY level_list .
+   80 level_list: level_list . INTEGER_YY INTEGER_YY
+   81           | level_list . INTEGER_YY INTEGER_YY SEMI_COLON_YY
+   82           | level_list . INTEGER_YY INTEGER_YY SLASH_YY
+
+    INTEGER_YY  shift, and go to state 388
+
+    $default  reduce using rule 78 (show_option)
+
+
+state 369
+
+  109 statement: PROXY_CREDENTIAL_YY STRING_YY INVALID_YY CLIENT_YY NOT_YY TO_YY . TRANSFER_YY
+
+    TRANSFER_YY  shift, and go to state 389
+
+
+state 370
+
+  129 statement: install_or_reinstall PACKAGE_NAME_YY STRING_YY package_version_optional GLOBUS_SITE_YY STRING_YY . stdout_filename_optional 
+stderr_filename_optional timeout_optional reinstall_prerequisites_optional link_expression_list
+
+    STDOUT_FILENAME_YY  shift, and go to state 390
+
+    $default  reduce using rule 115 (stdout_filename_optional)
+
+    stdout_filename_optional  go to state 391
+
+
+state 371
+
+  169 statement: add_or_delete ADMIN_YY GLOBUS_SITE_YY STRING_YY USER_YY INTEGER_YY .
+
+    $default  reduce using rule 169 (statement)
+
+
+state 372
+
+   35 statement: RECEIVE_YY DOWNLOAD_URL_YY ENCRYPTED_YY SUCCEEDED_YY FOR_YY ENTRY_YY entry_string_list .
+   45 entry_string_list: entry_string_list . STRING_YY
+
+    STRING_YY  shift, and go to state 184
+
+    $default  reduce using rule 35 (statement)
+
+
+state 373
+
+   36 statement: RECEIVE_YY DOWNLOAD_URL_YY ENCRYPTED_YY FAILED_YY FOR_YY ENTRY_YY entry_string_list .
+   45 entry_string_list: entry_string_list . STRING_YY
+
+    STRING_YY  shift, and go to state 184
+
+    $default  reduce using rule 36 (statement)
+
+
+state 374
+
+   37 statement: RECEIVE_YY DOWNLOAD_COMMAND_YY ENCRYPTED_YY SUCCEEDED_YY FOR_YY ENTRY_YY entry_string_list .
+   45 entry_string_list: entry_string_list . STRING_YY
+
+    STRING_YY  shift, and go to state 184
+
+    $default  reduce using rule 37 (statement)
+
+
+state 375
+
+   38 statement: RECEIVE_YY DOWNLOAD_COMMAND_YY ENCRYPTED_YY FAILED_YY FOR_YY ENTRY_YY entry_string_list .
+   45 entry_string_list: entry_string_list . STRING_YY
+
+    STRING_YY  shift, and go to state 184
+
+    $default  reduce using rule 38 (statement)
+
+
+state 376
+
+   60 statement: RECEIVE_YY ENVIRONMENT_YY SHELLSCRIPT_YY SUCCEEDED_YY FOR_YY GLOBUS_SITE_YY STRING_YY .
+
+    $default  reduce using rule 60 (statement)
+
+
+state 377
+
+   61 statement: RECEIVE_YY ENVIRONMENT_YY SHELLSCRIPT_YY FAILED_YY FOR_YY GLOBUS_SITE_YY STRING_YY .
+
+    $default  reduce using rule 61 (statement)
+
+
+state 378
+
+   50 statement: MARK_YY AS_YY DELETED_YY ALL_YY ENTRIES_YY FOR_YY USER_YY .
+
+    $default  reduce using rule 50 (statement)
+
+
+state 379
+
+   55 statement: CLIENT_YY TO_YY SEND_YY ENVIRONMENT_YY SHELLSCRIPT_YY STRING_YY GLOBUS_SITE_YY . STRING_YY admin_optional
+
+    STRING_YY  shift, and go to state 392
+
+
+state 380
+
+   25 statement: CLIENT_YY SENDING_YY AUTHORIZATION_YY STRING_YY INTEGER_YY INTEGER_YY entry_string_list .
+   45 entry_string_list: entry_string_list . STRING_YY
+
+    STRING_YY  shift, and go to state 184
+
+    $default  reduce using rule 25 (statement)
+
+
+state 381
+
+   57 admin_optional: ADMIN_YY .
+
+    $default  reduce using rule 57 (admin_optional)
+
+
+state 382
+
+   58 statement: CLIENT_YY SENDING_YY ENVIRONMENT_YY SHELLSCRIPT_YY GLOBUS_SITE_YY STRING_YY admin_optional .
+
+    $default  reduce using rule 58 (statement)
+
+
+state 383
+
+   23 statement: CLIENT_YY SENDING_YY installation_script STRING_YY INTEGER_YY INTEGER_YY entry_string_list .
+   45 entry_string_list: entry_string_list . STRING_YY
+
+    STRING_YY  shift, and go to state 184
+
+    $default  reduce using rule 23 (statement)
+
+
+state 384
+
+   24 statement: CLIENT_YY SENDING_YY download_info_encrypted STRING_YY INTEGER_YY INTEGER_YY entry_string_list .
+   45 entry_string_list: entry_string_list . STRING_YY
+
+    STRING_YY  shift, and go to state 184
+
+    $default  reduce using rule 24 (statement)
+
+
+state 385
+
+   28 statement: FETCH_YY DOWNLOAD_INFO_YY FOR_YY ENTRY_YY entry_string_list ORDER_YY INTEGER_YY .
+
+    $default  reduce using rule 28 (statement)
+
+
+state 386
+
+   27 statement: FETCH_YY INSTALLATION_SCRIPT_YY FOR_YY ENTRY_YY entry_string_list ORDER_YY INTEGER_YY .
+
+    $default  reduce using rule 27 (statement)
+
+
+state 387
+
+   29 statement: FETCH_YY AUTHORIZATION_YY FOR_YY ENTRY_YY entry_string_list ORDER_YY INTEGER_YY .
+
+    $default  reduce using rule 29 (statement)
+
+
+state 388
+
+   80 level_list: level_list INTEGER_YY . INTEGER_YY
+   81           | level_list INTEGER_YY . INTEGER_YY SEMI_COLON_YY
+   82           | level_list INTEGER_YY . INTEGER_YY SLASH_YY
+
+    INTEGER_YY  shift, and go to state 393
+
+
+state 389
+
+  109 statement: PROXY_CREDENTIAL_YY STRING_YY INVALID_YY CLIENT_YY NOT_YY TO_YY TRANSFER_YY .
+
+    $default  reduce using rule 109 (statement)
+
+
+state 390
+
+  116 stdout_filename_optional: STDOUT_FILENAME_YY . STRING_YY
+
+    STRING_YY  shift, and go to state 394
+
+
+state 391
+
+  129 statement: install_or_reinstall PACKAGE_NAME_YY STRING_YY package_version_optional GLOBUS_SITE_YY STRING_YY stdout_filename_optional . 
+stderr_filename_optional timeout_optional reinstall_prerequisites_optional link_expression_list
+
+    STDERR_FILENAME_YY  shift, and go to state 395
+
+    $default  reduce using rule 117 (stderr_filename_optional)
+
+    stderr_filename_optional  go to state 396
+
+
+state 392
+
+   55 statement: CLIENT_YY TO_YY SEND_YY ENVIRONMENT_YY SHELLSCRIPT_YY STRING_YY GLOBUS_SITE_YY STRING_YY . admin_optional
+
+    ADMIN_YY  shift, and go to state 381
+
+    $default  reduce using rule 56 (admin_optional)
+
+    admin_optional  go to state 397
+
+
+state 393
+
+   80 level_list: level_list INTEGER_YY INTEGER_YY .
+   81           | level_list INTEGER_YY INTEGER_YY . SEMI_COLON_YY
+   82           | level_list INTEGER_YY INTEGER_YY . SLASH_YY
+
+    SEMI_COLON_YY  shift, and go to state 398
+    SLASH_YY       shift, and go to state 399
+
+    $default  reduce using rule 80 (level_list)
+
+
+state 394
+
+  116 stdout_filename_optional: STDOUT_FILENAME_YY STRING_YY .
+
+    $default  reduce using rule 116 (stdout_filename_optional)
+
+
+state 395
+
+  118 stderr_filename_optional: STDERR_FILENAME_YY . STRING_YY
+
+    STRING_YY  shift, and go to state 400
+
+
+state 396
+
+  129 statement: install_or_reinstall PACKAGE_NAME_YY STRING_YY package_version_optional GLOBUS_SITE_YY STRING_YY stdout_filename_optional 
+stderr_filename_optional . timeout_optional reinstall_prerequisites_optional link_expression_list
+
+    TIMEOUT_YY  shift, and go to state 401
+
+    $default  reduce using rule 119 (timeout_optional)
+
+    timeout_optional  go to state 402
+
+
+state 397
+
+   55 statement: CLIENT_YY TO_YY SEND_YY ENVIRONMENT_YY SHELLSCRIPT_YY STRING_YY GLOBUS_SITE_YY STRING_YY admin_optional .
+
+    $default  reduce using rule 55 (statement)
+
+
+state 398
+
+   81 level_list: level_list INTEGER_YY INTEGER_YY SEMI_COLON_YY .
+
+    $default  reduce using rule 81 (level_list)
+
+
+state 399
+
+   82 level_list: level_list INTEGER_YY INTEGER_YY SLASH_YY .
+
+    $default  reduce using rule 82 (level_list)
+
+
+state 400
+
+  118 stderr_filename_optional: STDERR_FILENAME_YY STRING_YY .
+
+    $default  reduce using rule 118 (stderr_filename_optional)
+
+
+state 401
+
+  120 timeout_optional: TIMEOUT_YY . INTEGER_YY
+
+    INTEGER_YY  shift, and go to state 403
+
+
+state 402
+
+  129 statement: install_or_reinstall PACKAGE_NAME_YY STRING_YY package_version_optional GLOBUS_SITE_YY STRING_YY stdout_filename_optional 
+stderr_filename_optional timeout_optional . reinstall_prerequisites_optional link_expression_list
+
+    NO_YY         shift, and go to state 404
+    REINSTALL_YY  shift, and go to state 405
+
+    REINSTALL_YY  [reduce using rule 121 (reinstall_prerequisites_optional)]
+    $default      reduce using rule 121 (reinstall_prerequisites_optional)
+
+    reinstall_prerequisites_optional  go to state 406
+
+
+state 403
+
+  120 timeout_optional: TIMEOUT_YY INTEGER_YY .
+
+    $default  reduce using rule 120 (timeout_optional)
+
+
+state 404
+
+  123 reinstall_prerequisites_optional: NO_YY . REINSTALL_YY PREREQUISITES_YY
+
+    REINSTALL_YY  shift, and go to state 407
+
+
+state 405
+
+  122 reinstall_prerequisites_optional: REINSTALL_YY . PREREQUISITES_YY
+
+    PREREQUISITES_YY  shift, and go to state 408
+
+
+state 406
+
+  129 statement: install_or_reinstall PACKAGE_NAME_YY STRING_YY package_version_optional GLOBUS_SITE_YY STRING_YY stdout_filename_optional 
+stderr_filename_optional timeout_optional reinstall_prerequisites_optional . link_expression_list
+
+    $default  reduce using rule 124 (link_expression_list)
+
+    link_expression_list  go to state 409
+
+
+state 407
+
+  123 reinstall_prerequisites_optional: NO_YY REINSTALL_YY . PREREQUISITES_YY
+
+    PREREQUISITES_YY  shift, and go to state 410
+
+
+state 408
+
+  122 reinstall_prerequisites_optional: REINSTALL_YY PREREQUISITES_YY .
+
+    $default  reduce using rule 122 (reinstall_prerequisites_optional)
+
+
+state 409
+
+  125 link_expression_list: link_expression_list . link_expression
+  129 statement: install_or_reinstall PACKAGE_NAME_YY STRING_YY package_version_optional GLOBUS_SITE_YY STRING_YY stdout_filename_optional 
+stderr_filename_optional timeout_optional reinstall_prerequisites_optional link_expression_list .
+
+    NO_LINKS_YY        shift, and go to state 411
+    WITH_LINKS_YY      shift, and go to state 412
+    LINK_DIRECTORY_YY  shift, and go to state 413
+
+    $default  reduce using rule 129 (statement)
+
+    link_expression  go to state 414
+
+
+state 410
+
+  123 reinstall_prerequisites_optional: NO_YY REINSTALL_YY PREREQUISITES_YY .
+
+    $default  reduce using rule 123 (reinstall_prerequisites_optional)
+
+
+state 411
+
+  126 link_expression: NO_LINKS_YY .
+
+    $default  reduce using rule 126 (link_expression)
+
+
+state 412
+
+  127 link_expression: WITH_LINKS_YY .
+
+    $default  reduce using rule 127 (link_expression)
+
+
+state 413
+
+  128 link_expression: LINK_DIRECTORY_YY . STRING_YY
+
+    STRING_YY  shift, and go to state 415
+
+
+state 414
+
+  125 link_expression_list: link_expression_list link_expression .
+
+    $default  reduce using rule 125 (link_expression_list)
+
+
+state 415
+
+  128 link_expression: LINK_DIRECTORY_YY STRING_YY .
+
+    $default  reduce using rule 128 (link_expression)

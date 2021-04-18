@@ -1,0 +1,140 @@
+@c globssts.texi
+
+@c Created by Laurence D. Finston (LDF) Thu May 24 11:30:46 CEST 2012
+@c This file is part of the Optinum Grid Installer User and Reference Manual.
+@c Copyright (C) 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbh Goettingen
+@c Author:  Laurence D. Finston (LDF)
+@c See the section "GNU Free Documentation License" in the file 
+@c fdl.texi for copying conditions.
+
+@c *** (3) Globus Sites (optdbcli)
+
+@node Globus Sites (optdbcli), Globus Site Administrators (optdbcli), Transferring Proxy Credential (optdbcli), Using the Client Program optdbcli
+
+@section Globus Sites
+
+The commands for adding, deleting, etc., Globus site information are only available to users with 
+the appropriate privileges (@samp{add_globus_site}, @samp{delete globus_site}, etc.).
+@xref{Privileges Database Table, , Privileges}. 
+
+@menu
+* Adding Globus Sites (optdbcli)::
+* Enabling and Disabling Globus Sites (optdbcli)::
+* Deleting and Undeleting Globus Sites (optdbcli)::
+@end menu
+
+@c *** (3) Adding Globus Sites (optdbcli)
+
+@node Adding Globus Sites (optdbcli), Enabling and Disabling Globus Sites (optdbcli), , Globus Sites (optdbcli)
+
+@subsection Adding Globus Sites
+
+@iftex
+@tex
+\syntaxgroup
+<statement>: ADD GLOBUS_SITE STRING <globus_site_option_list>
+
+<globus_site_option_list>: {\Empty} | <globus_site_option_list> <globus_site_option>
+
+\Setup{globus_site_option} INTERACTIVE_NODE STRING | APPEND_LD_LIBRARY_PATH STRING\hfil\break
+| APPEND_PATH STRING | OPTDBCLI_PATH STRING | IP_ADDRESS STRING\hfil\break
+| INTERACTIVE_NODE_IP_ADDRESS STRING | ENABLED | DISABLED | REPLACE
+\par
+\endgroup
+@end tex
+@end iftex 
+
+@ifnottex
+@display
+statement: ADD GLOBUS_SITE STRING globus_site_option_list
+
+globus_site_option_list: /* empty */
+                       | globus_site_option_list globus_site_option
+
+globus_site_option: INTERACTIVE_NODE STRING
+                  | APPEND_LD_LIBRARY_PATH STRING
+                  | APPEND_PATH STRING
+                  | OPTDBCLI_PATH STRING
+                  | IP_ADDRESS STRING
+                  | INTERACTIVE_NODE_IP_ADDRESS STRING
+                  | ENABLED
+                  | DISABLED
+                  | REPLACE
+@end display
+@end ifnottex
+
+@c *** (3) Enabling and Disabling Globus Sites (optdbcli)
+
+@node Enabling and Disabling Globus Sites (optdbcli), Deleting and Undeleting Globus Sites (optdbcli), Adding Globus Sites (optdbcli), Globus Sites (optdbcli)
+
+@subsection Enabling and Disabling Globus Sites
+
+@iftex
+@tex
+\syntaxgroup
+<statement>: ENABLE GLOBUS_SITE STRING | DISABLE GLOBUS_SITE STRING
+\par
+\endgroup
+@end tex
+@end iftex 
+
+@ifnottex
+@display
+
+statement: ENABLE GLOBUS_SITE STRING
+         | DISABLE GLOBUS_SITE STRING
+@end display
+@end ifnottex
+
+
+@c *** (3) Deleting and Undeleting Globus Sites (optdbcli)
+
+@node Deleting and Undeleting Globus Sites (optdbcli), , Enabling and Disabling Globus Sites (optdbcli), Globus Sites (optdbcli)
+
+@subsection Deleting and Undeleting Globus Sites
+
+@iftex
+@tex
+\syntaxgroup
+\Setup{statement} MARK AS DELETED GLOBUS_SITE STRING\hfil\break
+| UNDELETE GLOBUS_SITE STRING enable_optional\hfil\break
+| DELETE GLOBUS_SITE STRING FINALLY
+
+enable_optional: {\Empty} | ENABLE | DISABLE
+\par
+\endgroup
+@end tex
+@end iftex 
+
+@ifnottex
+@display
+
+
+
+statement: | MARK AS DELETED GLOBUS_SITE STRING
+           | UNDELETE GLOBUS_SITE STRING enable_optional
+           | DELETE GLOBUS_SITE STRING FINALLY
+
+enable_optional: /* empty */
+               | ENABLE
+               | DISABLE
+@end display
+@end ifnottex
+
+
+
+
+
+
+
+
+
+@c * (1) Local Variables for Emacs
+  
+@c Local Variables:
+@c mode:Texinfo
+@c abbrev-mode:t
+@c eval:(outline-minor-mode t)
+@c outline-regexp:"@c *\\*+"
+@c eval:(set (make-local-variable 'run-texi2dvi-on-file) "installer.texi")
+@c End:

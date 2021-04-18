@@ -1,0 +1,85 @@
+@c sssndttp.texi
+@c This file is part of the Optinum Grid Installer User and Reference Manual.
+
+@c Copyright (C) 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbh Goettingen
+
+@c Author:  Laurence D. Finston (LDF)
+
+@c See the section "GNU Free Documentation License" in the file 
+@c fdl.texi for copying conditions.
+
+@c * (1) Session_Data_Type Reference
+
+@node Session_Data_Type Reference, Utility Function Reference, GPG_Key_Pair_Type Reference, Top
+
+@chapter Session_Data_Type Reference
+
+@cindex friend
+@tindex Session_Data_Type, class
+@tindex class Session_Data_Type 
+@c
+@code{class Session_Data_Type} is defined in @file{sssndttp.web}.
+@code{class Scan_Parse_Parameter_Type} is a @code{friend} of 
+@code{class Session_Data_Type}.  @xref{Scan_Parse_Parameter_Type Reference}.
+
+@menu
+* Session_Data_Type Data Members::
+* Session_Data_Type Member Functions::
+@end menu
+
+@c ** (2) Session_Data_Type Data Members
+
+@node Session_Data_Type Data Members,  Session_Data_Type Member Functions, , Session_Data_Type Reference
+
+@section Data Members
+
+@vindex Session_Data_Type::session_id
+@c
+@vindex session_id (Session_Data_Type)
+@c
+@deftypevr  {Private variables} string session_id
+@end deftypevr
+
+
+@c ** (2) Session_Data_Type Functions
+
+@node Session_Data_Type Member Functions,,Session_Data_Type Data Members, Session_Data_Type Reference
+@section Session_Data_Type Member Functions
+ 
+@c `deffn' didn't work here:  The ampersand caused an error.  LDF 2012.02.23.
+
+@findex Session_Data_Type (constructors)
+@findex ~Session_Data_Type (destructor)
+@c
+@findex Session_Data_Type::Session_Data_Type (constructors)
+@findex Session_Data_Type::~Session_Data_Type (destructor)
+@c
+@deftypefn {Default constructor} {} Session_Data_Type (void)
+@deftypefnx {Copy constructor} {}   Session_Data_Type ({const Session_Data_Type} @var{&s}) 
+@deftypefnx {Constructor} {}        Session_Data_Type (string)
+@deftypefnx {Destructor} {}         ~Session_Data_Type (void)  
+@end deftypefn
+
+@findex operator= (Session_Data_Type)
+@findex Session_Data_Type::operator=
+@c
+@deftypefn {Assignment operator} {const Session_Data_Type} operator= ({const Session_Data_Type} {&@var{s}})
+@end deftypefn
+
+@findex show (Session_Data_Type)
+@findex Session_Data_Type::show
+@c
+@deftypefn {const function} {int} show (string {@var{s} = ""}, Scan_Parse_Parameter_Type {*@var{param} = 0})
+@end deftypefn
+
+
+@c ** (1) Local Variables for Emacs
+
+@c Local Variables:
+@c mode:Texinfo
+@c abbrev-mode:t
+@c eval:(outline-minor-mode t)
+@c eval:(set (make-local-variable 'run-texi2dvi-on-file) "installer.texi")
+@c End:
+
+

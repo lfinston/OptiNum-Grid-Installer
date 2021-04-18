@@ -1,0 +1,178 @@
+@c thrdfncs.texi
+@c This file is part of the Optinum Grid Installer User and Reference Manual.
+
+@c Copyright (C) 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbh Goettingen
+
+@c Author:  Laurence D. Finston (LDF)
+
+@c Created by Laurence D. Finston (LDF) 2012-01-26 12:55:52 +0100 (Thu, 26 Jan 2012)
+
+@c See the section "GNU Free Documentation License" in the file 
+@c fdl.texi for copying conditions.
+
+@c * (1) Thread Function Reference
+
+@node Thread Function Reference, Hidden Installation Reference (scrinstl), Utility Function Reference, Top
+@comment  node-name,  next,  previous,  up
+
+@chapter Thread Function Reference
+
+@menu
+* Remote Installation::
+* GPG Key Distribution::
+* Cull Database::
+@end menu
+
+
+@c ** (2) Remote Install Function
+
+@node Remote Installation, GPG Key Distribution, , Thread Function Reference
+
+@section Remote Installation
+
+@deftypefn {Thread function} {void*} remote_install_func (void @var{*v})
+Defined in @file{thrdfncs.web}.
+
+Return values:
+@table @asis
+@item 0
+Success
+
+@item 1
+In first child process (call to @command{sudo} for @command{strtinst} 
+or @command{strtinst.sh}): @code{execl} returned.  It shouldn't return
+at all.
+(@pxref{Start Remote Installation}.)
+
+@item 2
+First child process failed to exit.
+
+@item 1000 + exit status of first child process
+First child process exited unsuccessfully.  
+
+If the call to @command{strtinst} in the child process fails because
+its call to @code{handle_proxy_cred} failed,
+@command{strtinst} returns 100 + the error code returned by
+@code{handle_proxy_cred}.  
+
+(Depending on the platform, it may not be possible for
+@code{remote_install_func} to invoke @command{strtinst} via
+@code{sudo}, in which case the ``wrapper script''
+@command{strtinst.sh} is invoked instead.  @command{strtinst.sh}
+simply returns the exit status of @code{strtinst}.)
+
+If this function fails 
+because @command{strtinst} failed, 1000 + the latter's error code is
+returned. 
+
+By this means, the caller of this function can determine whether 
+the ultimate cause of the failure was an error in
+@code{handle_proxy_cred}, and if so, what the specific error was.
+That is, if @samp{r} is the exit status of this function, and 
+@math{(1000 - 100 - r) > 0}, then @math{(1000 - 100 - r)} is the exit
+status of @code{handle_proxy_cred}.
+
+The only caller of this function as of February 9, 2012  
+is @code{exchange_data_with_client}, 
+which is defined in @file{connect.web}.  
+@xref{Exchange Data With Client}.
+It calls this function by means of @code{pthread_create}.
+@xref{Server Connection Function Reference}.  
+
+@item 3
+Filename returned by child process too long (> 511 characters)
+
+@item 4
+In second child process (call to @command{sudo} for @command{instchwn} or @command{instchwn.sh}):
+@code{execl} returned.  It shouldn't return at all.
+
+@item 5
+Second child process failed to exit
+
+@item 10,000 + exit status of second child process
+Second child process exited unsuccessfully
+
+(Depending on the platform, it may not be possible for
+@code{remote_install_func} to invoke @command{instchwn} via
+@code{sudo}, in which case the ``wrapper script''
+@command{instchwn.sh} is invoked instead.  @command{instchwn.sh}
+simply returns the exit status of @code{instchwn}.)
+
+If this function fails 
+because @command{instchwn} failed, 10,000 + the latter's error code is
+returned. 
+
+By this means, the caller of this function can determine whether 
+the ultimate cause of the failure was an error in
+@code{instchwn}, and if so, what the specific error was.
+
+As of February 9, 2012, @code{exchange_data_with_client},
+simply tests whether this function returns a value > 10,000 in order to
+determine whether it failed because of a failure of
+@command{instchwn}.  It does not test for the specific cause.
+
+@item 6
+No Globus site specified
+
+@item 7
+Globus site not found on @code{globus_site_map}
+@end table
+
+@end deftypefn
+
+@c ** (2) GPG Key Distribution
+
+@node GPG Key Distribution, Cull Database, Remote Installation, Thread Function Reference
+
+@section GPG Key Distribution
+
+@deftypefn {Thread function} {void*} sub_distribute_key_pair (void @var{*v})
+@end deftypefn
+
+@c ** (2) Cull Database
+
+@node Cull Database, , GPG Key Distribution, Thread Function Reference
+
+@section Cull Database
+
+
+@deftypefn {Thread function} {void*} cull_database (void @var{*v})
+Defined in @file{thrdfncs.web}.  Deletes expired rows (see below) from the
+database tables @samp{Entries}, @samp{Session_Data} and
+@samp{Globus_Sites}.  These deletions may cause rows in @samp{Prerequisites} 
+and @samp{Globus_Sites_Admins} to become unnecessary, so these rows are
+deleted as well.
+@xref{Database Tables and Views}.
+
+The tables @samp{Entries}, @samp{Globus_Sites} and @samp{Session_Data}
+each have a column containing a timestamp value.  In @samp{Entries}
+and @samp{Globus_Sites}, it is the column @samp{last_modified} while
+in @samp{Session_Data}, it is the column @samp{timestamp}.  
+A row is expired when the value in this column is less (i.e., older)
+than one day.
+
+@cindex asynchronous
+@cindex synchronous
+@cindex detached threads
+@cindex threads, detached
+@c
+Currently, @code{cull_database} is called (asynchronously) in a
+(detached) thread of its own every two hours, so that a row will
+probably not be deleted immediately when the row expires.  On the
+other hand, there should never be any expired rows that have expired more than
+26 hours before.
+@end deftypefn
+
+@c Emacs-Lisp code for use in indirect buffers:
+@c
+@c (progn (texinfo-mode) (outline-minor-mode t) (setq outline-regexp "@c *\\*+"))
+
+@c * (1) Local Variables for Emacs
+  
+@c Local Variables:
+@c mode:Texinfo
+@c abbrev-mode:t
+@c eval:(outline-minor-mode t)
+@c outline-regexp:"@c *\\*+"
+@c eval:(set (make-local-variable 'run-texi2dvi-on-file) "installer.texi")
+@c End:

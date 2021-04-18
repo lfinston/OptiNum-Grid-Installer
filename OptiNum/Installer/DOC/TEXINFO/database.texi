@@ -1,0 +1,439 @@
+@c database.texi
+@c Created by Laurence D. Finston (LDF) Wed Jul 14 16:06:45 CEST 2010
+@c This file is part of the Optinum Grid Installer User and Reference Manual.
+
+@c Copyright (C) 2010, 2011, 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbh Goettingen
+@c Author:  Laurence D. Finston (LDF)
+@c See the section "GNU Free Documentation License" in the file 
+@c fdl.texi for copying conditions.
+
+@c * (1) Database Tables and Views
+
+@node  Database Tables and Views, Glossary, Auxiliary Program and Shellscript Reference, Top
+@chapter Database Tables and Views
+
+@menu
+* Users Database Table::
+* User_Info Database View:: 
+* Certificates Database Table::
+* Privileges Database Table::
+* Delegates Database Table:: 
+* Entries Database Table::
+* Prerequisites Database Table::
+* Globus_Sites Database Table:: 
+* Key_Pairs Database Table:: 
+* Public_Keys Database Table:: 
+* Session_Data Database Table:: 
+* Environment_Shellscripts Database Table:: 
+* Globus_Sites_Admins Database Table:: 
+@end menu
+
+@c *** (3) Users
+
+@node Users Database Table, User_Info Database View, , Database Tables and Views
+@section Users
+
+@table @code
+@item user_id
+int primary key
+
+@item user_name 
+varchar(128) unique not null
+@end table
+
+@c *** (3)
+
+@node User_Info Database View, Certificates Database Table, Users Database Table, Database Tables and Views
+@section User_Info
+
+This view contains the most commonly needed information about users
+from the @samp{Users} and @samp{Certificates} tables.  It is can be
+more convenient to use this view rather than to formulate the query
+for extracting this information from the two tables.
+
+@table @code
+@item user_id 
+int.  From Users table.
+@item user_name
+varchar(128). From Users table.
+
+@item commonName
+varchar(64).  From Certificates table.
+
+@item organizationalUnitName 
+varchar(64).  From Certificates table.
+@end table
+
+
+@c *** (3) Certificates
+
+@node Certificates Database Table, Privileges Database Table, User_Info Database View, Database Tables and Views
+@section Certificates
+
+@table @code
+@item certificate_id 
+@code{int primary key}
+
+@item user_id 
+@code{int references Users(user_id)}
+
+@item issuer_cert_id 
+@code{int references Certificates(certificate_id)}
+
+@item is_ca 
+@code{boolean not null (Is certification authority)}
+
+@item is_proxy 
+@code{boolean not null (Is proxy credential)}
+
+@item serialNumber 
+@code{integer unsigned (Fields from here on use names from the X.509 specifications)}
+
+@item organization 
+@code{varchar(64)}
+
+@item organizationalUnitName 
+@code{varchar(64)}
+
+@item commonName 
+@code{varchar(64)}
+
+@item countryName 
+@code{char(2)}
+
+@item localityName 
+@code{varchar(64)}
+
+@item stateOrProvinceName 
+@code{varchar(64)}
+
+@item Validity_notBefore 
+@code{datetime}
+
+@item Validity_notAfter 
+@code{datetime}
+@end table
+
+@c *** (3) Privileges
+
+@node Privileges Database Table, Delegates Database Table, Certificates Database Table, Database Tables and Views
+@section Privileges
+
+@cindex association table
+@cindex one-to-one
+@cindex one-to-many
+@cindex many-to-one
+@cindex privileges
+@cindex superuser
+@c
+The @samp{Privileges} database table is used for privileges that don't
+require a one-to-many, many-to-one or many-to-many association of
+values.  For example, if @samp{delegate = 1} for user 12, then this
+user is permitted act as a delegate for all other users 
+(a ``one-to-all'' association, so to speak).  If however, user 12 should
+only be allowed to act as a delegate for certain users, the
+@dfn{association table} @samp{Delegates} must be used.
+@xref{Delegates Database Table}, below.
+
+@table @code 
+@item user_id
+@code{int primary key unique not null references Users(user_id)}
+
+@item superuser 
+@code{boolean not null default 0}
+
+If @samp{superuser} = 1, user @samp{user_id} has all of the permissions controlled 
+by the other columns of this table.
+It is therefore equivalent to having all of the other columns set to 1.  
+
+@item show_certificates 
+@code{boolean not null default 0}
+
+@item show_privileges 
+@code{boolean not null default 0}
+
+@item add_globus_site 
+@code{boolean not null default 0}
+
+@item delete_globus_site 
+@code{boolean not null default 0}
+
+@item enable_globus_site 
+@code{boolean not null default 0}
+
+@item edit_globus_site 
+@code{boolean not null default 0}
+
+@item add_globus_site_admin 
+@code{boolean not null default 0}
+
+@item delete_globus_site_admin 
+@code{boolean not null default 0}
+
+@item delegate 
+@code{boolean not null default 0}.  
+
+The user may act as a delegate for any other user.
+This column is accessed by the function @code{Scan_Parse_Parameter_Type::check_delegation}.
+@xref{Scan_Parse_Parameter_Type Member Functions}.
+@end table
+
+@c *** (3) Delegates
+
+@node Delegates Database Table, Entries Database Table, Privileges Database Table, Database Tables and Views
+@section Delegates
+
+The user referenced by
+@code{delegate_id} may act on behalf of the 
+user referenced by @code{effective_user_id}.
+That is, the former may add, delete
+and edit entries, and start a remote installation (@pxref{Remote Software Installation})
+on behalf of the latter. 
+
+This table is accessed by the function @code{Scan_Parse_Parameter_Type::check_delegation}.
+@xref{Scan_Parse_Parameter_Type Member Functions}.
+
+@table @code 
+@item delegate_id
+@code{int not null references Users(user_id)}
+
+@item effective_user_id 
+@code{int not null references Users(user_id)}
+@end table
+
+@c *** (3) Entries
+
+@node Entries Database Table, Prerequisites Database Table, Delegates Database Table, Database Tables and Views
+@section Entries
+
+@table @code
+@item user_id 
+@code{int not null references Users(user_id)}
+
+@item entry_id 
+@code{int primary key}
+
+@item package_name 
+@code{varchar(256) not null}
+
+@item package_version 
+@code{varchar(256)}
+
+@item version_ctr 
+@code{int default null}
+
+@item download_url 
+@code{varchar(256)}
+
+@item download_command 
+@code{varchar(256)}
+
+@item installation_script 
+@code{mediumtext}
+
+@item maintainer_name 
+@code{varchar(256)}
+
+@item maintainer_email_address 
+@code{varchar(256)}
+
+@item private 
+@code{boolean not null default true}
+
+@item checked_by_admin 
+@code{boolean not null default false}
+
+@item created
+@code{timestamp default null}
+
+@item last_modified
+@code{timestamp default null}@*
+@cindex UTC
+When a row is first inserted, @samp{last_modified} is set to the same
+value as @samp{created}, i.e., the current timestamp in UTC.  This
+makes it possible to sort rows according to this field.  To
+determine whether a row has been modified, the @samp{last_modified}
+and @samp{created} fields must be compared.
+
+@item timezone
+@code{char(3) default 'UTC'}
+@cindex UTC
+
+@item owner 
+varchar(256)
+
+@item encrypted 
+boolean default 0
+
+@item download_url_encrypted 
+blob
+
+@item download_command_encrypted 
+blob
+
+@item installation_script_encrypted 
+blob
+
+@item authorization 
+blob
+
+@item deleted 
+boolean not null default false
+@end table
+
+@c *** (3) Prerequisites
+
+@node Prerequisites Database Table, Globus_Sites Database Table, Entries Database Table, Database Tables and Views
+@section Prerequisites
+
+@table @code
+@item entry_id 
+@code{int not null references Entries(entry_id)}
+
+@item prerequisite_id 
+@code{int not null references Entries(entry_id)}
+@end table
+
+@c *** (3) Globus_Sites Database Table
+
+@node Globus_Sites Database Table, Key_Pairs Database Table, Prerequisites Database Table, Database Tables and Views
+@section Globus_Sites
+
+@table @code
+@item globus_site_id 
+int primary key
+
+@item hostname 
+varchar(128) unique not null
+
+@item ip_address 
+varchar(128) unique not null
+
+@item enabled 
+boolean not null default 1
+@end table
+
+@c *** (3) Key_Pairs Database Table
+
+@node Key_Pairs Database Table, Public_Keys Database Table, Globus_Sites Database Table, Database Tables and Views
+@section Key_Pairs
+
+@table @code
+@item key_pair_id 
+int unsigned not null primary key
+
+@item user_id 
+int not null references Users(user_id)
+
+@item key_name 
+varchar(256) not null
+
+@item key_pair 
+blob
+@end table
+
+
+@c *** (3) Public_Keys Database Table
+
+@node Public_Keys Database Table, Session_Data Database Table, Key_Pairs Database Table, Database Tables and Views
+@section Public_Keys
+
+@table @code
+@item user_id 
+int primary key references Users(user_id)
+
+@item key_name 
+varchar(256) not null
+
+@item key_id 
+int unsigned not null
+@end table
+
+@c *** (3) Session_Data Database Table
+
+@node Session_Data Database Table, Environment_Shellscripts Database Table, Public_Keys Database Table, Database Tables and Views
+@section Session_Data
+
+@table @code
+@item session_id 
+varchar(256) not null
+
+@item user_id 
+int not null references Users(user_id)
+
+@item effective_user_id 
+int references Users(user_id)
+
+@item user_name 
+varchar(128) references Users(user_name)
+
+@item effective_user_name 
+varchar(128) references Users(user_name)
+
+@item timestamp 
+timestamp default 0
+@end table
+
+@c *** (3) Environment_Shellscripts Database Table
+
+@node Environment_Shellscripts Database Table, Globus_Sites_Admins Database Table, Session_Data Database Table, Database Tables and Views
+@section Environment_Shellscripts
+
+@table @code
+@item environment_shellscript_id 
+int primary key
+
+@item user_id 
+int not null default 0 references Users(user_id)
+
+@item globus_site_id
+int not null default 0 references Globus_Sites(globus_site_id)
+
+@item shellscript
+mediumtext
+
+@item admin 
+boolean not null default 0.  Can only be set if the user is an
+administrator of the Globus site.   
+
+@item disabled 
+boolean not null default 0.  If 1 (true), the shellscript will not be
+returned by the server to the client, and therefore not executed, when
+one or more packages are installed on the Globus site referred to by
+@code{globus_site_id}.
+
+@end table
+
+
+@c *** (3) Globus_Sites_Admins Database Table
+
+@node Globus_Sites_Admins Database Table, , Environment_Shellscripts Database Table, Database Tables and Views
+@section Globus_Sites_Admins
+
+For each row, the user referred to by @code{user_id} is an
+administrator of the Globus site referred to by
+@code{globus_site_id}.  The use of a table separate from
+@code{Globus_Sites} makes it possible for there to be multiple
+administrators for a given Globus site.
+
+@table @code
+@item globus_site_id 
+int references Globus_Sites(globus_site_id)
+
+@item admin_id 
+int references Users(user_id)
+@end table
+
+@c ** (2)
+
+@c * (1) Local Variables for Emacs
+  
+@c Local Variables:
+@c mode:Texinfo
+@c abbrev-mode:t
+@c eval:(outline-minor-mode t)
+@c outline-regexp:"@c *\\*+"
+@c eval:(set (make-local-variable 'run-texi2dvi-on-file) "installer.texi")
+@c End:
+
+

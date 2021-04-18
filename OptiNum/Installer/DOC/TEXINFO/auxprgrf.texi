@@ -1,0 +1,426 @@
+@c auxprgrf.texi
+@c This file is part of the Optinum Grid Installer User and Reference Manual.
+
+@c Copyright (C) 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbh Goettingen
+@c Author:  Laurence D. Finston (LDF)
+@c See the section "GNU Free Documentation License" in the file 
+@c fdl.texi for copying conditions.
+
+@c Created by Laurence D. Finston (LDF) 2012-01-26 11:36:06 +0100 (Thu, 26 Jan 2012)
+
+@c * (1) Auxiliary Program and Shellscript Reference
+
+@node  Auxiliary Program and Shellscript Reference, Database Tables and Views, Hidden Installation Reference (scrinstl), Top
+
+@chapter Auxiliary Program and Shellscript Reference
+
+@menu
+* Start Remote Installation::
+* Kill Process::
+* Install GPG Key Pair::
+* Change Owner for Installed Files::
+* Generate Passwords or Passphrases::
+* Purge Installed Files::
+@end menu
+
+@c ** (2) Start Remote Installation
+
+@node Start Remote Installation, Kill Process,, Auxiliary Program and Shellscript Reference
+
+@section Start Remote Installation
+
+@file{strtinst.web}.
+
+@deftypefun int main (int @var{argc}, char @var{*argv}[])
+
+Exit status values:
+
+@table @asis
+@item 0
+Success
+
+@item 1
+Checking for Globus site failed
+
+@item 2
+@code{getpwuid_r} failed
+
+@item 3
+Cannot determine user name (@code{pwbuf.pw_name} is empty)
+
+@item 4
+Cannot determine home directory (@code{pwbuf.pw_dir} is empty)
+
+@item 5
+Home directory path too long (has too many characters)
+
+@item 6
+X.509 proxy credential not found
+
+@item 100 + return value of @code{handle_proxy_cred} 
+X.509 proxy credential invalid.  (@pxref{Proxy Credential Function Reference})
+
+@item 7
+Incorrect number of arguments
+
+@item 8
+@code{mkstemp} error:  Failed to create temporary files
+
+@item 9
+@code{fchmod} error:  Failed to change mode of wrapper script file
+
+@item 10
+Globus site not found
+
+@item 11
+Globus site disabled
+
+@item 12
+Invalid data for Globus site
+
+@item 13
+Failed to write wrapper script
+
+@item 14
+Failed to write RSL file
+
+@item 15
+Invalid host (not @t{optinum-srv.gwdg.de} or @t{pcfinston})
+
+@item 16
+Installation process failed (call to @code{system})
+
+@item 17
+@code{atexit} failed
+
+@item 18
+MySQL library couldn't be initialized
+
+@item 19
+@code{mysql_init} failed
+
+@item 20
+@code{popen} error
+
+@item 21
+@code{fread} error
+
+@item 22
+@code{mysql_real_connect} failed 
+
+@item 23
+@code{mysql_select_db} failed
+@end table
+
+@end deftypefun
+
+@deftypefun int check_globus_site (MYSQL {*@var{mysql_ptr}}, string @var{globus_site}, Globus_Site_Info_Type {& @var{globus_site_info}})
+Defined in @file{strtinst.web}.
+@table @asis
+@item 0
+Success
+
+@item 1
+@code{mysql_query}, @code{mysql_store_result} or @code{mysql_fetch_row} failed
+
+@item 2
+@code{mysql_query} returned no rows, i.e., Globus site not found
+
+@item 3
+Invalid data in row
+@end table
+@end deftypefun
+
+@c ** (2) Kill Process
+@node Kill Process, Install GPG Key Pair, Start Remote Installation, Auxiliary Program and Shellscript Reference
+
+@section Kill Process
+
+The program @samp{kllprcss} (source code in @file{kllprcss.web}) is
+called by the function @code{exchange_data_with_client} 
+(@pxref{Server Connection Function Reference}.)
+
+@deftypefun int main (int @var{argc}, char {**@var{argv}})
+@end deftypefun
+
+@c ** (2) Install GPG Key Pair
+
+@node Install GPG Key Pair, Change Owner for Installed Files, Kill Process, Auxiliary Program and Shellscript Reference
+
+@section Install GPG Key Pair
+
+The program @samp{instkypr} (source code in @file{instkypr.web}) is 
+called by the function @code{sub_distribute_key_pair} 
+(@pxref{Thread Function Reference}) via @samp{sudo}, either
+directly or indirectly by the wrapper script @samp{instkypr.sh}.  The
+latter is needed on platforms where @samp{sudo} can't start a login
+shell without the user having to enter a password or where it doesn't
+allow environment variables to be passed to the shell using
+@samp{env}.
+
+
+@deftypevr {Global constant} {const unsigned int} {MAX_BUFFER}
+Initialized to 65536.
+@end deftypevr
+
+@deftypefun {int} main (int @var{argc}, char {*@var{argv}[]})
+@end deftypefun
+
+@c ** (2) Change owner for installed files.
+@node Change Owner for Installed Files, Generate Passwords or Passphrases, Install GPG Key Pair, Auxiliary Program and Shellscript Reference
+
+@section Change Owner for Installed Files
+
+Source code in file @file{instchwn.web}.  
+
+@deftypefun {int} main (int @var{argc}, char {**@var{argv}})
+@end deftypefun
+
+
+@c ** (2) Generate Passwords or Passphrases
+@node Generate Passwords or Passphrases, Purge Installed Files, Change Owner for Installed Files, Auxiliary Program and Shellscript Reference
+
+@section Generate Passwords or Passphrases
+
+@cindex password
+@cindex passphrase
+@cindex checksum
+@cindex md5
+@cindex sha1
+@cindex sha224
+@cindex sha256
+@cindex sha384
+@cindex sha512
+@c
+@code{optpsgen} generates one or more passwords or passphrases from
+randomly chosen characters.  Options control the type of characters
+used, whether whitespace may be included, and other characteristics of
+the passwords or passphrases.  Additionally, checksums may be output,
+using one of several checksum functions, i.e., md5, sha1, sha224,
+sha256, sha384, or sha512.
+
+The files @file{optpsgen.web} and @file{optpsgsb.web} contain the source code.
+
+@menu
+* optpsgen Options::
+* optpsgen Global Variables::
+* optpsgen Functions::
+@end menu
+
+@c *** (3) optpsgen Options
+
+@node optpsgen Options, optpsgen Global Variables, , Generate Passwords or Passphrases
+
+@subsection Options
+
+@noindent
+Options:
+@table @option
+@item --help
+Outputs a message explaining usage and listing these options and exits.
+
+@item --debug-level INTEGER
+If INTEGER @math{> 0}, debugging information is output.
+Currently, there is only one ``debugging level'', i.e.,
+the magnitude of INTEGER otherwise makes no difference.
+
+@item --input-filename FILENAME
+For testing or debugging.  The file FILENAME will be used instead of
+@file{/dev/urandom} (the default) or @file{/dev/random} (when the
+@code{--extra-random} option is used).
+
+@item --alpha
+@itemx --alphanum, --alnum
+@itemx --graph
+@itemx --printable
+These options determine what types of characters may appear in the
+passwords or passphrases, i.e., alphabetical, alphanumeric,
+``graphical'', or printable, respectively.
+They correspond to the C functions @code{isalpha}, @code{isalnum},
+@code{isgraph} and @code{isprint}.
+That is, the characters allowed depend on the current locale.  
+
+@item --blank
+@itemx --space
+@itemx --no-tabs
+Intended for use with the options @option{--alpha}, @option{--alphanum} 
+and @option{--alnum}.  If @option{--space} is used, then 
+whitespace characters are also allowed, while if @option{--blank} is used, 
+only the actual space character (ASCII 32) and the tab character (ASCII 9) 
+are allowed.  @option{--no-tabs} causes tabs to be suppressed. 
+@samp{--blank --no-tabs} therefore has the effect of allowing the 
+actual space character, but no other whitespace characters.
+
+These options have no effect if used together with @option{--printable} or 
+@option{--graph}, because @option{--graph} is equivalent 
+to @option{--printable} minus whitespace.  If desired, space characters may be 
+included in passwords or passphrases generated using @option{--graph} 
+(or @option{--printable}) by using the @option{--max-block-size} option (see below).
+
+@item --length INTEGER
+Specifies the length of the password or passphrase.  Default is 8 characters.
+
+@item --extra-random
+@cindex randomness
+@c
+Use @file{/dev/random} instead of @file{/dev/urandom} as the source of characters.
+This improves the quality of the ``randomness'', but may cause the program to block, 
+if not enough entropy is present in the system.  A message to this effect is issued.
+
+@item --min-block-size  [INTEGER] 
+@itemx --max-block-size [INTEGER] (default 8)
+Set the minimum and/or maximum size of ``blocks'' of non-whitespace characters.
+The argument is optional.  The default for the minimum block size is 4, while that for 
+the maximum is 8.  Please note that these defaults only apply 
+@emph{if the corresponding option is specified}.  Otherwise, there is no minimum 
+or maximum block size.
+
+These options have no effect if used with @option{--graph}, because the latter excludes
+whitespace entirely.
+
+@item --no-start-space
+@itemx --no-end-space
+Prevent whitespace from occurring at the beginning or end of the password, respectively.
+
+@item --delimiters [ARG]
+The password or passphrase will be output with a ``delimiter'' at the beginning and end.
+ARG is optional.  If not used, @samp{'} will be used on both sides.
+If present, it should be a character or string.  If it is a character or a string containing 
+only one character, this character will be used on both sides.
+If it is a string containing more than one character, the first character will be used at 
+the beginning and the second at the end.  If there are more than two characters, the remaining ones
+are ignored.
+
+Delimiters can be useful if whitespace may appear at the beginning and/or end of the password 
+or passphrase.
+
+@item --exclude-chars STRING
+STRING argument required.  It is a list of characters which should @emph{not} appear in the 
+password or passphrase.
+
+@item --checksum [ARG]
+Output a checksum for the generated password or passphrase.  
+If ARG is not present, @samp{sha1sum} is used to generate the checksum.
+Valid values for ARG are @samp{md5}, @samp{sha1}, @samp{sha224}, @samp{sha224}, @samp{sha384} 
+or @samp{sha512}.
+
+@item --iterations INTEGER
+The number of passwords or passphrases (and optionally checksums) to generate.
+@end table
+
+@c *** (3) optpsgen Global Variables
+
+@node optpsgen Global Variables, optpsgen Functions, optpsgen Options, Generate Passwords or Passphrases
+
+@subsection Global Variables
+
+@deftypevr {Constant} {extern const unsigned int} {DEFAULT_PASSWD_LEN = 8}
+Default length of password or passphrase.
+@end deftypevr
+
+@deftypevar {unsigned int} passwd_len  
+Set to @code{DEFAULT_PASSWD_LEN} 
+at the beginning of @code{main}.
+@end deftypevar
+
+@deftypevar int {debug_level = 0}
+Set by the @option{--debug} option.  @xref{optpsgen Options}. 
+@end deftypevar
+
+@deftypevr {Constants} {extern const unsigned int} {ALPHA_TYPE  =   1}  
+@deftypevrx {} {extern const unsigned int} {ALPHANUM_TYPE       =   2}
+@deftypevrx {} {extern const unsigned int} {GRAPH_TYPE          =   4}
+@deftypevrx {} {extern const unsigned int} {PRINTABLE_TYPE      =   8}
+@deftypevrx {} {extern const unsigned int} {BLANK_TYPE          =  16}
+@deftypevrx {} {extern const unsigned int} {SPACE_TYPE          =  32} 
+@deftypevrx {} {extern const unsigned int} {NO_TABS_TYPE        =  64} 
+@deftypevrx {} {extern const unsigned int} {NO_START_SPACE_TYPE = 128}
+@deftypevrx {} {extern const unsigned int} {NO_END_SPACE_TYPE   = 256}
+Constants for controlling what characters may appear in the password or passphrase.
+@end deftypevr
+
+
+@deftypevr {Constants} {extern const unsigned int} {MD5_TYPE    = 1}
+@deftypevrx {} {extern const unsigned int} {SHA1_TYPE   = 2}
+@deftypevrx {} {extern const unsigned int} {SHA224_TYPE = 3}
+@deftypevrx {} {extern const unsigned int} {SHA256_TYPE = 4}
+@deftypevrx {} {extern const unsigned int} {SHA384_TYPE = 5}
+@deftypevrx {} {extern const unsigned int} {SHA512_TYPE = 6}
+@end deftypevr
+
+@deftypevr {Constants} {extern const int} {DEFAULT_MIN_BLOCK_SIZE = 4}
+@deftypevrx {} {extern const int} {DEFAULT_MAX_BLOCK_SIZE = 8}
+@deftypevrx {Variables} int {min_block_size = 0}
+@deftypevrx {} int {max_block_size = 0}
+@deftypevrx {} {unsigned int} {block_ctr = 0}
+@end deftypevr
+
+@deftypevar bool {extra_random = false}
+@end deftypevar
+
+@deftypevr {Variables} string delim_start
+@deftypevrx {} string delim_end
+@end deftypevr
+
+@deftypevar string in_filename
+@end deftypevar
+
+@deftypevar {vector<char>} exclude_char_vector
+@end deftypevar
+
+@deftypevar {unsigned int} {checksum_type = 0}
+@end deftypevar
+
+@deftypevar {unsigned int} {iterations = 1}
+@end deftypevar
+
+@c *** (3) optpsgen Functions
+
+@node optpsgen Functions, , optpsgen Global Variables, Generate Passwords or Passphrases
+
+@subsection Functions
+
+@deftypefun {int} main (int @var{argc}, char {**@var{argv}})
+@end deftypefun
+
+@deftypefun {int} handle_options (int @var{argc}, char {**@var{argv}})
+@end deftypefun
+
+
+@c ** (2) Purge Installed Files
+@node Purge Installed Files, , Generate Passwords or Passphrases, Auxiliary Program and Shellscript Reference
+
+@section Purge Installed Files
+
+@deftypefun int main (int argc, {char **} @var{argv})
+Defined in @file{secure/src/prginstl.web}.
+@strong{Not currently in use.}  This program deletes files created by a
+``software provider'' for a ``customer'' which are located below the
+home directory of the latter, but belong to the former, so that 
+the ``customer'' cannot delete them without root privileges.
+Therefore, the @file{sudoers} file must contain an entry for this
+program, which makes it possible for users to delete such files.
+
+However, this situation no longer occurs, because the ownership of
+such files is changed, so that they belong to the ``customer''.  This
+program has been left in the package for the time being, because it
+may turn out to be useful for something.
+@end deftypefun
+
+@c * (1)
+
+@c Emacs-Lisp code for use in indirect buffers:
+@c
+@c (progn (texinfo-mode) (outline-minor-mode t) (setq outline-regexp "@c *\\*+"))
+
+@c * (1) Local Variables for Emacs
+  
+@c Local Variables:
+@c mode:Texinfo
+@c abbrev-mode:t
+@c eval:(outline-minor-mode t)
+@c outline-regexp:"@c *\\*+"
+@c eval:(set (make-local-variable 'run-texi2dvi-on-file) "installer.texi")
+@c End:
+
+

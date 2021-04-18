@@ -1,0 +1,29 @@
+@c rmtinstl.texi
+
+@c Created by Laurence D. Finston (LDF) Thu Feb 23 15:22:01 CET 2012
+
+@c Copyright (C) 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbh Goettingen
+
+@c This file is part of the Optinum Grid Installer User and Reference Manual.
+
+@c Author:  Laurence D. Finston (LDF)
+
+@c See the section "GNU Free Documentation License" in the file 
+@c fdl.texi for copying conditions.
+
+@c * (1) Top 
+
+@node  Remote Software Installation, , , Top
+@chapter Remote Software Installation
+
+
+
+@c * (1) Local Variables for Emacs
+  
+@c Local Variables:
+@c mode:Texinfo
+@c abbrev-mode:t
+@c eval:(outline-minor-mode t)
+@c outline-regexp:"@c *\\*+"
+@c eval:(set (make-local-variable 'run-texi2dvi-on-file) "installer.texi")
+@c End:

@@ -1,0 +1,429 @@
+@c intro.texi, , Top, Top
+@c This file is part of the Optinum Grid Manual.
+
+@c Copyright (C) 2010, 2011, 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbh Goettingen
+
+@c Author:  Laurence D. Finston (LDF)
+@c See the section "GNU Free Documentation License" in the file 
+@c fdl.texi for copying conditions.
+
+@c * (1) Introduction
+
+@node  Introduction, Invoking optdbcli/optdbsrv, List of Figures, Top
+
+@chapter Introduction
+
+@menu
+@c * How To Read This Manual::
+* Building and Installing::
+* Communication Among the Programs::
+@end menu
+
+@cindex CWEB
+@c
+The OptiNum Grid Installer consists of the following packages:
+
+@itemize @bullet
+@item A client/server application @samp{optdbcli/optdbsrv}.
+@xref{Server Connection Function Reference}, and @ref{Client Connection Function Reference}.
+
+@item A web application @samp{optwbsrv}.
+@xref{Web Application}. 
+
+@item A program for ``hidden installation'' @samp{scrinstl}.  
+@xref{Hidden Software Installation}.
+@end itemize
+
+@noindent
+Miscellaneous auxiliary programs, shellscripts, etc., are included in
+these packages.
+
+@cindex distribution
+@cindex compression
+@cindex tarball
+@cindex archive
+@cindex compressed archive file
+@cindex zip
+@cindex gzip
+@cindex b2zip
+@c
+The three individual packages are distributed in the form of compressed archive files
+(@dfn{zipped tar files} or ``tarballs''):
+
+
+@multitable {Hidden Installation@ @ } {optdbcli/optdbsrv@ @ } {dbsrvcli-1.0.tar.gz}
+@item Client/Server
+@tab @t{optdbcli/optdbsrv}
+@tab @t{dbsrvcli-1.0.tar.gz}
+
+@item Web Application
+@tab @t{optwbsrv}
+@tab @t{optwbsrv-1.0.tar.gz}
+
+@item Hidden Installation 
+@tab @t{scrinstl}
+@tab @t{scrinstl-1.0.tar.gz}
+@end multitable
+
+@c ** (2) How To Read This Manual
+
+@c @node How To Read This Manual, Building and Installing, , Introduction
+
+@c @section How To Read This Manual
+
+@c !! TODO: LDF 2012.05.08.  Note what the backslashes are for in 
+@c sample output:  Explain that the output is sometimes to long for the Texinfo format.
+
+@c ** (2) Building and Installing
+
+@c How To Read This Manual:  Previous, but not used at present.  LDF 2012.05.24.
+
+@node Building and Installing, Communication Among the Programs, , Introduction
+
+@section Building and Installing
+
+@menu
+* Server and Client::              
+* Database Setup::
+* Prerequisites for Building and Installing::
+@end menu
+
+@c *** (3) Server and Client
+
+@node Server and Client, , , Building and Installing
+
+@subsection Server and Client
+
+Please note that a functioning version of the server @samp{optdbsrv}
+will not be built if the MySQL-client library @samp{libmysqlclient} is
+not available.  In this case, only the client @samp{optdbcli} will be
+built.  (A non-functioning version of @samp{optdbsrv} that issues an
+error message and exits will be built.)
+
+In the future, the client may also require a MySQL database for
+handling @dfn{session data}.  @xref{Session_Data_Type Reference}.
+If @samp{libmysqlclient} is not available, then the client should
+still be built, but without support for session data.
+
+@noindent 
+Unpack the distribution @file{dbsrvcli-1.0.tar.gz}:
+
+@example 
+tar xvfz dbsrvcli-1.0.tar.gz
+@end example
+
+@noindent 
+Change the working directory to @code{./dbsrvcli-1.0}:
+
+@example 
+cd dbsrvcli-1.0 
+@end example
+
+@noindent 
+Run the @code{configure} script:
+
+@example 
+./configure --prefix=<installation directory>
+@end example
+
+For example, to install the package in the working directory, i.e.,
+the @file{dbsrvcli} directory itself, @code{configure} can be called
+like this: 
+
+@example 
+./configure --prefix=`pwd`
+@end example
+
+@noindent 
+or like this:
+
+@example 
+./configure --prefix=`pwd`
+@end example
+
+@cindex absolute path 
+@cindex path 
+@cindex PATH
+@cindex executables
+@c
+@noindent 
+The executable files will be installed in a subdirectory
+@file{bin} of the directory specified as the argument to the
+@option{--prefix} option.  If the latter is not used, they will
+instead be installed in @file{/usr/bin}, which requires @t{root} privileges.
+An @dfn{absolute path} must be specified, that is, not a 
+@dfn{relative path} containing @samp{.} or @samp{..}. 
+
+@noindent 
+Build the package:
+
+@example 
+make
+@end example
+
+@noindent 
+Install the package:
+
+@example 
+make install
+@end example
+
+@menu
+* Database Setup::
+* Prerequisites for Building and Installing::
+@end menu
+
+@c **** (4) Database Setup
+
+@node Database Setup, Prerequisites for Building and Installing, , Server and Client
+
+@subsubsection Database Setup
+
+@cindex MySQL
+@cindex MySQL database
+@cindex database
+@cindex database, MySQL
+@c
+This is only needed for the server, since the client doesn't access
+the MySQL database.
+
+The shellscript @samp{crtsrvdb.sh} in
+@file{dbsrvcli-1.0/src/DATABASE} can be used to create the
+database @samp{dbsrvcli}. It uses the file @file{crtsrvdb.sql}, which
+contains SQL code.
+
+@samp{crtsrvdb.sh} can be called with or without arguments.  If it is called with 
+no arguments or with @samp{0}, @samp{"0"} or @samp{'0'} as the first argument, 
+@samp{dbsrvcli} will be the name of the database created, which is what the installer 
+package requires.  For testing purposes, another name may be passed as the first 
+argument.
+
+Additional arguments are ``users'' that will be inserted in order into the 
+@samp{Users} table.  @xref{Users Database Table}.  Please note that in this case, 
+@samp{0} (or @samp{dbsrvcli}) must be passed to @samp{crtsrvdb.sh} as its first argument, 
+if the database created is to have the default name @samp{dbsrvcli}.
+
+If the database to be created already exists, @samp{crtsrvdb.sh} exits with an error.
+
+@samp{crtsrvdb.sh} also creates a user @samp{OptiNum}, unless this user already exists.  
+If it does, a message is issued and the shellscript continues execution.
+
+
+@c **** (4) Prerequisites for Building and Installing
+
+@node Prerequisites for Building and Installing, , Database Setup, Server and Client
+
+@subsubsection Prerequisites
+
+The client program @samp{optdbcli} has fewer prerequisites than the server program 
+@samp{optdbsrv}.
+If the client doesn't require a package, this is indicated in the following list.
+
+@c Requirements:
+@c LDF 2010.07.07.  
+@c Installed on my PC:  OpenSUSE 11.1-10007.15.1  (x86_64)
+
+@table @asis
+@item g++ 	
+The GNU C++ Compiler.
+@c RPMs:
+@c gcc (etc.)
+@c 4.3-34.243  (x86_64)
+@c OpenSUSE 11.1-0
+@c gcc (SUSE Linux) 4.3.2 [gcc-4_3-branch revision 141291]
+
+@item GNU Bison 	
+The GNU version of the compiler generator @command{yacc}
+@c 2.3-127.26  (x86_64)
+@c OpenSUSE 11.1-0
+@c bison (GNU Bison) 2.3
+
+@item Flex 	
+A free version of the scanner generator @command{lex}
+@c 2.5.35-43.23  (x86_64) 
+@c OpenSUSE 11.1-0
+@c flex 2.5.35
+
+@item GNUTLS 	
+A C library that implements the TLS protocol (formerly SSL)
+@c libgnutls-dev
+@c 2.4.1-24.4.1  (x86_64)
+@c OpenSUSE 11.1-Update
+@c certtool (GnuTLS 2.4.1) 2.4.1
+
+@cindex Abstract Syntax Notation One
+@cindex ASN.1
+@c
+@item libtasn1	A C library for processing data 
+in "Abstract Syntax Notation One" (ASN.1) format. 
+Used by GNUTLS.
+@c 1.5-1.38  (x86_64)
+@c OpenSUSE 11.1-0
+@c RPMs:
+@c libtasn1
+@c libtasn1-3
+@c libtasn1-devel
+
+@item libgcrypt11 The GNU Crypto Library.  
+Used by GNUTLS
+@c 1.4.1-4.1  (x86_64)
+@c RPMs:
+@c libcrypt11
+@c libcrypt11-devel
+@c libcrypt11-32bit
+@c OpenSUSE 11.1-0
+
+@cindex literate programming
+@cindex programming, literate
+@c
+@item CWEB 	
+A @dfn{literate programming} tool for the source code.
+CWEB in included in both versions of the Installer package and 
+built when @samp{make} is invoked.
+@c Version 3.64 --- January 2002
+
+@item MySQL 	
+Database software.  Server only.
+@c 5.0.67-12.17.1  (x86_64)
+@c OpenSUSE 11.1-Update
+@c mysql  Ver 14.12 Distrib 5.0.67, for suse-linux-gnu (x86_64) using readline 5.2
+@c
+@end table
+
+@noindent
+For the documentation, the following packages are also required.
+
+@table @asis
+
+@item Texinfo 	
+The documentation tool used for creating this handbook.  It is
+currently not required for the client-only version.  However, it may
+be in the future.
+@c 4.12-1.172  (x86_64)
+@c OpenSUSE 11.1-0
+@c texi2dvi (GNU Texinfo 4.12) 1.122
+
+@item @TeX{} 	
+A package for computer typsetting.  Used by @command{Texinfo}.
+@c texlive 2007-219.3  (noarch)
+@c OpenSUSE 11.1-Update
+@c tex --version --> TeX 3.141592 (Web2C 7.5.6)
+
+@end table
+
+@noindent
+On a GNU/Linux system where @command{yast2} or @command{zypper} is available, 
+it should be possible to install the packages listed here with no difficulty.
+
+@c ** (2) Communication Among the Programs
+@node Communication Among the Programs, , Building and Installing, Introduction
+
+@section Communication Among the Programs
+
+@c *** (3) diagrams_1.eps.  From /home/lfinsto/optinum_gwdg/vortrag_09.2011/figures.mp, fig. 1
+
+@iftex
+@tex
+\vskip\baselineskip
+\centerline{{\largebx Create/Edit/Delete/Display Entries}}
+\centerline{{\largebx with client program {\largett dbsrvcli} directly}}
+\vskip\baselineskip
+\begingroup
+\hsize=1.5\hsize
+\hbox{\hskip-.5in@image{diagrams_1}\hss}
+\endgroup
+\vskip.5\baselineskip
+\rightline{Fig.~\the\figctr}
+\global\advance\figctr by 1
+\write\figout{\bslchar FLE{Create/Edit/Display Entries with client program {\tt dbsrvcli} directly}{\the\pageno}}
+\vfil\eject
+@end tex
+@end iftex
+
+@ifhtml
+@display
+[Illustration not available in HTML]
+@end display
+@end ifhtml
+
+@ifinfo
+[Illustration not available in Info]
+@end ifinfo
+
+
+@c *** (3) diagrams_2.eps.  From /home/lfinsto/optinum_gwdg/vortrag_09.2011/figures.mp, fig. 2
+
+@iftex
+@tex
+\vskip\baselineskip
+\centerline{{\largebx Create/Edit/Delete/Display Entries}}
+\centerline{{\largebx with web application {\largett optwbsrv}}}
+\vbox to .5\vsize{\begingroup
+\hsize=1.5\hsize
+\def\epsfsize#1#2{.9#1}
+\vskip1.75\baselineskip
+\line{\hskip-.5in\epsffile{diagrams_2.eps}}
+\def\epsfsize#1#2{#1}
+\endgroup
+\vskip.5\baselineskip
+\rightline{Fig.~\the\figctr}\vskip\baselineskip
+\vss}\global\advance\figctr by 1
+\write\figout{\bslchar FLE{Create/Edit/Display Entries with web application {\tt optwbsrv}}{\the\pageno}}
+\vfil\eject
+@end tex
+@end iftex
+
+@ifhtml
+@display
+[Illustration not available in HTML]
+@end display
+@end ifhtml
+
+@ifinfo
+[Illustration not available in Info]
+@end ifinfo
+
+@c *** (3) diagrams_6.eps.  From /home/lfinsto/optinum_gwdg/vortrag_old/figures.ldf, fig. 6
+
+@iftex
+@tex
+\vskip\baselineskip
+\centerline{{\largebx Web Application}}
+\vbox to .5\vsize{\begingroup
+\hsize=1.5\hsize
+\def\epsfsize#1#2{.65#1}
+\vskip1.75\baselineskip
+\line{\hskip-.5in\epsffile{diagrams_6.eps}}
+\def\epsfsize#1#2{#1}
+\endgroup
+\vskip.5\baselineskip
+\rightline{Fig.~\the\figctr}\vskip\baselineskip
+\vss}\global\advance\figctr by 1
+\write\figout{\bslchar FLE{Web Application}{\the\pageno}}
+\vfil\eject
+@end tex
+@end iftex
+
+@ifhtml
+@display
+[Illustration not available in HTML]
+@end display
+@end ifhtml
+
+@ifinfo
+[Illustration not available in Info]
+@end ifinfo
+
+@c *** (3)
+
+@c ** (2)
+
+@c * (1)
+
+@c Local Variables:
+@c mode:Texinfo
+@c abbrev-mode:t
+@c eval:(outline-minor-mode t)
+@c outline-regexp:"@c *\\*+"
+@c eval:(set (make-local-variable 'run-texi2dvi-on-file) "installer.texi")
+@c End:

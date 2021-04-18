@@ -1,0 +1,53 @@
+@c prsrfncs.texi
+
+@c Created by Laurence D. Finston (LDF) Fri Jan 13 16:29:09 CET 2012
+
+@c Copyright (C) 2010, 2011, 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbh Goettingen
+
+@c This file is part of the Optinum Grid Installer User and Reference Manual.
+
+@c Author:  Laurence D. Finston (LDF)
+
+@c See the section "GNU Free Documentation License" in the file 
+@c fdl.texi for copying conditions.
+
+@c * (1) Top 
+
+@node Parser Function Reference, GPG_Key_Pair_Type Reference, Globus_Site_Info_Type Reference, Top
+@chapter Parser Function Reference
+
+These functions are defined in @file{prsrfncs.web}.
+
+@deftypefun int parse_input (FILE {*fp}, char {*buffer}, {Scan_Parse_Parameter_Type *} @var{param})
+@end deftypefun
+
+@deftypefun int accept_data ({Scan_Parse_Parameter_Type *} @var{param}, @
+            char {*filename}, @ 
+            int entry_id, @
+            int file_type, @
+            string {*return_filename = 0})
+@end deftypefun
+
+
+@deftypefun int remote_install_rule_func (Scan_Parse_Parameter_Type {*param}, @
+                         int install_or_reinstall, @
+                         string package_name, @
+                         string package_version, @
+                         string globus_site, @
+                         string stdout_filename, @
+                         string stderr_filename, @
+                         int timeout, @
+                         int reinstall_prerequisites, @
+                         string link_expression)
+@end deftypefun
+
+
+@c * (1) Local Variables for Emacs
+  
+@c Local Variables:
+@c mode:Texinfo
+@c abbrev-mode:t
+@c eval:(outline-minor-mode t)
+@c outline-regexp:"@c *\\*+"
+@c eval:(set (make-local-variable 'run-texi2dvi-on-file) "installer.texi")
+@c End:

@@ -1,0 +1,139 @@
+@c quckstrt.texi
+@c This file is part of the Optinum Grid Installer User and Reference Manual.
+
+@c Created by Laurence D. Finston (LDF) Thu Jul  8 13:46:50 CEST 2010
+
+@c Copyright (C) 2010, 2011, 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbh Goettingen
+
+@c Author:  Laurence D. Finston (LDF)
+
+@c See the section "GNU Free Documentation License" in the file 
+@c fdl.texi for copying conditions.
+
+@c * (1) Quickstart Guide
+
+@node  Quickstart Guide, Invoking optdbcli/optdbsrv, Introduction, Top
+@comment  node-name,  next,  previous,  up
+
+@chapter Quickstart Guide
+
+@menu
+* Client Quickstart::
+* Server Quickstart::
+
+@c Comment this back in, if the section is commented back
+@c in below.
+@c LDF 2010.07.16.
+@c * Web Application Quickstart::
+
+@end menu
+
+@c ** (2) Client Quickstart
+
+@node  Client Quickstart, Server Quickstart, , Quickstart Guide
+@comment  node-name,  next,  previous,  up
+
+@section Client
+
+The name of the client program is @samp{optdbcli}.
+
+@*
+@noindent
+1. Download the package
+
+@noindent
+@example
+svn checkout \
+   https://svn0.eas.iis.fraunhofer.de/optinum/Installer/clntonly
+@end example
+
+@noindent
+@samp{svn checkout} can be abbreviated to @samp{svn co}. 
+
+@*
+@noindent
+2.  Build and install the package
+
+@noindent
+@example
+cd clntonly
+configure --prefix=`pwd`
+make
+make install
+@end example
+
+@noindent
+The argument @samp{--prefix=`pwd`} to @samp{configure} causes the executable file @file{optdbcli} to 
+be installed in the @file{bin/} subdirectory of the current working directory, i.e.,  @file{[...]/clntonly/bin/}, 
+where @file{[...]} stands for the working directory when @samp{svn checkout} was called.
+
+@*
+@noindent
+3.  Call @samp{optdbcli} to add GNU Hello to the package database
+
+@noindent
+@example
+cd src
+optdbcli --input=test_input.txt optinum-srv.gwdg.de
+@end example
+
+@noindent
+This assumes that @file{test_input.txt} contains commands for adding an entry for GNU Hello.
+It will look similar to this:
+
+@display
+START_ENTRY
+PACKAGE_NAME    <GNU hello>
+PACKAGE_VERSION 2.5
+DOWNLOAD_URL ftp://ftp.cs.tu-berlin.de/pub/gnu/hello/hello-2.5.tar.gz
+END_ENTRY
+END
+@end display
+
+@noindent
+It also assumes that the user's certificate is stored in the file @file{usercert.pem} and 
+unencrypted key is stored in the file @file{userkeyt.pem}, and that both of these files 
+are in the current working directory.
+
+@*
+@noindent
+4.  Call @samp{optdbcli} to install GNU Hello
+
+@noindent
+@example
+optdbcli --no-read --non-auth --install \
+ --dn=""/C=US/O=SomeGridOrganization/OU=Acme Widget Corp./CN=John Doe" \
+ optinum-srv.gwdg.de
+@end example
+
+This assumes that the server (<tt>optdbsrv</tt>) is running on the computer @samp{optinum-srv.gwdg.de}
+and that the ``DistinguishedName'' passed in the @samp{--dn} argument is known to the server. 
+
+@c ** (2) Server Quickstart
+
+@node  Server Quickstart, , Client Quickstart, Quickstart Guide
+@comment  node-name,  next,  previous,  up
+
+@c Put this back as the "Next" node above, if it's commented back in.
+@c LDF 2010.07.16.
+@c Web Application Quickstart
+
+@section Server
+
+@c @c ** (2) Web Application Quickstart
+
+@c @node  Web Application Quickstart, , Server Quickstart, Quickstart Guide
+@c @comment  node-name,  next,  previous,  up
+
+@c @section Web Application
+
+
+
+
+@c Local Variables:
+@c mode:Texinfo
+@c abbrev-mode:t
+@c eval:(outline-minor-mode t)
+@c outline-regexp:"@c *\\*+"
+@c eval:(set (make-local-variable 'run-texi2dvi-on-file) "installer.texi")
+@c End:

@@ -1,0 +1,85 @@
+@c glstintp.texi
+@c This file is part of the Optinum Grid Installer User and Reference Manual.
+@c Copyright (C) 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbh Goettingen
+@c Created by Laurence D. Finston (LDF) Mon May  7 11:20:35 CEST 2012
+@c Author:  Laurence D. Finston (LDF)
+@c See the section "GNU Free Documentation License" in the file 
+@c fdl.texi for copying conditions.
+
+@c * (1) Globus_Site_Info_Type Reference
+
+@node Globus_Site_Info_Type Reference, Utility Function Reference, GPG_Key_Pair_Type Reference, Top
+
+@chapter Globus_Site_Info_Type Reference
+
+@cindex friend
+@tindex Globus_Site_Info_Type, class
+@tindex class Globus_Site_Info_Type
+@c
+@code{class Session_Data_Type} is defined in @file{glsinftp.web}.
+@code{class Scan_Parse_Parameter_Type} and the functions @code{main},
+@code{yyparse} and @code{check_globus_site} are @code{friends} of 
+@code{class Globus_Site_Info_Type}.  
+@xref{Scan_Parse_Parameter_Type Reference}, 
+
+@menu
+* Globus_Site_Info_Type Data Members::
+* Globus_Site_Info_Type Member Functions::
+@end menu
+
+@c ** (2) Globus_Site_Info_Type Data Members
+
+@node Globus_Site_Info_Type Data Members,  Globus_Site_Info_Type Member Functions, , Globus_Site_Info_Type Reference
+
+@section Data Members
+
+@vindex Globus_Site_Info_Type::session_id
+@c
+@vindex session_id (Globus_Site_Info_Type)
+@c
+@deftypevr  {Private variables} string session_id
+@end deftypevr
+
+
+@c ** (2) Globus_Site_Info_Type Functions
+
+@node Globus_Site_Info_Type Member Functions,,Globus_Site_Info_Type Data Members, Globus_Site_Info_Type Reference
+@section Globus_Site_Info_Type Member Functions
+ 
+@c `deffn' didn't work here:  The ampersand caused an error.  LDF 2012.02.23.
+
+@findex Globus_Site_Info_Type (constructors)
+@findex ~Globus_Site_Info_Type (destructor)
+@c
+@findex Globus_Site_Info_Type::Globus_Site_Info_Type (constructors)
+@findex Globus_Site_Info_Type::~Globus_Site_Info_Type (destructor)
+@c
+@deftypefn {Default constructor} {} Globus_Site_Info_Type (void)
+@deftypefnx {Copy constructor} {}   Globus_Site_Info_Type ({const Globus_Site_Info_Type} @var{&s}) 
+@deftypefnx {Constructor} {}        Globus_Site_Info_Type (string)
+@deftypefnx {Destructor} {}         ~Globus_Site_Info_Type (void)  
+@end deftypefn
+
+@findex operator= (Globus_Site_Info_Type)
+@findex Globus_Site_Info_Type::operator=
+@c
+@deftypefn {Assignment operator} {const Globus_Site_Info_Type} operator= ({const Globus_Site_Info_Type} {&@var{s}})
+@end deftypefn
+
+@findex show (Globus_Site_Info_Type)
+@findex Globus_Site_Info_Type::show
+@c
+@deftypefn {const function} {int} show (string {@var{s} = ""}, Scan_Parse_Parameter_Type {*@var{param} = 0})
+@end deftypefn
+
+
+@c ** (1) Local Variables for Emacs
+
+@c Local Variables:
+@c mode:Texinfo
+@c abbrev-mode:t
+@c eval:(outline-minor-mode t)
+@c eval:(set (make-local-variable 'run-texi2dvi-on-file) "installer.texi")
+@c End:
+
+

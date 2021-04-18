@@ -1,0 +1,304 @@
+@c glossary.texi
+@c Created by Laurence D. Finston (LDF) Fri Jul 16 10:03:50 CEST 2010
+@c This file is part of the Optinum Grid Installer User and Reference Manual.
+@c Copyright (C) 2010, 2011, 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbh Goettingen
+@c See the section "GNU Free Documentation License" in the file 
+@c fdl.texi for copying conditions.
+
+@c Author:  Laurence D. Finston (LDF)
+
+@c * (1) Glossary
+
+@node  Glossary, Lists of Source Files, Database Tables and Views, Top
+@unnumbered Glossary
+
+@menu
+* A Glossary::
+* B Glossary::
+* C Glossary::
+* D Glossary::
+* E Glossary::
+* F Glossary::
+* G Glossary::
+* H Glossary::
+* I Glossary::
+* J Glossary::
+* K Glossary::
+* L Glossary::
+* M Glossary::
+* N Glossary::
+* O Glossary::
+* P Glossary::
+* Q Glossary::
+* R Glossary::
+* S Glossary::
+* T Glossary::
+* U Glossary::
+* V Glossary::
+* W Glossary::
+* X Glossary::
+* Y Glossary::
+* Z Glossary::
+@end menu
+
+@c ** (2) A
+
+@node A Glossary, B Glossary, , Glossary
+@c @subheading A
+
+@c @table @asis
+@c @end table
+
+@c ** (2) B
+
+@node B Glossary, C Glossary, A Glossary, Glossary
+@c @subheading B
+
+@c @table @asis
+@c @end table
+
+@c ** (2) C
+
+@node C Glossary, D Glossary, B Glossary, Glossary
+@subheading C
+
+@table @asis
+@item CA 
+See ``Certification Authority''.  
+
+@item Certification Authority.  
+Issues X.509 certificates.
+
+@item CGI
+See ``Common Gateway Interface''.  See also ``FastCGI''.
+
+@item Common Gateway Interface
+
+@item @cpp{} Standard Template Library
+@end table
+
+@c ** (2) D
+
+@node D Glossary, E Glossary, C Glossary, Glossary
+@c @subheading D
+
+@c @table @asis
+@c @end table
+
+@c ** (2) E
+
+@node E Glossary, F Glossary,  D Glossary, Glossary
+@c @subheading E
+
+@c @table @asis
+@c @end table
+
+@c ** (2) F
+
+@node F Glossary, G Glossary,  E Glossary, Glossary
+@subheading F
+
+@table @asis
+@item FastCGI
+An extension to CGI (``Common Gateway Interface'').
+@end table
+
+@c ** (2) G
+
+@node G Glossary, H Glossary,  F Glossary, Glossary
+@subheading G
+
+@table @asis
+@item GNUTLS
+A software library for implementing communication among computers over the internet
+using the TLS (@dfn{Transport Layer Security}) protocol.  See also TLS.
+
+@end table
+
+@c ** (2) H
+
+@node H Glossary, I Glossary, G Glossary, Glossary
+@subheading H
+
+@table @asis
+@item handshake
+@c !! TODO:  LDF 2012.05.29.  Write something here.
+@end table
+
+@c ** (2) I
+
+@node I Glossary, J Glossary, H Glossary, Glossary
+@c @subheading I
+
+@c @table @asis
+@c @end table
+
+@c ** (2) J
+
+@node J Glossary, K Glossary, I Glossary, Glossary
+@c @subheading J
+
+@c @table @asis
+@c @end table
+
+@c ** (2) K
+
+@node K Glossary, L Glossary, J Glossary, Glossary
+@c @subheading K
+
+@c @table @asis
+@c @end table
+
+@c ** (2) L
+
+@node L Glossary, M Glossary, K Glossary, Glossary
+@c @subheading L
+
+@c @table @asis
+@c @end table
+
+@c ** (2) M
+
+@node M Glossary, N Glossary, L Glossary, Glossary
+@c @subheading M
+
+@c @table @asis
+@c @end table
+
+@c ** (2) N
+
+@node N Glossary, O Glossary, M Glossary, Glossary
+@c @subheading N
+
+@c @table @asis
+@c @end table
+
+@c ** (2) O
+
+@node O Glossary, P Glossary, N Glossary, Glossary
+@c @subheading O
+
+@c @table @asis
+@c @end table
+
+@c ** (2) P
+
+@node P Glossary, Q Glossary, O Glossary, Glossary
+@subheading P
+
+@table @asis
+@item peer
+A term used with reference to the communication between a client and a server: 
+Depending on the current point of view, the @dfn{peer} is the ``other program''.
+That is, from the point of view of the client, the server is the peer, 
+and vice versa.
+
+@item proxy credential, X.509
+See X.509 proxy credential.
+@end table
+
+@c ** (2) Q
+
+@node Q Glossary, R Glossary, P Glossary, Glossary
+@c @subheading Q
+
+@c @table @asis
+@c @end table
+
+@c ** (2) R
+
+@node R Glossary, S Glossary, Q Glossary, Glossary
+@c @subheading R
+
+@c @table @asis
+@c @end table
+
+@c ** (2) S
+
+@node S Glossary, T Glossary, R Glossary, Glossary
+@subheading S
+
+@table @asis
+@item Standard Template Library, @cpp{}
+See @cpp{} Standard Template Library
+@end table
+
+@c ** (2) T
+
+@node T Glossary, U Glossary, S Glossary, Glossary
+@subheading T
+
+@table @asis
+@item TLS 
+Transport Layer Security.  See also GNUTLS.
+@end table
+
+@c ** (2) U
+
+@node U Glossary, V Glossary, T Glossary, Glossary
+@subheading U
+
+@table @asis
+@item URL 
+Uniform or Universal Resource Locator
+@end table
+
+@c ** (2) V
+
+@node V Glossary, W Glossary, U Glossary, Glossary
+@c @subheading V
+
+@c @table @asis
+@c @end table
+
+@c ** (2) W
+
+@node W Glossary, X Glossary, V Glossary, Glossary
+@c @subheading W
+
+@c @table @asis
+@c @end table
+
+@c ** (2) X
+
+@node X Glossary, Y Glossary, W Glossary, Glossary
+@subheading X
+
+@table @asis
+@item X.509 Certificate
+
+@item X.509 proxy credential
+A file containing an X.509 certificate issued by a user 
+(i.e., not a Certification Authority) and the @emph{private key} for 
+the certificate.  Usually used for authorization by application
+and only valid for a short time, because of the security risk involved in 
+including the private key.
+@end table
+
+@c ** (2) Y
+
+@node Y Glossary, Z Glossary, X Glossary, Glossary
+@c @subheading Y
+
+@c @table @asis
+@c @end table
+
+@c ** (2) Z
+
+@node Z Glossary, , Y Glossary, Glossary
+@c @subheading Z
+
+@c @table @asis
+@c @end table
+
+@c ** (2)
+
+@c * (1) Local Variables for Emacs
+  
+@c Local Variables:
+@c mode:Texinfo
+@c abbrev-mode:t
+@c eval:(outline-minor-mode t)
+@c outline-regexp:"@c *\\*+"
+@c eval:(set (make-local-variable 'run-texi2dvi-on-file) "installer.texi")
+@c End:

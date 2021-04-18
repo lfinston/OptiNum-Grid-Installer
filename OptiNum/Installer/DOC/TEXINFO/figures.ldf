@@ -1,0 +1,288 @@
+%% figures.ldf
+%% Created by Laurence D. Finston (LDF) Thu Nov  4 16:59:27 CET 2010
+
+%% $Id: figures.ldf 7849 2012-04-10 16:09:21Z finston $
+
+%% * (1) Top
+
+%% ** (2) Verbatim TeX and MetaPost commands
+
+
+verbatim_metapost "verbatimtex \font\\tt=cmtt12 etex;";  %% `\\tt' must be used,
+                                                         %% because `\t' is interpreted
+                                                         %% as `<TAB>'.
+                                                         %% LDF 2010.11.05.
+
+
+verbatim_metapost "verbatimtex \font\\smalltt=cmtt10 etex;";  
+verbatim_metapost "verbatimtex \font\\largett=cmtt12 etex;";  
+verbatim_metapost "verbatimtex \font\\Largett=cmtt12 scaled \magstep1 etex;";  
+
+verbatim_metapost "verbatimtex \font\small=cmr8 etex;";
+verbatim_metapost "verbatimtex \font\large=cmr12 etex;";
+verbatim_metapost "verbatimtex \font\Large=cmr12 scaled \magstep1 etex;";
+verbatim_metapost "verbatimtex \font\huge=cmr17 etex;";
+
+
+verbatim_metapost "verbatimtex \font\largebf=cmbx12 etex;";
+verbatim_metapost "verbatimtex \font\Largebf=cmbx12 scaled \magstep1 etex;";
+verbatim_metapost "verbatimtex \font\hugebf=cmbx12 scaled \magstep2 etex;";
+
+
+verbatim_metapost "prologues := 3;";
+
+%% ** (2) Declarations
+
+rectangle r[];
+point p[];
+
+rectangle server_rect;
+rectangle client_rect;
+
+string s;
+
+transform t[];
+
+pen arrow_pen;
+
+arrow_pen := pencircle scaled (1.5mm, 1.5mm, 1.5mm);
+
+bool do_labels;
+
+do_labels := false; % true
+
+bool debug;
+
+debug := false; % true
+
+%% ** (2)
+
+pickup pencircle scaled (.5mm, .5mm, .5mm);
+
+r1 := (unit_rectangle rotated (90, 0)) scaled (7, 20);
+
+r0 := (unit_rectangle rotated (90, 0)) scaled (4, 20) shifted (9.25, 0);
+
+
+%% ** (2) Figure 1
+
+beginfig(1); 
+   
+%% *** (3)
+
+verbatim_metapost "verbatimtex \large etex;";
+
+if debug:
+  draw r0 withcolor blue;    
+  draw r1;
+fi;    
+
+%% *** (3) Server box
+
+   for i = 0 upto 3:
+      p[i] := get_point (i) r0;
+   endfor;
+
+   server_rect := r0;
+
+if do_labels:
+    dotlabel.bot("$p_{0}$", p0);
+    dotlabel.bot("$p_{1}$", p1);
+    dotlabel.top("$p_{2}$", p2);
+    dotlabel.bot("$p_{3}$", p3);
+fi;
+
+   p4 := mediate(p0, p1);
+   p5 := mediate(p1, p2);
+   p6 := mediate(p2, p3);
+   p7 := mediate(p3, p0);
+
+if do_labels:
+     dotlabel.bot("$p_{4}$", p4);
+     dotlabel.rt("$p_{5}$", p5);
+     dotlabel.bot("$p_{6}$", p6);
+     dotlabel.lft("$p_{7}$", p7);
+fi;
+
+   label.top("Server (optdbsrv)", p6); %  shifted (0, -.25cm)
+
+%% *** (3) Client box
+
+   for i = 8 upto 11:
+      p[i] := get_point (i - 8) r1;
+   endfor;
+
+   client_rect := r1;
+
+%  dotlabel.bot("$p_{8}$", p8);
+%  dotlabel.bot("$p_{9}$", p9);
+%  dotlabel.bot("$p_{10}$", p10);
+%  dotlabel.top("$p_{11}$", p11);
+
+   p12 := mediate(p8, p9);
+   p13 := mediate(p9, p10);
+   p14 := mediate(p10, p11);
+   p15 := mediate(p11, p8);
+
+%  dotlabel.bot("$p_{12}$", p12);
+%  dotlabel.rt("$p_{13}$", p13);
+%  dotlabel.bot("$p_{14}$", p14);
+%  dotlabel.lft("$p_{15}$", p15);
+
+
+   label.top("Client (optdbcli)", p14); %  shifted (0, -.25cm)
+
+
+   p16 := mediate(p10, p3);
+
+%   dotlabel.bot("$p_{16}$", p16);
+
+   label.top("{\largebf Storing Software Package Data}", 
+             p16 shifted (0, 2cm));
+
+   p35 := (xpart p11, ypart (p16 shifted (0, 1.5cm)));
+
+
+   s :=   "Client invocation: {\\tt ./optdbcli --input-filename=$\langle${\it filename\/}$\rangle$ "
+        & "optinum-srv.gwdg.de}";
+
+   label.rt(s, p35);
+
+%% *** (3)
+
+   t0 := identity shifted (0, -.5cm);
+
+   p17 := p11 * t0;
+   p18 := p3 * t0;
+
+
+%    dotlabel.lft("$p_{17}$", p17);
+%    dotlabel.rt("$p_{18}$", p18);
+
+   p19 := mediate(p17, p18);
+
+   s :=   "{\\tt \vbox{\hbox{START\_ENTRY}" & "\hbox{PACKAGE\_NAME {\large m4}}"
+        & "\hbox{PACKAGE\_VERSION $1.4.15$}" & "\hbox{DOWNLOAD\_URL}"
+        & "\hbox{\quad\large http://ftp.gnu.org/gnu/m4/m4-1.4.15.tar.gz}"
+        & "\hbox{INSTALLATION\_SCRIPT {\large $\langle$m4\_install.sh$\rangle$}}" 
+        & "\hbox{PUBLIC}" & "\hbox{END\_ENTRY}}}";
+
+   label.lrt(s, p17);
+
+   p20 := p10 shifted (0, -1.75cm);
+%   label.lft("$p_{20}$", p20);
+
+   p21 := (xpart p3, ypart p20);
+
+   %label.rt("$p_{21}$", p21);
+
+   verbatim_metapost "ahlength := .5cm;";
+
+   drawarrow p20 -- p21 withpen arrow_pen;
+
+
+%% *** (3)
+
+   s :=    "\vbox{{\\tt \hbox{SEND INSTALLATION\_SCRIPT}"
+        &  "\hbox{{\large m4\_install.sh} FOR ENTRY {\large 8}}"
+        &   "\hbox{{\large ``m4'' ``1.4.15''}}}}";
+
+   p22 := p18 shifted (0, -4cm);
+
+%   dotlabel.lft("$p_{22}$", p22);
+   label.rt(s, p22 shifted .5);
+
+   p23 := (xpart p10, ypart p22);
+
+   drawarrow p22 -- p23 withpen arrow_pen;
+
+%% *** (3)
+
+   %% 8 is entry_id, 1 is user_id.
+
+   s :=   "\vbox{{\\tt \hbox{CLIENT SENDING}"
+        & "\hbox{INSTALLATION\_SCRIPT {\large m4\_install.sh}}\hbox{{\large 8 1 ``m4''}}}}";
+
+   p24 := p17 shifted (0, -6);
+
+%   dotlabel.lft("$p_{24}$", p24);
+
+   label.rt(s, p24);
+
+   p25 := (xpart p10, ypart p24);
+
+   p26 := (xpart p3, ypart p24);
+
+   drawarrow p25 -- p26 withpen arrow_pen;
+
+%% *** (3)
+
+
+   s := "\vbox{\hbox{{\\tt RECEIVE INSTALLATION\_SCRIPT}}\hbox{{\\tt SUCCEEDED FOR ENTRY} ``m4''}}";
+
+   p27 := p26 shifted (0, -2);
+
+   p28 := (xpart p10, ypart p27);
+
+   label.rt(s, p27 shifted .5);
+
+   drawarrow p27 -- p28 withpen arrow_pen;
+
+%% *** (3)
+
+
+   s := "\vbox{{\\tt\hbox{Client Finished}}}";
+
+   p29 := p24 shifted (0, -4);
+
+   p30 := (xpart p10, ypart p29);
+
+   p31 := (xpart p3, ypart p29);
+
+   label.rt(s, p29);
+
+   drawarrow p30 -- p31 withpen arrow_pen;
+
+
+%% *** (3)
+
+   s := "\vbox{{\\tt\hbox{Server Finished}}}";
+
+   p32 := p27 shifted (0, -4);
+
+   p33 := (xpart p10, ypart p32);
+
+   label.rt(s, p32 shifted .5);
+
+   drawarrow p32 -- p33 withpen arrow_pen;
+
+%% *** (3)
+
+   p34 := (xpart p11, ypart p33);
+
+   label.lrt("(Client breaks off contact to server)", p34);
+
+%% *** (3) End of figure 1
+
+endfig with_projection parallel_x_y;
+
+%% ** (2) End
+
+verbatim_metapost "end";
+
+end;
+
+%% (progn (metafont-mode) (outline-minor-mode) (setq outline-regexp "%% [*\f]+"))
+
+%% * (1) Local variables for Emacs.
+
+%% Local Variables:
+%% mode:Metafont
+%% eval:(outline-minor-mode t)
+%% abbrev-mode:t
+%% eval:(read-abbrev-file "~/.abbrev_defs")
+%% outline-regexp:"%% [*\f]+"
+%% End:
+
+
+

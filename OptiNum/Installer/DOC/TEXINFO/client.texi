@@ -1,0 +1,73 @@
+@c client.texi
+@c This file is part of the Optinum Grid Installer User and Reference Manual.
+
+@c Copyright (C) 2010, 2011, 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbh Goettingen
+@c Author:  Laurence D. Finston (LDF)
+
+@c See the section "GNU Free Documentation License" in the file 
+@c fdl.texi for copying conditions.
+
+@c * (1) Top
+
+@c LOG
+@c LDF 2010.05.05.
+@c cnnctcli.web:  All functions added.  No global variables.
+@c ENDLOG
+
+@c ** (2) Client Connection Function Reference
+
+@node Client Connection Function Reference, Web Application, Server Connection Function Reference, Top
+@chapter Client Connection Function Reference
+
+@deftypefun int main (int argc, char** argv)
+Defined in @file{optdbcli.web}.
+@end deftypefun
+
+@deftypefun void finish (void)
+Exit handler.  Passed as argument to @file{atexit}.
+@end deftypefun
+
+The following functions are defined in 
+@file{cnnctcli.web}.
+
+These functions are defined in @file{cnnctcli.web}.
+
+@cindex X.509 certificates
+@c
+@deftypefun int client_connect_auth (void)
+Connects with the server using authorization/authentication by means
+of X.509 certificates.
+@end deftypefun
+
+@cindex X.509 certificates
+@cindex Distinguished Name
+@c
+@deftypefun int client_connect_non_auth (void)
+Connects with the server using authorization/authentication by means
+of a @dfn{proxy credential} passed to the client as the argument to
+the command line option @code{--proxy-certificate}.
+@end deftypefun
+
+@menu
+* Exchange Data With Server::
+@end menu
+
+@c *** (3) Exchange Data With Server
+
+@node Exchange Data With Server, , , Client Connection Function Reference
+
+@section Exchange Data With Server
+
+@deftypefun int exchange_data_with_server ({Scan_Parse_Parameter_Type &} @var{param})
+@code{exchange_data_with_server} is one of the most important
+functions in the client program @samp{optdbcli}.  It controls the communication with the
+server program @samp{optdbsrv}.
+See also @ref{Exchange Data With Client}.
+@end deftypefun
+
+@c Local Variables:
+@c mode:Texinfo
+@c abbrev-mode:t
+@c eval:(outline-minor-mode t)
+@c eval:(set (make-local-variable 'run-texi2dvi-on-file) "installer.texi")
+@c End:

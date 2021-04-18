@@ -1,0 +1,291 @@
+@c instlltn.texi
+
+@c Created by Laurence D. Finston (LDF) Fri Jan 13 16:29:09 CET 2012
+
+@c Copyright (C) 2010, 2011, 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbh Goettingen
+
+@c This file is part of the Optinum Grid Installer User and Reference Manual.
+
+@c Author:  Laurence D. Finston (LDF)
+
+@c See the section "GNU Free Documentation License" in the file 
+@c fdl.texi for copying conditions.
+
+@c * (1) Top 
+
+@node  Software Installation, TLS Connections, Web Application, Top
+@chapter Software Installation
+
+@cindex software installation, local
+@cindex local software installation
+@cindex default installation script
+@cindex default script, software installation
+@cindex software installation, default script
+@cindex prerequisites
+@cindex software prerequisites
+@cindex prerequisites, software
+@c
+@deftypefun int install_packages (Scan_Parse_Parameter_Type @var{&param})
+Defined in @file{instllfn.web}.
+
+This function is called when @samp{optdbcli} is called using the 
+@samp{--install} option and at least one package name is specified
+using the @samp{--package-name} option.  Versions may also be
+specified using the @samp{--package-version} option, whereby
+the number of instances of @samp{--package-version} must either be
+zero or it must match the number of instances of
+@samp{--package-name}.  Otherwise, @samp{optdbcli} would not be able
+to associate the versions to the package names.
+@samp{--package-version} may be used without an argument as a
+placeholder for packages where the version is unknown or the user
+doesn't wish to specify one for some reason.
+See @xref{Invoking optdbcli/optdbsrv}, for more information.
+
+Before this function is called, the server program @samp{optdbsrv}
+will have retrieved information from the database for each of the packages 
+specified.  @emph{Unless} @samp{optdbcli} has been invoked using the
+@samp{--no-resolve-dependencies} option, @samp{optdbsrv} will also
+have retrieved information from the database for all of the packages
+upon which the packages specified with @samp{--package-name} depend,
+i.e., their @dfn{prerequisites}.
+@samp{optdbcli} may also be invoked using the option
+@samp{--resolve-dependencies}, but resolving dependencies is the
+default behavior.  (@samp{--resolve-dependencies} may be used to
+cancel the effect of @samp{--no-resolve-dependencies}, if the latter
+appears first on the command-line in an invocation of
+@samp{optdbcli}.) See @xref{Invoking optdbcli/optdbsrv}.
+
+If information for multiple packages is retrieved, and some packages
+are prerequisites of others, then the information will be 
+sorted in order to ensure that packages are 1.~installed in the
+correct order and 2.~only installed once.
+
+The information retrieved from the server consists of:
+
+@enumerate 
+
+@item
+A number used for sorting, as described above.
+
+@item
+A download URL, if present.
+
+@item
+A download command, if present.
+
+@item
+An installation script.  If none is specified, a default script is
+created.  (This occurs in the parser rule @samp{statement: NO_ZZ
+INSTALLATION_SCRIPT_ZZ FOR_ZZ ENTRY_ZZ entry_string_list ORDER_ZZ
+INTEGER_ZZ}, which is defined in the file @file{prsrclnt.web},
+@pxref{Parser Client}.)
+
+@item
+The package name.
+
+@item
+The package version, if present.  Please note that a package version
+may have been retrieved from the database even if @samp{optdbcli} was
+invoked without an instance of the @samp{--package-version} option for
+this package!
+@end enumerate
+
+The directories @file{$HOME/bin}, @file{$HOME/lib},
+@file{$HOME/include}, @file{$HOME/@/installer@/_work} and
+@file{$HOME/Installer} are created, if they don't already exist.  In
+addition, a subdirectory for each package is created in
+@file{$HOME/Installer/}, where the names of these subdirectories
+consist either of the package name alone (if no package version was
+specified using the @samp{--package-version} option) (e.g.,
+``@file{$HOME/Installer/ngspice}'') or of the package name and the
+package version, separated by an underscore character (e.g.,
+``@file{$HOME/Installer/m4_1.4.14}'').
+
+
+@cindex download command
+@cindex download URL
+@cindex command, download 
+@cindex RLm, download 
+@c
+A @dfn{download command}, if present, takes precedence over
+@dfn{download URL}.  A download command is simply one or more shell
+commands, which are executed using @samp{system}.  If there is no
+download command, but a download URL is present, @samp{wget} is used
+to download the contents of the URL, which should contain the
+distribution of the package in question.
+
+@cindex installation script
+@c
+The package is downloaded into the directory
+@file{$HOME/installer_work/}.  Then, the @dfn{installation script},
+either one supplied by the user or the default installation script, is
+executed using @samp{system}.  The package is installed in the
+corresponding subdirectory of @file{$HOME/Installer/}, whose name is
+derived as described above.
+   
+@cindex symbolic link
+@cindex link, symbolic 
+@c
+Following installation, if the directories
+@file{$HOME/Installer/<package>/bin/},
+@file{$HOME/Installer/<package>/lib/}, and/or
+@file{$HOME/@/Installer/@/<package>/@/include/} exist, @dfn{symbolic links}
+are created in @file{$HOME/bin/}, @file{$HOME/lib/}, and/or
+@file{$HOME/@/include/}, that point to any files in these directories.
+@end deftypefun
+
+@deftypefun int create_links (string @var{source_dir})
+This function is currently only called for packages that are installed
+based on encrypted database entries (``secure installation'').  If the
+installed package contains directories named @file{bin},
+@file{include} and/or @file{lib}, links are created in
+@file{\$HOME/bin}, @file{\$HOME/include} and/or @file{\$HOME/lib},
+respectively.  Please note: These directories in the installed package
+can be at any level!  For example, links to files in a directory
+@file{hello-2.7/gnulib/lib} will also be made in @file{\$HOME/lib};
+not @file{\$HOME/gnulib/lib}.
+
+It would be possible to create the directory @file{\$HOME/gnulib/lib},
+but within @code{optdbcli}, it is not known what directories will be
+created when the package is installed.  That is, the directory into
+which @code{scrinstl} copies files is known.  This is the |source_dir|
+argument to |create_links|.  However, @code{optdbcli} has now further
+information about the directory structure below this directory, which
+will differ from package to package.  \par This function therefore
+accounts for the most common cases in a simple way.  If special
+handling is required, the installation script must account for it.
+However, the latter runs under the user id of the owner of the package
+(``company''), so it will probably be necessary to have it pass
+information back to @code{scrinstl} and possibly have @code{scrinstl}
+pass it back to @code{optdbcli}, in order to have one of these
+programs create the links under the user id of the user
+(``customer'').
+@end deftypefun
+
+@menu
+* Normal Software Installation::
+* Hidden Software Installation::
+* Local Software Installation::
+* Remote Software Installation::
+@end menu
+
+@c ** (2)
+
+@node Normal Software Installation, Hidden Software Installation, , Software Installation 
+
+@section Normal Software Installation
+
+@c ** (2)
+
+@node Hidden Software Installation, Local Software Installation, Normal Software Installation, Software Installation 
+
+@section Hidden Software Installation
+
+@cindex URL
+@c
+For many software packages, the source code is freely available and
+there is no need for secrecy regarding the source code itself, the
+location (URL) where the package is available for downloading or the
+installation procedure.  In such cases, a user can store the URL and
+optionally an installation script in a database entry, as described
+above.  An entry can be marked as @samp{private}, so that other users
+of the OptiNum-Grid Installer system will not be able to view the
+database entry, but all of the information is, of course, available to
+the user who created it.
+
+@cindex hidden software installation
+@cindex software installation, hidden
+@c
+However, there are situations where this model doesn't apply,
+particularly where the software package itself or its use is sold
+commercially.  For such cases, the OptiNum-Grid Installer provides a
+means of performing a @dfn{hidden software installation}.  
+
+@cindex software provider
+@cindex customer
+@c
+The software database entry for a package that uses this facility
+differs from an ordinary database entry in that certain fields contain
+encrypted information that can only be decrypted by the owner of the
+package (@dfn{software provider}).  The software provider provides its
+customers with encrypted files and the latter create database entries
+using them.  When the package should be installed on a grid resource,
+the encrypted files are decrypted, the software is downloaded and the
+installation procedure is carried out @emph{all under the user account
+of the software provider}.  Upon successful installation, whatever the
+software provider intends to make available to the customer, e.g.,
+executable, library, header and/or other files, are copied to the
+latter's account.  In this way, it is ensured that the customer
+receive only as much material or information as the software provider
+wishes to provide.
+
+
+@deftypefun int hidden_install (Scan_Parse_Parameter_Type @var{&param}, {vector<string>} @var{&arg_vector})
+@end deftypefun
+
+@c ** (2) Local Software Installation
+
+@node Local Software Installation, Remote Software Installation, Hidden Software Installation, Software Installation 
+
+@section Local Software Installation
+
+The OptiNum-Grid Installer is intended for installation software
+packages on grid resources.  Therefore, from the user's point of view,
+the normal case is the ``Remote Software Installation'' (see below).
+However, it is also possible to use it for installing packages
+directly on the user's computer.  This is especially useful for
+testing, but may be for other purposes, as well.
+
+To install a package locally, invoke @command{optdbcli} using the 
+options @option{--install} or @option{--reinstall} together with the
+option @option{--package-name} and optionally
+@option{--package-version}, as described in @ref{Software Installation
+Options}.
+
+@example
+optdbcli --install --package-name="hello" --package-version="2.7" 
+@end example
+
+@c ** (2) Remote Software Installation
+
+@node Remote Software Installation, , Local Software Installation, Software Installation 
+
+@section Remote Software Installation
+
+A @dfn{remote software installation} is performed on a grid resource.
+It is initiated by means of the command 
+
+@example
+[install | reinstall]  package_name STRING [package_version STRING] 
+globus_site STRING [options]
+@end example
+
+@noindent
+in the input sent by @command{optdbcli} to @command{optdbsrv}.
+
+For example, 
+
+@example
+reinstall package_name <hello> <2.7> globus_site <optinum-srv.gwdg.de>
+@end example
+
+@noindent
+causes @samp{hello 2.7} to be installed on @samp{optinum-srv.gwdg.de}.
+If it has already been installed by the users, it will be reinstalled.
+
+Please note that no distinction is made between a normal and a hidden
+installation at this point.  When @command{optdbsrv} retrieves the
+data for the software package from the database, it is determined
+whether the entry contains encrypted data or not.  If it does, a
+hidden installation is performed.  Otherwise, a normal installation is
+performed. 
+
+@c * (1) Local Variables for Emacs
+  
+@c Local Variables:
+@c mode:Texinfo
+@c abbrev-mode:t
+@c eval:(outline-minor-mode t)
+@c outline-regexp:"@c *\\*+"
+@c eval:(set (make-local-variable 'run-texi2dvi-on-file) "installer.texi")
+@c End:

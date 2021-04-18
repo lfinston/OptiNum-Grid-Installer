@@ -1,0 +1,104 @@
+@c optdbsrv.texi
+
+@c Created by Laurence D. Finston (LDF) Thu Mar  8 16:50:09 CET 2012
+
+@c This file is part of the Optinum Grid Installer User and Reference Manual.
+
+@c Copyright (C) 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbh Goettingen
+
+@c Author:  Laurence D. Finston (LDF)
+
+@c See the section "GNU Free Documentation License" in the file 
+@c fdl.texi for copying conditions.
+
+
+@c ** (2) Using the Server Program optdbsrv
+
+@node Using the Server Program optdbsrv, Using the Client Program optdbcli, Invoking optdbcli/optdbsrv, Top
+
+@chapter Using the Server Program optdbsrv
+
+Starting the server program @samp{optdbsrv} is simpler than starting
+the client.  Normally, it should suffice to start it without any
+arguments.  For testing purposes, it can be called like this:
+
+@example
+optdbsrv
+@end example
+
+@cindex proxy credential, X.509
+@cindex X.509 proxy credential
+@c
+In this case, it will listen on port 5556 for connections from clients
+using authentication with X.509 certificates and on port 5557 for
+clients that use an @dfn{X.509 proxy credential} to identify
+themselves.  (Other ports can be specified with the
+@option{--port-auth} and @option{port-non-auth} options, if desired.  
+@xref{Connection Options}.)
+The defaults for the certificates used are @file{DFN-VereinPCAGrid-G01.pem} 
+for the CA certificate and @file{hostcert.pem} and @file{hostkey.pem} for the certificate and
+key used by the server to identify itself to the client.
+
+@cindex d@ae{}mon
+@cindex d@ae{}mon process
+@c
+In production use, the server will normally run continuously in the
+background as a @dfn{d@ae{}mon} process and should therefore be invoked
+as follows:
+
+@example
+nohup ./optdbsrv 2>&1 &
+@end example
+
+@cindex root, UNIX
+@cindex permissions, UNIX
+@cindex file permissions, UNIX
+@cindex root permissions, UNIX
+@cindex permissions, root, UNIX
+@c
+The final ampersand places the process in the background while 
+@samp{nohup} ensures that it will continue to run after the
+user that starts it logs out.  It would be a good idea to create a
+user @emph{without} root permissions for the purpose of running
+@samp{optdbsrv}, and perhaps for other tasks connected with the
+Installer package.
+
+Any output written by @samp{optdbsrv} to standard output or standard
+error will be redirected to @file{nohup.out}.  (@samp{2>&1} redirects
+standard error to standard output while the latter is redirected to
+@code{nohup.out}.)  Whoever is responsible for administering @samp{optdbsrv} 
+should ensure that this file is truncated once in a while, so it 
+doesn't grow too large.
+
+For testing purposes, @samp{optdbsrv} can simply be invoked from the
+command line (i.e., as a foreground process):
+
+@example
+./optdbsrv 
+@end example
+
+@noindent
+The options @option{--bison-trace}, @option{--flex-trace} and/or
+@option{--trace} can be specified for more debugging output.  (In
+addition, @option{--parser-trace} and @option{--scanner-trace} are
+synonyms for @option{--bison-trace} and @option{--flex-trace},
+respectively.)
+
+The option @option{--trace}, with no argument or a numerical
+argument @math{> 0}, causes debugging information for most if not all
+of the functions that are called while @samp{optdbsrv} is running.
+@xref{Invoking optdbcli/optdbsrv}, for more information
+about these options and others that can be used when invoking 
+@samp{optdbsrv}.
+@xref{Debugging Options}, for more information.
+  
+
+@c * (1) Local Variables for Emacs
+  
+@c Local Variables:
+@c mode:Texinfo
+@c abbrev-mode:t
+@c eval:(outline-minor-mode t)
+@c outline-regexp:"@c *\\*+"
+@c eval:(set (make-local-variable 'run-texi2dvi-on-file) "installer.texi")
+@c End:

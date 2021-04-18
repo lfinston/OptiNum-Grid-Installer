@@ -1,0 +1,392 @@
+@c entries.texi
+@c This file is part of the Optinum Grid Installer User and Reference Manual.
+
+@c Copyright (C) 2010, 2011, 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbh Goettingen
+@c Author:  Laurence D. Finston (LDF)
+@c See the section "GNU Free Documentation License" in the file 
+@c fdl.texi for copying conditions.
+
+@c LOG
+@c LDF 2010.05.05.
+@c entries.web:  All functions, etc., added.  No global variables.
+@c ENDLOG 
+
+@c * (1) Entry_Type Reference
+
+@node Entry_Type Reference, Distinguished_Name_Type Reference, Parser Client, Top
+
+@chapter Entry_Type Reference
+
+@cindex friend
+@tindex Entry_Type, class 
+@tindex class Entry_Type
+@tindex class Scan_Parse_Parameter_Type
+@tindex Scan_Parse_Parameter_Type, class 
+@tindex class less_timeout
+@tindex class equal_package_name_version_globus_site
+@tindex class less_package_name
+@tindex class less_package_version
+@tindex class less_package_name_version
+@tindex class less_package_name_globus_site_version
+@tindex class equal_package_name_globus_site
+@tindex less_timeout, class
+@tindex equal_package_name_version_globus_site, class
+@tindex less_package_name, class
+@tindex less_package_version, class
+@tindex less_package_name_version, class
+@tindex less_package_name_globus_site_version, class
+@tindex equal_package_name_globus_site, class
+@c
+@findex remote_install_rule_func
+@findex exchange_data_with_client
+@findex install_packages
+@findex remote_install_func
+@findex yyparse
+@c
+@code{class Entry_Type} is defined in
+@file{entries.web}.
+
+
+@code{class Entry_Type} represents a software package within the
+Installer application (@samp{optdbcli/optdbsrv}) and corresponds to
+the database table @samp{Entries}. @xref{Entries Database Table}.
+That is, the data members of @code{Entry_Type} correspond to the
+fields in the @samp{Entries} database table.  This implies that the
+type of a data member of @samp{Entry_Type} must be compatible with the
+type of its corresponding field in the database table.
+
+When a user adds software package information with the @samp{START_ENTRY @dots{} END_ENTRY} 
+command 
+(@pxref{Adding Software Package Information (optdbcli), , Adding Software Package Information}),
+the data for each package (except for data from files, which is transferred separately)
+@c
+@c !! TODO:  LDF 2012.05.24.  Add cross reference, when I've documented how this works, somewhere.
+@c
+is first stored in an @code{Entry_Type} object and then
+written to the database by the function @code{Scan_Parse_Parameter_Type::write_entries}.
+@xref{Functions for Adding Entries}.
+
+@findex get_entries
+@findex Scan_Parse_Parameter_Type::get_entries
+@findex get_entries (Scan_Parse_Parameter_Type)
+@c
+It would be possible to reverse the procedure and create an @code{Entry_Type} object 
+using the data from a row of the @samp{Entries} table, but in practice, this is 
+never required.  The function @code{Scan_Parse_Parameter_Type::get_entries} does create
+@code{Entry_Type} objects containing the data from the @samp{package_name} and @samp{package_version}
+columns of the @samp{Entries} table.
+@xref{Functions for Fetching Entry Information, , Fetching Entry Information}. 
+
+The following classes and functions are @code{friends} of @code{class Entry_Type}.
+
+@noindent
+Classes:
+@table @code
+@item Scan_Parse_Parameter_Type
+@ref{Scan_Parse_Parameter_Type Reference}.
+
+@item less_timeout
+@itemx equal_package_name_version_globus_site
+@itemx less_package_name
+@itemx less_package_version
+@itemx less_package_name_version
+@itemx less_package_name_globus_site_version
+@itemx equal_package_name_globus_site
+@ref{Comparison Classes for Entry_Type}.
+@end table
+
+@noindent
+Functions:
+@table @code
+@item exchange_data_with_client
+@ref{Exchange Data With Client}.
+
+@item remote_install_rule_func
+@ref{Parser Function Reference}.
+
+@item install_packages
+@ref{Software Installation}.
+
+@item remote_install_func
+@ref{Remote Software Installation}.
+
+@item yyparse
+@ref{Parser Server Functions}.
+@end table
+
+@menu
+* Entry_Type Data Members::
+* Entry_Type Member Functions::
+* Comparison Classes for Entry_Type::
+@end menu
+
+@c ** (2) Entry_Type Data Members
+
+@node Entry_Type Data Members,  Entry_Type Member Functions, , Entry_Type Reference
+@comment  node-name,  next,  previous,  up
+
+@section Data Members
+
+@vindex Entry_Type::entry_id
+@vindex Entry_Type::package_name             
+@vindex Entry_Type::package_version          
+@vindex Entry_Type::download_url             
+@vindex Entry_Type::download_command         
+@vindex Entry_Type::maintainer_name          
+@vindex Entry_Type::maintainer_email_address 
+@vindex Entry_Type::installation_script      
+@vindex Entry_Type::install_order
+@vindex Entry_Type::prerequisites
+@vindex Entry_Type::private_flag
+@vindex Entry_Type::encrypted_flag
+@vindex Entry_Type::authorization
+@vindex Entry_Type::installation_script_encrypted
+@vindex Entry_Type::download_url_encrypted         
+@vindex Entry_Type::download_command_encrypted
+@vindex Entry_Type::owner
+@vindex Entry_Type::owner_key_id
+@vindex Entry_Type::created
+@vindex Entry_Type::last_modified
+@vindex Entry_Type::param
+@vindex Entry_Type::remote_install_timeout
+@vindex Entry_Type::remote_install_thread_id
+@vindex Entry_Type::remote_install_pid
+@vindex Entry_Type::remote_install_timespec
+@vindex Entry_Type::remote_install_retval
+@vindex Entry_Type::install_or_reinstall_flag
+@vindex Entry_Type::stdout_filename 
+@vindex Entry_Type::stderr_filename 
+@vindex Entry_Type::globus_site     
+@vindex Entry_Type::deleted
+@c
+@vindex entry_id (Entry_Type)
+@vindex package_name (Entry_Type)
+@vindex package_version (Entry_Type)
+@vindex download_url (Entry_Type)             
+@vindex download_command (Entry_Type)         
+@vindex maintainer_name (Entry_Type)          
+@vindex maintainer_email_address (Entry_Type) 
+@vindex installation_script (Entry_Type)      
+@vindex int install_order (Entry_Type)
+@vindex vector<Entry_Type> prerequisites (Entry_Type)
+@vindex private_flag (Entry_Type)
+@vindex encrypted_flag (Entry_Type)
+@vindex authorization (Entry_Type)
+@vindex installation_script_encrypted (Entry_Type)
+@vindex download_url_encrypted (Entry_Type)         
+@vindex download_command_encrypted (Entry_Type)
+@vindex owner (Entry_Type)
+@vindex owner_key_id (Entry_Type)
+@vindex created (Entry_Type)
+@vindex last_modified (Entry_Type)
+@vindex param (Entry_Type)
+@vindex remote_install_timeout (Entry_Type)
+@vindex remote_install_thread_id (Entry_Type)
+@vindex remote_install_pid (Entry_Type)
+@vindex remote_install_timespec (Entry_Type)
+@vindex remote_install_retval (Entry_Type)
+@vindex install_or_reinstall_flag (Entry_Type)
+@vindex stdout_filename (Entry_Type) 
+@vindex stderr_filename (Entry_Type) 
+@vindex globus_site (Entry_Type)     
+@vindex deleted (Entry_Type)
+@c
+@deftypevr  {Private variables} int entry_id
+@deftypevrx {} string package_name             
+@deftypevrx {} string package_version          
+@deftypevrx {} string download_url             
+@deftypevrx {} string download_command         
+@deftypevrx {} string maintainer_name          
+@deftypevrx {} string maintainer_email_address 
+@deftypevrx {} string installation_script      
+@deftypevrx {} int install_order
+@deftypevrx {} {vector<Entry_Type>} prerequisites
+@deftypevrx {} bool private_flag
+@deftypevrx {} bool encrypted_flag
+@deftypevrx {} string authorization                  
+@deftypevrx {} string installation_script_encrypted
+@deftypevrx {} string download_url_encrypted         
+@deftypevrx {} string download_command_encrypted
+@deftypevrx {} string owner
+@deftypevrx {} unsigned int owner_key_id
+@deftypevrx {} time_t created
+@deftypevrx {} time_t last_modified
+@deftypevrx {} Scan_Parse_Parameter_Type* param
+@deftypevrx {} int remote_install_timeout
+@deftypevrx {} pthread_t remote_install_thread_id
+
+@deftypevrx {} pid_t remote_install_pid
+Two-element array, i.e., @code{pid_t remote_install_pid[2]}.
+
+@deftypevrx {} {struct timespec} remote_install_timespec
+@deftypevrx {} int remote_install_retval
+@deftypevrx {} bool install_or_reinstall_flag
+@deftypevrx {} string stdout_filename 
+@deftypevrx {} string stderr_filename 
+@deftypevrx {} string globus_site     
+@deftypevrx {} bool deleted
+@end deftypevr
+
+
+@c ** (2) Entry_Type Member Functions
+
+@node Entry_Type Member Functions, Comparison Classes for Entry_Type, Entry_Type Data Members, Entry_Type Reference
+@comment  node-name,  next,  previous,  up
+
+@section Member Functions
+
+@menu
+* Entry_Type Constructors::
+* Entry_Type Operators::
+* Entry_Type Other Functions::
+@end menu
+
+@c *** (3) Entry_Type Constructors
+
+@node Entry_Type Constructors, Entry_Type Operators, , Entry_Type Member Functions
+@comment  node-name,  next,  previous,  up
+
+@subsection Constructors
+
+@findex Entry_Type::Entry_Type
+@findex Entry_Type (Default constructor)
+@c
+@deftypefn {Default constructor} void Entry_Type (void)
+@end deftypefn
+
+@findex Entry_Type::Entry_Type
+@findex Entry_Type (Constructor)
+@c
+@deftypefn {Constructor} void Entry_Type (string @var{a}, string @var{b} = "")
+@end deftypefn
+
+@findex Entry_Type::Entry_Type
+@c
+@deftypefn {Constructor} void Entry_Type (int @var{id}, string @var{a} = "", string @var{b} = "")
+@end deftypefn
+
+@findex Entry_Type::Entry_Type
+@findex Entry_Type (Copy constructor)
+@c
+@deftypefn {Copy constructor} void Entry_Type ({const Entry_Type} @var{&e})
+@end deftypefn
+
+@findex Entry_Type::~Entry_Type
+@findex ~Entry_Type (Destructor)
+@c
+@deftypefn {Destructor} void Entry_Type ({const Entry_Type} @var{&e})
+@end deftypefn
+
+@c *** (3) Entry_Type Operators
+
+@node Entry_Type Operators, Entry_Type Other Functions, Entry_Type Constructors, Entry_Type Member Functions
+@comment  node-name,  next,  previous,  up
+
+@subsection Operators
+
+@findex Entry_Type::operator=
+@findex operator= (Entry_Type) 
+@c
+@deftypefn {Assignment Operator} {const Entry_Type&} operator= ({const Entry_Type} @var{&e}) 
+@end deftypefn
+
+@findex Entry_Type::operator==
+@findex operator== (Entry_Type)
+@c
+@deftypefn {const Operator} int operator== ({const Entry_Type} @var{&e})
+Equality predicate.
+@end deftypefn
+
+@findex Entry_Type::operator<
+@findex operator< (Entry_Type)
+@c
+@deftypefn {const Operator} int operator< ({const Entry_Type} @var{&e}) 
+Less-than predicate.
+@end deftypefn
+
+@findex Entry_Type::operator>
+@c
+@deftypefn {const Operator} int operator> ({const Entry_Type} @var{&e}) 
+Greater-than predicate.
+@end deftypefn
+
+@c *** (3) Entry_Type Other Functions
+
+@node Entry_Type Other Functions, , Entry_Type Operators, Entry_Type Member Functions
+@comment  node-name,  next,  previous,  up
+
+@subsection Other Functions
+
+@findex Entry_Type::extract_prerequisites
+@c
+@deftypefn {const Function} int extract_prerequisites ({Scan_Parse_Parameter_Type *} @var{param}, {stringstream &} @var{out_strm}) 
+@end deftypefn
+
+
+@findex Entry_Type::show
+@c
+@deftypefn {const Function} int show (string s = "", Scan_Parse_Parameter_Type* param = 0, bool show_prereqs = true) 
+@end deftypefn
+
+@node Comparison Classes for Entry_Type, , Entry_Type Member Functions, Entry_Type Reference
+@comment  node-name,  next,  previous,  up
+
+@section Comparison Classes for Entry_Type
+
+@tindex class less_timeout
+@tindex less_timeout, class
+@tindex class less_package_name
+@tindex less_package_name, class
+@tindex class less_package_version
+@tindex less_package_version, class
+@tindex class less_package_name_version
+@tindex less_package_name_version, class
+@tindex class less_package_name_globus_site_version
+@tindex less_package_name_globus_site_version, class
+@tindex class equal_package__name_globus_site
+@tindex equal_package_name_globus_site, class
+@tindex class equal_package_name_version_globus_site
+@tindex equal_package_name_version_globus_site, class 
+@c
+@code{class less_timeout},
+@code{class less_package_name},
+@code{class less_package_version}, 
+@code{class less_package_name_version}, 
+@code{class less_package_name_globus_site_version} and
+@code{class equal_package_name_globus_site}
+@code{class equal_package_name_version_globus_site}
+are defined in
+@file{entries.web}.
+
+@cindex friend
+@code{class Entry_Type} is a @code{friend} of all of these classes.
+
+@menu
+* Operators for Comparison Classes for Entry_Type::
+@end menu
+
+@node Operators for Comparison Classes for Entry_Type, , , Comparison Classes for Entry_Type
+@comment  node-name,  next,  previous,  up
+
+@subsection Operators for Comparison Classes for Entry_Type
+
+@deftypefn {public const Operators} int {less_timeout::operator()} (const Entry_Type& e1, const Entry_Type& e2)
+@deftypefnx {} int {less_package_name::operator()} (const Entry_Type& e1, const Entry_Type& e2)
+@deftypefnx {} int {less_package_version::operator()} (const Entry_Type& e1, const Entry_Type& e2)
+@deftypefnx {} int {less_package_name_version::operator()} (const Entry_Type& e1, const Entry_Type& e2)
+@deftypefnx {} int {less_package_name_globus_site_version::operator()} (const Entry_Type& e1, const Entry_Type& e2)
+@deftypefnx {} int {equal_package_name_globus_site::operator()} (const Entry_Type& e1, const Entry_Type& e2) 
+@deftypefnx {} int {equal_package_name_globus_site::operator()} (const Entry_Type& e, {const pair<string, string>} @var{&s}) 
+@deftypefnx {} int {equal_package_name_version_globus_site::operator()} (const Entry_Type& e1, const Entry_Type& e2)
+@end deftypefn
+
+
+@c ** (1) Local Variables for Emacs
+
+@c Local Variables:
+@c mode:Texinfo
+@c abbrev-mode:t
+@c eval:(outline-minor-mode t)
+@c eval:(set (make-local-variable 'run-texi2dvi-on-file) "installer.texi")
+@c End:
+

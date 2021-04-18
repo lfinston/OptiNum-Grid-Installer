@@ -1,0 +1,601 @@
+@c invoking.texi
+@c This file is part of the Optinum Grid Installer User and Reference Manual.
+
+@c Copyright (C) 2010, 2011, 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbh Goettingen
+
+@c Author:  Laurence D. Finston (LDF)
+
+@c See the section "GNU Free Documentation License" in the file 
+@c fdl.texi for copying conditions.
+
+
+@c * (1) Invoking optdbcli/optdbsrv
+
+@node Invoking optdbcli/optdbsrv, Using the Server Program optdbsrv, Introduction, Top
+
+@chapter Invoking optdbcli/optdbsrv
+
+In order to maintain consistency, the server and the client share the
+program code for their command-line options.  The code is located in
+the file @file{cmdlnopt.web}. 
+
+Some options are only used by the server or the client, while others
+are interpreted differently by the two programs.
+
+In the following synopses and list of options, @samp{ARG} without
+square brackets indicates a required argument, @samp{[ARG]} an optional one.
+
+@example
+optdbsrv [options] [port number authenticated] \
+         [port number non-authenticated]
+
+optdbcli [options] IP-address_of_server [input filename] \
+         [server port number] 
+@end example
+
+@samp{optdbsrv} has no required arguments.  The defaults for @samp{[port number authenticated]} 
+and @samp{[port number non-authenticated]} are 5556 and 5557, respectively.
+@xref{Global Variables and Constants optdbcli/optdbsrv}.
+
+@samp{optdbcli} has a single required argument, namely the IP address of the server 
+to which it should connect.  The IP address may be specified using digits 
+and periods, e.g., @samp{134.76.20.95} or as the name, e.g., @samp{optinum-srv.gwdg.de}.
+The default for the @samp{[server port number]} argument is 5556, if
+the connection uses X.509 certificate authentication and 5557 otherwise.
+
+@menu
+* Command Line Arguments and Options::      
+* Function Reference Invoking::      
+* Variable Reference Invoking::
+* Function Reference Invoking::
+@end menu
+
+@c ** (2) Command Line Arguments and Options
+
+@node Command Line Arguments and Options, Variable Reference Invoking, , Invoking optdbcli/optdbsrv
+
+@section Command Line Arguments and Options
+
+The command-line options are processed using the C library function
+@samp{getopt_long_only} and are handled as described in its GNU/Linux
+manual page (@dfn{man page}).  Single hyphens can be used instead of
+double hyphens and unambiguous abbreviations of options are permitted,
+e.g., @option{--bi} or @option{-bi} for @option{--bison-trace}.
+
+Required arguments may appear following the option with intervening
+whitespace or they may be specified like this:  
+@option{--option=ARG}.   An optional argument must be specified in the
+second way, otherwise, it will be interpreted as a non-option
+argument. 
+
+Most of the command-line options are associated with @dfn{global variables}.
+@xref{Global Variables optdbcli/optdbsrv}, for more information.
+
+@menu
+* Help Options::
+* Connection Options::
+* X.509 Authentication/Authorization Options::
+* Input and Output Options::
+* Software Installation Options::
+* Debugging Options::
+* Session Data Options::
+* Alphabetical List of Options::
+@end menu
+
+@c *** (3) Help Options
+@node Help Options, Connection Options, , Command Line Arguments and Options
+
+@subsection Help Options
+
+@table @code
+@item --version
+Server and client.  Outputs program name with version number and copyright information
+and exits
+
+@item --help
+Server and client.  Outputs a help message and a list of options and exits.
+@end table
+
+@c *** (3) Connection Options
+
+@node Connection Options, X.509 Authentication/Authorization Options, Help Options, Command Line Arguments and Options
+
+@subsection Connection Options
+
+@c !! TODO:  Explain "non-auth".  LDF 2012.05.29.
+
+@table @code
+@item --port-auth ARG
+@itemx --port-non-auth ARG
+Server and client.  The ports on which @samp{optdbsrv} listens for connections 
+from the client.  @option{--port-auth} is for connections where
+the user provides an X.509 certificate and key pair and 
+@option{--port-non-auth} is for connections where the user provides
+a @dfn{proxy credential}.  The values used by the server and client must match.
+Normally, there should be no need to specify values explicitly, unless the
+default ports (5556 for @option{--port-auth} and 5557 for @option{--port-non-auth})
+are being used for something else on the server-side.
+@end table
+
+@c *** (3) X.509 Authentication/Authorization Options
+
+@node X.509 Authentication/Authorization Options, Input and Output Options, Connection Options, Command Line Arguments and Options
+
+@subsection X.509 Authentication/Authorization Options
+
+@table @code
+@item --cert-filename ARG
+@itemx --key-filename ARG
+Server and client.   Filenames of the X.509 certificate and key files.
+Client:  Authentication and authorization are performed using 
+either an X.509 certificate and a private key or a @dfn{proxy credential}
+(see option @option{--proxy-credential}, below).
+Server:  The server identifies itself to the client using an X.509 
+certificate/key pair.  The default files are @file{hostcert.pem} and
+@file{hostkey.pem}, respectively, in the directory from which @samp{optdbsrv} 
+is called.
+
+@item --ca-filename ARG
+Server and client.  Filename of the @dfn{CA certificate}, i.e., the
+X.509 certificate of the @dfn{certification authority} that issued the user
+certificate.  
+@c !! TODO: 
+In the future, it should be possible to use this option multiple
+times so that the server or client can verify certificates against
+more than one CA certificate.  However, this has not yet been implemented.
+
+@item --crl-filename ARG
+Server and client.  Revocation list for the CA certificate (see
+@option{--ca-filename} above).  
+@strong{Please note:}  This option currently has no effect, since the use of
+revocation lists has not yet been implemented.
+
+@item --cert-format
+Certificate format, i.e., X.509 or some other format.  Currently, this
+option isn't used and only X.509 certificates are supported.
+
+@item --key-encrypt
+Currently not used.  The key files for X.509 certificates can be
+encrypted.  At present, the package doesn't support the use of
+encrypted keys.
+@c !! TODO:  Implement this.  LDF 2010.06.03.
+
+@item --proxy-credential ARG
+Client only.  A proxy credential containing an X.509 certificate/key pair issued by 
+a user's certificate, i.e., not a certification authority, and usually with a short period 
+of validity.  A proxy credential can be generated using the shellscript @samp{gen_proxy.sh}, 
+which is included in the distribution.  @xref{Client/Server (optdbcli/optdbsrv) Shellscripts}.
+
+@item --grid-mapfile ARG
+Normally, server only.
+The grid-mapfile to be used for determining the
+validity of the @dfn{Distinguished Name} extracted from the proxy credential, when one
+is used by the client for authentication/authorization, and for associating 
+a Distinguished Name with a user name.
+The default value is @file{/etc/grid-security/grid-mapfile}.
+@c !! TODO:  LDF 2012.02.27.  Check how this works.
+
+For testing, this option can be useful for the client as well.  
+However, since there is a risk of misuse, it is disabled on the
+the hosts @samp{optinum-srv.gwdg.de}, @samp{rocks-goegrid.gwdg.de}
+@samp{optinum.de} and @samp{faui36a.informatik.uni-erlangen.de}.
+On all other hosts, it is permitted.
+@end table
+
+@c *** (3) Input and Output Options
+@node Input and Output Options, Software Installation Options, X.509 Authentication/Authorization Options, Command Line Arguments and Options
+
+@subsection Input and Output Options
+
+@table @option
+@item --input-filename ARG
+Client only.  The input file contains commands that are sent verbatim to the server
+without processing by the client.
+
+@item --output-filename ARG
+Currently not used.
+
+@item  --log-filename ARG
+@itemx --error-log-filename ARG
+Client only.  Filenames for log and error log files.
+@end table
+
+
+
+@c *** (3) Software Installation Options
+@node Software Installation Options, Debugging Options, Input and Output Options, Command Line Arguments and Options
+
+@subsection Software Installation Options
+
+These options are for the client only.
+
+@table @code
+
+@item --package-name ARG
+Specifies the name of a package to be installed, if 
+used in combination with the @option{--install} option.  
+If used in combination with the @option{--fetch} option, the name of a package, 
+for which download and installation information should be extracted 
+from the database.  See below for information on the @option{--install} and 
+@option{--fetch} options.
+
+@item --package-version [ARG]
+If the option @option{--package-name} is specified more
+than once, and a version number is specified for at least one of the
+packages, then @option{--package-version} must be specified exactly as
+many times as @option{--package-name}, in order to maintain the
+correspondence between package name and package version.  
+In this case, @option{--package-version} can be specified without an argument 
+as a placeholder. 
+
+Please note:  If an argument is specified, it must be
+specified like this:  @option{--package-version=ARG}.  If it were
+specified as @option{--package-version ARG}, the argument would be
+interpreted as a non-option argument.
+
+@item --fetch
+Causes the server to extract information for the packages specified 
+with @option{--package-name} and possibly @option{--package-version} from the database 
+and send it to the client.  
+
+This information consists of the package name, the package version, if any, 
+the download URL and/or command and an installation script, if present.  
+However, the package is not downloaded or installed, unless the @option{--install} is also
+specified.  @option{--install} implies @option{--fetch}, so
+it is redundant to use @option{--fetch} together with @option{--install}.  However, 
+it does no harm.
+
+@item --install
+Causes the packages specified with 
+@option{--package-name} and possibly @option{--package-version} to be
+installed.  If the @option{--no-resolve-dependencies} is 
+@emph{not} used, the software prerequisites of these packages 
+will also be installed.  @option{--resolve-dependencies} can be
+explicitly specified, but resolving dependencies is currently the
+default behavior.
+
+@item --no-install
+Suppresses installation of packages specified with 
+@option{--package-name} and possibly @option{--package-version}.  This
+option will normally not be needed, since @option{--install} must be
+specified explicitly for packages to be installed.  However, it may be
+useful for testing, since this option will suppress installation if it
+appears in an invocation of @samp{optdbcli} following
+@option{--install}.  (The converse is also true, i.e.,
+installation will be performed if @option{--install} follows
+@option{--no-install}.) 
+
+@item --reinstall
+Forces reinstallation of the package or packages specified using the 
+@option{--package-name} option.  If one or more of these packages has prerequisites,
+and neither @option{--no-prerequisites-reinstall} nor @option{--no-resolve-dependencies} 
+has been specified, reinstallation will also be forced for the prerequisites.
+
+@item --resolve-dependencies
+@itemx --no-resolve-dependencies
+If @option{--resolve-dependencies} is specified, the
+software prerequisites for the packages specified with
+@option{--package-name} are also fetched or installed.  
+If @option{--no-resolve-dependencies} is specified, this is
+suppressed.  The default is to resolve dependencies.
+
+@item --prerequisites-reinstall
+@itemx --no-prerequisites-reinstall
+Specify that prerequisites should be reinstalled or not.  These options can be used 
+if the default behavior is not desired.  This is for prerequisites to be 
+handled like the packages specified using the @option{--package-name} option directly, 
+i.e., they are reinstalled or not, according to whether the @option{--install} 
+or @option{--reinstall} option has been used.  However, it may often be undesirable 
+for prerequisites to be reinstalled, even when reinstalling packages 
+that depend on them.
+
+Currently, it is only possible to specify how all prerequisites in a given run should be handled;  
+it is not possible to make finer distinctions, i.e., that the prerequisites of package A 
+should be reinstalled, but not the prerequisites of package B.
+
+@item --install-directory ARG
+The directory in which software packages are installed (in their own subdirectories).  
+Default is @file{$HOME/Installer/}.
+
+@item --download-fail-continue
+@itemx --install-fail-continue
+If used, @samp{optdbcli} will continue to
+execute if the command for downloading and/or installing a package
+fails.  The default behavior is for the @samp{optdbcli} to exit with a
+non-zero return value.  Continuing may be useful when installing
+multiple packages where at least package that's installed later
+doesn't depend on all previous packages having been downloaded and
+installed succesfully. 
+
+@item --create-links
+@itemx --no-links
+Create or suppress the creation of @dfn{symbolic links} after installing 
+one or more software packages.  
+
+As of 2012.02.27, links are created by default.  The author plans to change this.
+@c !! TODO:  LDF 2012.02.27.  Change this, when I've made the change to the code.
+
+By default, links are created in @file{$HOME/bin/},
+@file{$HOME/include/}, @file{$HOME/lib/} and/or @file{$HOME/share/}, 
+as appropriate.  A directory other than @samp{$HOME/} may be specified using 
+the @option{--link-directory} option (see below).
+
+@item --link-directory ARG
+The directory where links are created in subdirectories @file{bin/}, @file{include/}, 
+@file{lib/} and @file{share/}, as appropriate.  The default is @samp{$HOME}.
+See @option{--create-links} and @option{--suppress-links}, above.
+
+@end table
+
+@c *** (3) Debugging Options
+
+@node Debugging Options, Session Data Options, Software Installation Options, Command Line Arguments and Options
+
+@subsection Debugging Options
+
+@table @code
+@item --trace [ARG]
+Server and client.  Sets the debugging value for all functions that have a @code{DEBUG} 
+variable and which call the function @code{set_debug_level}, which is most of them.  
+@xref{Utility Function Reference}.  It also sets the debugging level for the 
+parsing functions @code{yyparse} and @code{zzparse}.  @xref{Parser Server}, and @ref{Parser Client}.
+Therefore, the use of the @option{--bison-trace} option (see below) is redundant 
+if @option{--trace} is used with @code{ARG} @math{> 0}.
+
+@table @asis
+@item @code{ARG} @math{> 0} 
+Debugging is turned on.  
+
+@item @code{ARG} @math{< 0}
+Debugging is turned off.
+
+@item @code{ARG} @math{= 0}
+Debugging level is left unchanged.
+@end table
+
+@item --bison-trace [ARG]
+@itemx --parser-trace [ARG]
+Server and client.  These options are synonymous.
+They enable debugging output for the parsing functions @code{yyparse} and
+@code{zzparse}.  @xref{Parser Server}, and @ref{Parser Client}.
+
+@table @asis
+@item No argument
+Debugging output automatically generated by Bison
+
+@iftex
+@item @code{ARG} @math{@le 0} 
+No debugging output
+@end iftex
+
+@ifnottex
+@item @code{ARG} @math{<= 0} 
+No debugging output
+@end ifnottex
+
+@item @code{ARG} @math{= 1} 
+Programmed debugging output from actions only
+
+@item @code{ARG} @math{> 1} 
+Automatically generated and programmed debugging output
+
+@item Invalid (non-integer) argument
+No debugging output
+@end table
+
+
+@item --flex-trace
+@itemx --scanner-trace
+Server and client.  These options are synonymous.
+They enable debugging output for the scanning functions @code{yylex} and
+@code{zzlex}.  @xref{Scanner Server}, and @ref{Scanner Client}.
+
+@item --save-temp-files
+Server and client.  For debugging.  Disables deletion of temporary
+files created by the programs.
+
+@item --sleep ARG
+Server and client.  For debugging and testing threads in the server.
+
+@end table
+
+@c *** (3) Session Data Options
+
+@node Session Data Options, Alphabetical List of Options, Debugging Options, Command Line Arguments and Options
+
+@subsection Session Data Options
+
+@table @code
+@item --session-id ARG
+Client only.  This option primarily intended for use with the web application
+in order to maintain a ``state'' encompassing multiple invocations of 
+the client program @samp{optdbcli}.  It must be used in combination with 
+the @samp{session_id} command in the input sent to the server; 
+otherwise it has no effect.   If the session ID @samp{ARG} doesn't match 
+the session ID, which the server sends back to the client, the client exits 
+with an error.  @xref{Session_Data_Type Reference}.
+@c !! TODO:  LDF 2012.02.27.  Add reference to node "Session Data", 
+@c once I've added one.
+
+@end table
+
+@c *** (3) Alphabetical List of Options
+
+@node Alphabetical List of Options, , Session Data Options, Command Line Arguments and Options
+
+@subsection Alphabetical List of Options
+
+@table @code
+@item --bison-trace
+@ref{Debugging Options}.
+
+@item --ca-filename
+@ref{X.509 Authentication/Authorization Options}.
+
+@item --cert-filename
+@ref{X.509 Authentication/Authorization Options}.
+
+@item --cert-format
+@ref{X.509 Authentication/Authorization Options}.
+
+@item --create-links
+@ref{Software Installation Options}.
+
+@item --crl-filename
+@ref{X.509 Authentication/Authorization Options}.
+
+@item --download-fail-continue
+@ref{Software Installation Options}.
+
+@item --error-log-filename
+@ref{Input and Output Options}.
+
+@item --fetch
+@ref{Software Installation Options}.
+
+@item --flex-trace
+@ref{Debugging Options}.
+
+@item --grid-mapfile
+@ref{X.509 Authentication/Authorization Options}.
+
+@item --help
+@ref{Help Options}.
+
+@item --input-filename
+@ref{Input and Output Options}.
+
+@item --install
+@ref{Software Installation Options}.
+
+@item --install-directory
+@ref{Software Installation Options}.
+
+@item --install-fail-continue
+@ref{Software Installation Options}.
+
+@item --key-encrypt
+@ref{X.509 Authentication/Authorization Options}.
+
+@item --key-filename
+@ref{X.509 Authentication/Authorization Options}.
+
+@item --link-directory
+@ref{Software Installation Options}.
+
+@item --log-filename
+@ref{Input and Output Options}.
+
+@item --no-install
+@ref{Software Installation Options}.
+
+@item --no-links
+@ref{Software Installation Options}.
+
+@item --no-prerequisites-reinstall
+@ref{Software Installation Options}.
+
+@item --no-resolve-dependencies
+@ref{Software Installation Options}.
+
+@item --output-filename
+@ref{Input and Output Options}.
+
+@item --package-name
+@ref{Software Installation Options}.
+
+@item --package-version
+@ref{Software Installation Options}.
+
+@item --parser-trace
+@ref{Debugging Options}.
+
+@item --port-auth
+@ref{Connection Options}.
+
+@item --port-non-auth
+@ref{Connection Options}.
+
+@item --prerequisites-reinstall
+@ref{Software Installation Options}.
+
+@item --proxy-credential
+@ref{X.509 Authentication/Authorization Options}.
+
+@item --reinstall
+@ref{Software Installation Options}.
+
+@item --resolve-dependencies
+@ref{Software Installation Options}.
+
+@item --save-temp-files
+@ref{Debugging Options}.
+
+@item --scanner-trace
+@ref{Debugging Options}.
+
+@item --session-id
+@ref{Session Data Options}.
+
+@item --sleep
+@ref{Debugging Options}.
+
+@item --trace
+@ref{Debugging Options}.
+
+@item --version
+@ref{Help Options}.
+
+@end table
+
+
+@c ** (2) Variable Reference Invoking
+
+@node Variable Reference Invoking,  Function Reference Invoking, Command Line Arguments and Options, Invoking optdbcli/optdbsrv
+
+@section Variable Reference
+
+The following variables and functions are defined in 
+@file{cmdlnopt.web}.
+
+@deftypevr {Global variables} vector<string> cert_filenames
+@deftypevrx {} vector<string> key_filenames
+@end deftypevr
+
+@deftypevr {Global variables} vector<string> ca_filenames   
+@deftypevrx {} vector<string> crl_filenames  
+These variables are used by the server only.
+@end deftypevr
+
+@c ** (2) Function Reference Invoking
+
+@node Function Reference Invoking,  , Variable Reference Invoking, Invoking optdbcli/optdbsrv
+
+@section Function Reference
+
+@deftypefun int process_command_line_options (int @var{argc}, char* @var{argv}[])
+@end deftypefun
+
+@cindex Certification Authority (CA)
+@cindex Certificate Revocation List (CRL)
+@c
+@cindex CA (Certification Authority)
+@cindex CRL (Certificate Revocation List)
+@c
+@deftypefun int show_filename_arguments (void)
+Show filename arguments for certificates, keys, CAs
+(@dfn{Certification Authorities}), and CRLs (@dfn{Certificate Revocation Lists}).  
+For debugging.
+@end deftypefun
+
+@c ** (2)
+
+@c * (1) Local Variables for Emacs
+
+@c Local Variables:
+@c mode:Texinfo
+@c abbrev-mode:t
+@c eval:(outline-minor-mode t)
+@c outline-regexp:"@c *\\*+"
+@c eval:(set (make-local-variable 'run-texi2dvi-on-file) "installer.texi")
+@c End:

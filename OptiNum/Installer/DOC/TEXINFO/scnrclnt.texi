@@ -1,0 +1,57 @@
+@c scnrclnt.texi
+@c This file is part of the Optinum Grid Installer User and Reference Manual.
+@c Created by Laurence D. Finston (LDF) Fri May 28 14:51:39 CEST 2010
+
+@c Copyright (C) 2010, 2011, 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbh Goettingen
+
+@c Author:  Laurence D. Finston (LDF)
+
+@c See the section "GNU Free Documentation License" in the file 
+@c fdl.texi for copying conditions.
+
+@c * (1) Scanner Client
+
+@node Scanner Client, Parser Client, Parser Server, Top
+@chapter Scanner Client
+
+The input file for the client's scanner is @file{scnrclnt.web}.
+
+@menu
+* Scanner Client Variables::
+* Scanner Client Functions::
+@end menu
+
+@c ** (2) Scanner Client Variables
+
+@node Scanner Client Variables, Scanner Client Functions, , Scanner Client
+@section Scanner Client Variables
+
+@deftypevar bool DEBUG_SCANNER
+@end deftypevar
+
+@c ** (2) Scanner Client Functions
+
+@node Scanner Client Functions, , Scanner Client Variables, Scanner Client
+@section Scanner Client Functions
+
+@deftypefun int zzlex (YYSTYPE {*@var{lvalp}}, yyscan_t @var{parameter})
+@end deftypefun
+
+@deftypefun int zzwrap (@code{yyscan_t} parameter)
+@end deftypefun
+
+@deftypefun int zzerror (@code{void*} v, @code{char const*} s)
+@end deftypefun
+
+
+
+
+@c * (1) Local Variables for Emacs
+  
+@c Local Variables:
+@c mode:Texinfo
+@c abbrev-mode:t
+@c eval:(outline-minor-mode t)
+@c outline-regexp:"@c *\\*+"
+@c eval:(set (make-local-variable 'run-texi2dvi-on-file) "installer.texi")
+@c End:

@@ -1,0 +1,339 @@
+@c webapp.texi
+@c This file is part of the Optinum Grid Installer User and Reference Manual.
+
+@c Created by Laurence D. Finston (LDF) Thu Jul  8 14:16:06 CEST 2010
+
+@c Copyright (C) 2010, 2011, 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbh Goettingen
+
+@c Author:  Laurence D. Finston (LDF)
+
+@c See the section "GNU Free Documentation License" in the file 
+@c fdl.texi for copying conditions.
+
+
+@c * (1) Web Application
+
+@node  Web Application, Software Installation, Client Connection Function Reference, Top
+
+@chapter Web Application
+
+@cindex package database
+@cindex Windows
+@cindex Windows operating systems
+@cindex operating system
+@c
+The web application @samp{optwbsrv.fcgi} makes it possible for users without access to the 
+client application @samp{optdbcli} to create entries in the package database.  
+It may not be possible or desirable to install @samp{optdbcli} on a particular computer for some 
+reason or other.  In particular, it may not be possible to install it on a system running 
+under one of the Windows operating systems.  
+
+@cindex CGI (Common Gateway Interface)
+@cindex Common Gateway Interface (CGI)
+@cindex CGI program
+@cindex CGI script
+@cindex FastCGI
+@cindex FastCGI program
+@cindex FastCGI script
+@cindex webserver
+@cindex Apache
+@cindex httpd
+@cindex Apache httpd
+@cindex curl
+@c
+The web application @samp{optwbsrv.fcgi} is a @dfn{FastCGI} 
+program that is executed under the control of a @dfn{webserver}, such as Apache httpd.  
+(CGI stands for ``Common Gateway Interface''.)  Normally, users will not want to install it 
+themselves, but will use @samp{curl} or a similar package to send commands to an instance of 
+@samp{optwbsrv.fcgi} installed at a remote location.
+
+However, it is, of course, possible to install @samp{optwbsrv.fcgi} locally.
+It must be installed in (i.e., copied to) a directory, where the webserver 
+looks for such programs or ``scripts''.  A typical location would be @file{/srv/www/fcgi-bin/}.
+The owner of @file{optwbsrv.fcgi} must either be root or a user with appropriate permissions.  
+For example, a user created especially for the purpose of executing CGI and/or FastCGI scripts.
+
+The @cpp{} source code for the web application @samp{optwbsrv} is contained in a single 
+file, namely @file{[@dots{}]/optwbsrv/optwbsrv.web}.
+
+@menu
+* Accessing the Web Application::
+* Auxiliary_File_Type::
+* Global Variables and Constants Web Application::
+* Web Application Functions::
+* Scanner Web Application::
+* Parser Web Application::
+@end menu
+
+@c ** (2) Accessing the Web Application
+
+@node Accessing the Web Application, Auxiliary_File_Type, , Web Application
+
+@section Accessing the Web Application
+
+@c !! TODO:  LDF 2012.05.23.  Document use of "proxy_cert@@x509up_u1000".
+@c Is "SET EFFECTIVE_USER" mentioned here?
+
+The web application can be accessed as follows:
+
+@example
+curl --data-urlencode input@@<data file> \
+     --data-urlencode \
+   installation_scripts@@<installation script data file> \
+     --cacert ca-bundle.crt \
+     --cert usercert.pem --key userkey.pem \
+   https://some-machine.somewhere.de/fcgi-bin/optwbsrv.fcgi
+@end example
+
+@cindex request (to webserver)
+@c
+@samp{curl} is a command-line program that sends data to a webserver.  Here, the latter is installed on the computer
+@samp{some-machine.somewhere.de}.   The webserver resolves the path @file{/fcgi-bin/} appended 
+to the name of the server to some directory on its system.  This is determined by the configuration of 
+the webserver.  The server calls the web application @samp{optwbsrv.fcgi} to process the @dfn{request}, passing 
+to it any data it contains.
+
+The arguments:
+
+@itemize @w{}
+
+@item @samp{input@@<data file>}
+@samp{curl} sends the contents of the @file{<data file>} to the server.
+
+@item @samp{installation_scripts@@<installation script data file>}
+@samp{curl} sends the contents of the @file{<installation script data file>} to the server.
+
+@cindex URL encoding
+@cindex encoding, URL
+@c
+@item @samp{--data-urlencode}
+Ensures that special characters in @file{test_data.txt} are @dfn{URL encoded}.
+
+@cindex CA (Certification Authority)
+@cindex certificate, CA (Certification Authority)
+@cindex Certification Authority (CA)
+@cindex CA certificate
+@cindex CA certificate bundle
+@cindex bundle, CA certificate
+@c
+@item @samp{--cacert ca-bundle.crt}
+A @dfn{CA certificate bundle}, i.e., a file containing one or more
+@dfn{CA} (Certification Authority) certificates
+
+@item @samp{--cert usercert.pem}
+
+@item @samp{--key userkey.pem}
+
+@item @samp{https://some-machine.somewhere.de/fcgi-bin/optwbsrv.fcgi}
+
+@end itemize
+
+@menu
+* Data Files Web Application::
+@end menu
+
+@node Data Files Web Application, , , Accessing the Web Application
+
+@subsection Data Files
+
+When creating entries using @samp{optwbsrv} via @samp{curl} or in some other way, 
+the command @samp{INSTALLATION_SCRIPT <filename>} cannot be used.  The reason for this 
+is that the contents of @samp{<data file>} are passed by @samp{optdbcli} (the client) 
+directly to @samp{optdbsrv} (the server); they are processed neither
+by @samp{optdbcli} nor by @samp{optwbsrv}.  The filename must refer to
+a file on the computer where @samp{optdbcli} is running, which in this
+case is the one where @samp{optwbsrv} is running, since the latter
+calls @samp{optdbcli}.  
+
+In order to solve this problem, commands must be sent separately to the web
+application which it @emph{will} process, the contents of the files
+containing the installation scripts must be transferred to the
+computer where @samp{optwbsrv} is running, and they must be associated
+with the correct entries.
+
+The file @samp{<installation script data file>} contains commands and
+the contents of the installation scripts in a special format, e.g.,
+
+@example
+START_INSTALLATION_SCRIPT_OPTW
+PACKAGE_NAME_OPTW <m4>
+START_TEXT_OPTW
+echo "m4 installation script"
+...
+exit 0;
+END_TEXT_OPTW
+END_INSTALLATION_SCRIPT_OPTW
+
+START_INSTALLATION_SCRIPT_OPTW
+PACKAGE_NAME_OPTW <bison>
+START_TEXT_OPTW
+echo "bison installation script"
+...
+exit 0;
+END_TEXT_OPTW
+END_INSTALLATION_SCRIPT_OPTW
+@end example
+
+It is not possible to determine beforehand what a shellscript might
+contain, so the syntax used for these files is deliberately verbose in
+order to reduce the chances that something might appear in a
+shellscript that `optwbsrv' would interpret as a command.  For
+example, the command names all use the suffix @samp{_OPTW}, since it
+is unlikely that that a variable name used in a shellscript would also
+have this suffix.  However, this is not, of course, complete
+protection.@footnote{A more reliable method would be to count the
+bytes in the shellscript file and send exactly this many bytes to
+@samp{optdbsrv}.  However, the author does not believe that this extra
+degree of safety is needed at this time.} 
+
+When @samp{optwbsrv} processes this file, it stores the shellscript
+code between each instance @samp{START_TEXT_OPTW} and
+@samp{END_TEXT_OPTW} in its own temporary file and appends a
+corresponding @samp{ADD INSTALLATION_SCRIPT} command with this
+filename to the code passed to @samp{optdbcli} and from it to
+@samp{optdbsrv}.  That is, if new entries are to be created, the
+commands @samp{START_ENTRY ... END_ENTRY} will be in @file{<data
+file>} and 
+@samp{START_INSTALLATION_SCRIPT_OPTW ... END_INSTALLATION_SCRIPT_OPTW}
+in @file{<installation script data file>}.
+
+
+@c ** (2) Auxiliary_File_Type
+
+@node Auxiliary_File_Type, Global Variables and Constants Web Application, Accessing the Web Application, Web Application
+
+@section Auxiliary_File_Type
+
+@samp{struct Auxiliary_File_Type} is declared in @file{instsctp.web}.
+
+
+@c ** (2) Global Variables and Constants Web Application
+
+@node Global Variables and Constants Web Application, Web Application Functions, Auxiliary_File_Type, Web Application
+@comment  node-name,  next,  previous,  up
+
+@section Global Variables and Constants
+
+@deftypevr {Global Variable} {extern char **} environ
+@end deftypevr
+
+@deftypevr {Global Constant} {const int} {IN_BUFFER_SIZE = 1048576}
+@end deftypevr
+
+@c ** (2) Web Application Functions
+
+@node Web Application Functions, Scanner Web Application, Global Variables and Constants Web Application, Web Application
+@comment  node-name,  next,  previous,  up
+
+@section Web Application Functions
+
+@deftypefun int main (int argc, char** argv)
+The @code{main} function for the web application.  
+@end deftypefun
+
+@deftypefun int init (void)
+Initialization function.  Currently this function simply returns 0.
+@end deftypefun
+
+@deftypefun int parse_args (string& @var{buffer}, vector<pair<string, string> >& @var{parameters})
+@end deftypefun
+
+
+@c ** (2) Scanner Web Application
+
+@node Scanner Web Application, Parser Web Application, Web Application Functions, Web Application
+@comment  node-name,  next,  previous,  up
+
+@section Scanner
+
+The Flex input code for generating the scanner is in
+@file{scnwbsrv.web}.
+
+Apart from the @samp{INITIAL} start condition, which is automatically
+defined, the scanner code defines the exclusive start condition
+@samp{SAVING}, which is used when reading the text of the installation
+script.
+
+Since shellscripts may contain many different characters and sequences
+of characters, and it would not be possible for the programs in the
+Optinum-Grid package (or their authors) to enforce restrictions beyond
+the ones set by the shells themselves, the scanner must be able to
+handle anything that might reasonably appear in a shellscript.  In
+particular, it should not misinterpet text in a shellscript for
+commands meant for the scanner itself.  
+
+It is, of course, not possible to protect against this entirely:  If a
+shellscript contains the string @samp{END_TEXT_OPTW}, this will cause
+the scanner to ``think'' that it's finished reading the text of the
+shellscript and leave the @samp{SAVING} start condition.  It will then
+expect commands, which will probably not be forthcoming, which will,
+in turn, cause an error to occur.
+
+The name @samp{END_TEXT_OPTW} and the names of the other commands were
+deliberately chosen so that it would be unlikely that anyone would use
+them in a shellscript, unless it was with the intention of causing an
+error. 
+
+@menu
+* Scanner Web Application Variables::
+* Scanner Web Application Functions::
+@end menu
+
+@c *** (3) Scanner Web Application Variables
+
+@node Scanner Web Application Variables, , Scanner Web Application Functions, Scanner Web Application
+
+@subsection Variables
+
+@deftypevar bool DEBUG_SCANNER
+@end deftypevar
+
+
+@c *** (3) Scanner Web Application Functions
+
+@node Scanner Web Application Functions, Scanner Web Application Variables, , Scanner Web Application
+@comment  node-name,  next,  previous,  up
+
+@subsection Functions
+
+@deftypefun int yylex (YYSTYPE* lvalp, yyscan_t parameter)
+@end deftypefun
+
+@c ** (2) Parser Web Application
+
+@node Parser Web Application, , Scanner Web Application, Web Application
+@comment  node-name,  next,  previous,  up
+
+@section Parser
+
+The GNU Bison input code for generating the parser is in @file{prswbsrv.web}.
+
+@menu
+* Parser Web Application Functions::
+@end menu
+
+@c *** (3) Parser Web Application Functions
+
+@node Parser Web Application Functions, , , Parser Web Application
+
+
+@subsection Functions
+
+@deftypefun int yyparse (yyscan_t parameter)
+@end deftypefun
+
+@deftypefun int yywrap (void)
+@end deftypefun
+
+@deftypefun int yyerror (void* v, char const* s)
+@end deftypefun
+
+@c * (1) Local Variables for Emacs
+
+@c Local Variables:
+@c mode:Texinfo
+@c abbrev-mode:t
+@c eval:(outline-minor-mode t)
+@c outline-regexp:"@c *\\*+"
+@c eval:(set (make-local-variable 'run-texi2dvi-on-file) "installer.texi")
+@c End:

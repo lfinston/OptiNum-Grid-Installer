@@ -1,0 +1,12 @@
+@c Copyright (C) 2010, 2011, 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbh Goettingen
+@c Author:  Laurence D. Finston (LDF)
+@c See the section "GNU Free Documentation License" in the file 
+@c fdl.texi for copying conditions.
+
+
+@node Variable Index, Data Type Index, GPL, Top
+
+@unnumbered Variable Index
+
+@printindex vr
+

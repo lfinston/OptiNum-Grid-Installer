@@ -1,0 +1,92 @@
+@c server.texi
+@c This file is part of the Optinum Grid Installer User and Reference Manual.
+
+@c Copyright (C) 2010, 2011, 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbh Goettingen
+
+@c Author:  Laurence D. Finston (LDF)
+
+@c See the section "GNU Free Documentation License" in the file 
+@c fdl.texi for copying conditions.
+
+@c * (1)
+
+@c LOG
+@c LDF 2010.05.05.
+@c connect.web:  All functions added.  No global variables.
+@c ENDLOG 
+
+@c ** (2) Server Connection Function Reference
+
+@node  Server Connection Function Reference, Client Connection Function Reference, Global Functions optdbcli/optdbsrv, Top
+
+@chapter Server Connection Function Reference
+
+@deftypefun int main (int argc, char** argv)
+Main function for server.  Defined in @file{optdbsrv.web}.
+
+Sets values of global variables.  
+Some of these are set to other values in @samp{optdbcli}, so they
+can't be initialized where they are declared in @file{glblvrbl.web}. 
+
+Processes command-line options.
+
+Performs initializations, i.e., of the mutexes that are used.  In
+addition, some of the libraries with which @samp{optdbsrv} is linked
+require initialization, i.e., the MySQL, libgcrypt and GNUTLS libraries.
+
+It then starts a thread with the function @samp{listen_auth}
+and another with the function @samp{listen_non_auth}.  These 
+functions continue to execute until the server is stopped.
+In normal use, the server is meant to run in the background
+``forever''.  In practice, it will be stopped when developing or 
+debugging the program, whenever the machine on which it is running 
+is rebooted, or for any number of other reasons.
+
+While it doesn't do any harm to just end the program by
+sending it a signal to ``kill'' it, which is what one normally does,
+the @samp{main} function contains code to ``join with'' the two
+threads, after which it destroys the mutexes and calls
+@samp{mysql_library_end} and @samp{gnutls_global_deinit}.  
+(In addition, it closes an output file, which as of 2010.07.23 is,
+however, not open.)  This ensures that program ends cleanly if the
+threads exit for some reason, whereby both threads must exit;  if only
+one exits, @samp{main} will block forever, waiting for the other one
+to exit.
+
+@end deftypefun
+
+The following functions are defined in 
+@file{connect.web}.
+
+@deftypefun void* connect_func (void* v)
+
+For ``authorized'' connections using X.509 certification.
+
+@end deftypefun
+
+@deftypefun void* connect_func_non_auth (void* v)
+@end deftypefun
+
+@menu
+* Exchange Data With Client::
+@end menu
+
+@c *** (3) Exchange Data With Client
+
+@node Exchange Data With Client, , , Server Connection Function Reference
+@section Exchange Data With Client
+
+@deftypefun int exchange_data_with_client ({Scan_Parse_Parameter_Type *} @var{param})
+@code{exchange_data_with_client} is one of the most important
+functions in the server program @samp{optdbsrv}.  It controls the communication with the
+client program @samp{optdbcli}.
+See also @ref{Exchange Data With Server}.
+@end deftypefun
+
+  
+@c Local Variables:
+@c mode:Texinfo
+@c abbrev-mode:t
+@c eval:(outline-minor-mode t)
+@c eval:(set (make-local-variable 'run-texi2dvi-on-file) "installer.texi")
+@c End:

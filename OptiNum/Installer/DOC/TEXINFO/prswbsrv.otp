@@ -1,0 +1,494 @@
+Terminals unused in grammar
+
+   HYPHEN_OPTW
+   COLON_OPTW
+   SEMI_COLON_OPTW
+   EXCLAMATION_POINT_OPTW
+   FOR_OPTW
+   TO_OPTW
+   INTEGER_OPTW
+   UNSIGNED_INTEGER_OPTW
+   FLOAT_OPTW
+
+
+Grammar
+
+    0 $accept: program $end
+
+    1 program: statement_list END_OPTW
+
+    2 statement_list: /* empty */
+    3               | statement_list statement
+
+    4 statement: installation_script_statement
+    5          | download_command_statement
+    6          | download_url_statement
+    7          | authorization_statement
+
+    8 installation_script_statement: START_INSTALLATION_SCRIPT_OPTW PACKAGE_NAME_OPTW STRING_OPTW package_version_optional text_optional 
+END_INSTALLATION_SCRIPT_OPTW
+    9                              | START_INSTALLATION_SCRIPT_ENCRYPTED_OPTW PACKAGE_NAME_OPTW STRING_OPTW package_version_optional 
+text_optional END_INSTALLATION_SCRIPT_ENCRYPTED_OPTW
+
+   10 download_command_statement: START_DOWNLOAD_COMMAND_ENCRYPTED_OPTW PACKAGE_NAME_OPTW STRING_OPTW package_version_optional text_optional 
+END_DOWNLOAD_COMMAND_ENCRYPTED_OPTW
+
+   11 download_url_statement: START_DOWNLOAD_URL_ENCRYPTED_OPTW PACKAGE_NAME_OPTW STRING_OPTW package_version_optional text_optional 
+END_DOWNLOAD_URL_ENCRYPTED_OPTW
+
+   12 authorization_statement: START_AUTHORIZATION_OPTW PACKAGE_NAME_OPTW STRING_OPTW package_version_optional text_optional 
+END_AUTHORIZATION_OPTW
+
+   13 package_version_optional: /* empty */
+   14                         | PACKAGE_VERSION_OPTW STRING_OPTW
+
+   15 text_optional: /* empty */
+   16              | START_TEXT_OPTW END_TEXT_OPTW
+
+
+Terminals, with rules where they appear
+
+$end (0) 0
+error (256)
+HYPHEN_OPTW (258)
+COLON_OPTW (259)
+SEMI_COLON_OPTW (260)
+EXCLAMATION_POINT_OPTW (261)
+FOR_OPTW (262)
+TO_OPTW (263)
+START_INSTALLATION_SCRIPT_OPTW (264) 8
+END_INSTALLATION_SCRIPT_OPTW (265) 8
+START_INSTALLATION_SCRIPT_ENCRYPTED_OPTW (266) 9
+END_INSTALLATION_SCRIPT_ENCRYPTED_OPTW (267) 9
+START_DOWNLOAD_COMMAND_ENCRYPTED_OPTW (268) 10
+END_DOWNLOAD_COMMAND_ENCRYPTED_OPTW (269) 10
+START_DOWNLOAD_URL_ENCRYPTED_OPTW (270) 11
+END_DOWNLOAD_URL_ENCRYPTED_OPTW (271) 11
+START_AUTHORIZATION_OPTW (272) 12
+END_AUTHORIZATION_OPTW (273) 12
+PACKAGE_NAME_OPTW (274) 8 9 10 11 12
+PACKAGE_VERSION_OPTW (275) 14
+START_TEXT_OPTW (276) 16
+END_TEXT_OPTW (277) 16
+STRING_OPTW (278) 8 9 10 11 12 14
+END_OPTW (279) 1
+INTEGER_OPTW (280)
+UNSIGNED_INTEGER_OPTW (281)
+FLOAT_OPTW (282)
+
+
+Nonterminals, with rules where they appear
+
+$accept (28)
+    on left: 0
+program (29)
+    on left: 1, on right: 0
+statement_list (30)
+    on left: 2 3, on right: 1 3
+statement (31)
+    on left: 4 5 6 7, on right: 3
+installation_script_statement (32)
+    on left: 8 9, on right: 4
+download_command_statement (33)
+    on left: 10, on right: 5
+download_url_statement (34)
+    on left: 11, on right: 6
+authorization_statement (35)
+    on left: 12, on right: 7
+package_version_optional (36)
+    on left: 13 14, on right: 8 9 10 11 12
+text_optional (37)
+    on left: 15 16, on right: 8 9 10 11 12
+
+
+state 0
+
+    0 $accept: . program $end
+
+    $default  reduce using rule 2 (statement_list)
+
+    program         go to state 1
+    statement_list  go to state 2
+
+
+state 1
+
+    0 $accept: program . $end
+
+    $end  shift, and go to state 3
+
+
+state 2
+
+    1 program: statement_list . END_OPTW
+    3 statement_list: statement_list . statement
+
+    START_INSTALLATION_SCRIPT_OPTW            shift, and go to state 4
+    START_INSTALLATION_SCRIPT_ENCRYPTED_OPTW  shift, and go to state 5
+    START_DOWNLOAD_COMMAND_ENCRYPTED_OPTW     shift, and go to state 6
+    START_DOWNLOAD_URL_ENCRYPTED_OPTW         shift, and go to state 7
+    START_AUTHORIZATION_OPTW                  shift, and go to state 8
+    END_OPTW                                  shift, and go to state 9
+
+    statement                      go to state 10
+    installation_script_statement  go to state 11
+    download_command_statement     go to state 12
+    download_url_statement         go to state 13
+    authorization_statement        go to state 14
+
+
+state 3
+
+    0 $accept: program $end .
+
+    $default  accept
+
+
+state 4
+
+    8 installation_script_statement: START_INSTALLATION_SCRIPT_OPTW . PACKAGE_NAME_OPTW STRING_OPTW package_version_optional text_optional 
+END_INSTALLATION_SCRIPT_OPTW
+
+    PACKAGE_NAME_OPTW  shift, and go to state 15
+
+
+state 5
+
+    9 installation_script_statement: START_INSTALLATION_SCRIPT_ENCRYPTED_OPTW . PACKAGE_NAME_OPTW STRING_OPTW package_version_optional 
+text_optional END_INSTALLATION_SCRIPT_ENCRYPTED_OPTW
+
+    PACKAGE_NAME_OPTW  shift, and go to state 16
+
+
+state 6
+
+   10 download_command_statement: START_DOWNLOAD_COMMAND_ENCRYPTED_OPTW . PACKAGE_NAME_OPTW STRING_OPTW package_version_optional text_optional 
+END_DOWNLOAD_COMMAND_ENCRYPTED_OPTW
+
+    PACKAGE_NAME_OPTW  shift, and go to state 17
+
+
+state 7
+
+   11 download_url_statement: START_DOWNLOAD_URL_ENCRYPTED_OPTW . PACKAGE_NAME_OPTW STRING_OPTW package_version_optional text_optional 
+END_DOWNLOAD_URL_ENCRYPTED_OPTW
+
+    PACKAGE_NAME_OPTW  shift, and go to state 18
+
+
+state 8
+
+   12 authorization_statement: START_AUTHORIZATION_OPTW . PACKAGE_NAME_OPTW STRING_OPTW package_version_optional text_optional 
+END_AUTHORIZATION_OPTW
+
+    PACKAGE_NAME_OPTW  shift, and go to state 19
+
+
+state 9
+
+    1 program: statement_list END_OPTW .
+
+    $default  reduce using rule 1 (program)
+
+
+state 10
+
+    3 statement_list: statement_list statement .
+
+    $default  reduce using rule 3 (statement_list)
+
+
+state 11
+
+    4 statement: installation_script_statement .
+
+    $default  reduce using rule 4 (statement)
+
+
+state 12
+
+    5 statement: download_command_statement .
+
+    $default  reduce using rule 5 (statement)
+
+
+state 13
+
+    6 statement: download_url_statement .
+
+    $default  reduce using rule 6 (statement)
+
+
+state 14
+
+    7 statement: authorization_statement .
+
+    $default  reduce using rule 7 (statement)
+
+
+state 15
+
+    8 installation_script_statement: START_INSTALLATION_SCRIPT_OPTW PACKAGE_NAME_OPTW . STRING_OPTW package_version_optional text_optional 
+END_INSTALLATION_SCRIPT_OPTW
+
+    STRING_OPTW  shift, and go to state 20
+
+
+state 16
+
+    9 installation_script_statement: START_INSTALLATION_SCRIPT_ENCRYPTED_OPTW PACKAGE_NAME_OPTW . STRING_OPTW package_version_optional 
+text_optional END_INSTALLATION_SCRIPT_ENCRYPTED_OPTW
+
+    STRING_OPTW  shift, and go to state 21
+
+
+state 17
+
+   10 download_command_statement: START_DOWNLOAD_COMMAND_ENCRYPTED_OPTW PACKAGE_NAME_OPTW . STRING_OPTW package_version_optional text_optional 
+END_DOWNLOAD_COMMAND_ENCRYPTED_OPTW
+
+    STRING_OPTW  shift, and go to state 22
+
+
+state 18
+
+   11 download_url_statement: START_DOWNLOAD_URL_ENCRYPTED_OPTW PACKAGE_NAME_OPTW . STRING_OPTW package_version_optional text_optional 
+END_DOWNLOAD_URL_ENCRYPTED_OPTW
+
+    STRING_OPTW  shift, and go to state 23
+
+
+state 19
+
+   12 authorization_statement: START_AUTHORIZATION_OPTW PACKAGE_NAME_OPTW . STRING_OPTW package_version_optional text_optional 
+END_AUTHORIZATION_OPTW
+
+    STRING_OPTW  shift, and go to state 24
+
+
+state 20
+
+    8 installation_script_statement: START_INSTALLATION_SCRIPT_OPTW PACKAGE_NAME_OPTW STRING_OPTW . package_version_optional text_optional 
+END_INSTALLATION_SCRIPT_OPTW
+
+    PACKAGE_VERSION_OPTW  shift, and go to state 25
+
+    $default  reduce using rule 13 (package_version_optional)
+
+    package_version_optional  go to state 26
+
+
+state 21
+
+    9 installation_script_statement: START_INSTALLATION_SCRIPT_ENCRYPTED_OPTW PACKAGE_NAME_OPTW STRING_OPTW . package_version_optional 
+text_optional END_INSTALLATION_SCRIPT_ENCRYPTED_OPTW
+
+    PACKAGE_VERSION_OPTW  shift, and go to state 25
+
+    $default  reduce using rule 13 (package_version_optional)
+
+    package_version_optional  go to state 27
+
+
+state 22
+
+   10 download_command_statement: START_DOWNLOAD_COMMAND_ENCRYPTED_OPTW PACKAGE_NAME_OPTW STRING_OPTW . package_version_optional text_optional 
+END_DOWNLOAD_COMMAND_ENCRYPTED_OPTW
+
+    PACKAGE_VERSION_OPTW  shift, and go to state 25
+
+    $default  reduce using rule 13 (package_version_optional)
+
+    package_version_optional  go to state 28
+
+
+state 23
+
+   11 download_url_statement: START_DOWNLOAD_URL_ENCRYPTED_OPTW PACKAGE_NAME_OPTW STRING_OPTW . package_version_optional text_optional 
+END_DOWNLOAD_URL_ENCRYPTED_OPTW
+
+    PACKAGE_VERSION_OPTW  shift, and go to state 25
+
+    $default  reduce using rule 13 (package_version_optional)
+
+    package_version_optional  go to state 29
+
+
+state 24
+
+   12 authorization_statement: START_AUTHORIZATION_OPTW PACKAGE_NAME_OPTW STRING_OPTW . package_version_optional text_optional 
+END_AUTHORIZATION_OPTW
+
+    PACKAGE_VERSION_OPTW  shift, and go to state 25
+
+    $default  reduce using rule 13 (package_version_optional)
+
+    package_version_optional  go to state 30
+
+
+state 25
+
+   14 package_version_optional: PACKAGE_VERSION_OPTW . STRING_OPTW
+
+    STRING_OPTW  shift, and go to state 31
+
+
+state 26
+
+    8 installation_script_statement: START_INSTALLATION_SCRIPT_OPTW PACKAGE_NAME_OPTW STRING_OPTW package_version_optional . text_optional 
+END_INSTALLATION_SCRIPT_OPTW
+
+    START_TEXT_OPTW  shift, and go to state 32
+
+    $default  reduce using rule 15 (text_optional)
+
+    text_optional  go to state 33
+
+
+state 27
+
+    9 installation_script_statement: START_INSTALLATION_SCRIPT_ENCRYPTED_OPTW PACKAGE_NAME_OPTW STRING_OPTW package_version_optional . 
+text_optional END_INSTALLATION_SCRIPT_ENCRYPTED_OPTW
+
+    START_TEXT_OPTW  shift, and go to state 32
+
+    $default  reduce using rule 15 (text_optional)
+
+    text_optional  go to state 34
+
+
+state 28
+
+   10 download_command_statement: START_DOWNLOAD_COMMAND_ENCRYPTED_OPTW PACKAGE_NAME_OPTW STRING_OPTW package_version_optional . text_optional 
+END_DOWNLOAD_COMMAND_ENCRYPTED_OPTW
+
+    START_TEXT_OPTW  shift, and go to state 32
+
+    $default  reduce using rule 15 (text_optional)
+
+    text_optional  go to state 35
+
+
+state 29
+
+   11 download_url_statement: START_DOWNLOAD_URL_ENCRYPTED_OPTW PACKAGE_NAME_OPTW STRING_OPTW package_version_optional . text_optional 
+END_DOWNLOAD_URL_ENCRYPTED_OPTW
+
+    START_TEXT_OPTW  shift, and go to state 32
+
+    $default  reduce using rule 15 (text_optional)
+
+    text_optional  go to state 36
+
+
+state 30
+
+   12 authorization_statement: START_AUTHORIZATION_OPTW PACKAGE_NAME_OPTW STRING_OPTW package_version_optional . text_optional 
+END_AUTHORIZATION_OPTW
+
+    START_TEXT_OPTW  shift, and go to state 32
+
+    $default  reduce using rule 15 (text_optional)
+
+    text_optional  go to state 37
+
+
+state 31
+
+   14 package_version_optional: PACKAGE_VERSION_OPTW STRING_OPTW .
+
+    $default  reduce using rule 14 (package_version_optional)
+
+
+state 32
+
+   16 text_optional: START_TEXT_OPTW . END_TEXT_OPTW
+
+    END_TEXT_OPTW  shift, and go to state 38
+
+
+state 33
+
+    8 installation_script_statement: START_INSTALLATION_SCRIPT_OPTW PACKAGE_NAME_OPTW STRING_OPTW package_version_optional text_optional . 
+END_INSTALLATION_SCRIPT_OPTW
+
+    END_INSTALLATION_SCRIPT_OPTW  shift, and go to state 39
+
+
+state 34
+
+    9 installation_script_statement: START_INSTALLATION_SCRIPT_ENCRYPTED_OPTW PACKAGE_NAME_OPTW STRING_OPTW package_version_optional 
+text_optional . END_INSTALLATION_SCRIPT_ENCRYPTED_OPTW
+
+    END_INSTALLATION_SCRIPT_ENCRYPTED_OPTW  shift, and go to state 40
+
+
+state 35
+
+   10 download_command_statement: START_DOWNLOAD_COMMAND_ENCRYPTED_OPTW PACKAGE_NAME_OPTW STRING_OPTW package_version_optional text_optional . 
+END_DOWNLOAD_COMMAND_ENCRYPTED_OPTW
+
+    END_DOWNLOAD_COMMAND_ENCRYPTED_OPTW  shift, and go to state 41
+
+
+state 36
+
+   11 download_url_statement: START_DOWNLOAD_URL_ENCRYPTED_OPTW PACKAGE_NAME_OPTW STRING_OPTW package_version_optional text_optional . 
+END_DOWNLOAD_URL_ENCRYPTED_OPTW
+
+    END_DOWNLOAD_URL_ENCRYPTED_OPTW  shift, and go to state 42
+
+
+state 37
+
+   12 authorization_statement: START_AUTHORIZATION_OPTW PACKAGE_NAME_OPTW STRING_OPTW package_version_optional text_optional . 
+END_AUTHORIZATION_OPTW
+
+    END_AUTHORIZATION_OPTW  shift, and go to state 43
+
+
+state 38
+
+   16 text_optional: START_TEXT_OPTW END_TEXT_OPTW .
+
+    $default  reduce using rule 16 (text_optional)
+
+
+state 39
+
+    8 installation_script_statement: START_INSTALLATION_SCRIPT_OPTW PACKAGE_NAME_OPTW STRING_OPTW package_version_optional text_optional 
+END_INSTALLATION_SCRIPT_OPTW .
+
+    $default  reduce using rule 8 (installation_script_statement)
+
+
+state 40
+
+    9 installation_script_statement: START_INSTALLATION_SCRIPT_ENCRYPTED_OPTW PACKAGE_NAME_OPTW STRING_OPTW package_version_optional 
+text_optional END_INSTALLATION_SCRIPT_ENCRYPTED_OPTW .
+
+    $default  reduce using rule 9 (installation_script_statement)
+
+
+state 41
+
+   10 download_command_statement: START_DOWNLOAD_COMMAND_ENCRYPTED_OPTW PACKAGE_NAME_OPTW STRING_OPTW package_version_optional text_optional 
+END_DOWNLOAD_COMMAND_ENCRYPTED_OPTW .
+
+    $default  reduce using rule 10 (download_command_statement)
+
+
+state 42
+
+   11 download_url_statement: START_DOWNLOAD_URL_ENCRYPTED_OPTW PACKAGE_NAME_OPTW STRING_OPTW package_version_optional text_optional 
+END_DOWNLOAD_URL_ENCRYPTED_OPTW .
+
+    $default  reduce using rule 11 (download_url_statement)
+
+
+state 43
+
+   12 authorization_statement: START_AUTHORIZATION_OPTW PACKAGE_NAME_OPTW STRING_OPTW package_version_optional text_optional 
+END_AUTHORIZATION_OPTW .
+
+    $default  reduce using rule 12 (authorization_statement)

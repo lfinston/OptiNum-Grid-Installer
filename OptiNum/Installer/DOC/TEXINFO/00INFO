@@ -1,0 +1,33 @@
+%% 00INFO
+%% Created by Laurence D. Finston (LDF) Fri Mar 12 10:49:02 CET 2010
+
+%% Copyright (C) 2010 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH
+
+%% ** (2) Update nodes and menus
+
+LDF 2010.05.05.
+
+Set to [S-f12] in Texinfo-mode.
+
+(texinfo-multiple-files-update 
+"/home/lfinsto/opt_rep/optinum/Installer/dbsrvcli/DOC/TEXINFO/installer.texi" t t)
+
+%% ** (2)
+
+%% ** (2)
+
+
+
+
+%% * (1) Local Variables for Emacs 
+
+%% Local Variables: 
+%% eval:(display-time) 
+%% abbrev-mode:t
+%% eval:(read-abbrev-file) 
+%% indent-tabs-mode:nil 
+%% eval:(outline-minor-mode) 
+%% outline-regexp:"%% *\\*+" 
+%% End: 
+
+%% * (1) End of 00INFO

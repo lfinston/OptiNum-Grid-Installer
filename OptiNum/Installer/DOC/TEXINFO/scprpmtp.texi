@@ -1,0 +1,1128 @@
+@c scprpmtp.texi
+@c Created by Laurence D. Finston (LDF) Fri May 28 16:07:05 CEST 2010
+
+@c This file is part of the Optinum Grid Installer User and Reference Manual.
+
+@c Copyright (C) 2010, 2011, 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbh Goettingen
+
+@c Author:  Laurence D. Finston (LDF)
+
+@c See the section "GNU Free Documentation License" in the file 
+@c fdl.texi for copying conditions.
+
+@c * (1) Scan_Parse_Parameter_Type Reference
+
+@node Scan_Parse_Parameter_Type Reference, Globus_Site_Info_Type Reference, Response_Type Reference, Top
+@chapter Scan_Parse_Parameter_Type Reference
+
+@tindex Scan_Parse_Parameter_Type, class 
+@tindex class Scan_Parse_Parameter_Type
+@c
+@code{class Scan_Parse_Parameter_Type} is defined in
+@file{scprpmtp.web}.
+
+An object of type @code{class Scan_Parse_Parameter_Type} exists for each instance of 
+@samp{optdbcli} and each thread in @samp{optdbsrv}.  This object represents the 
+``state'', so to speak, of a run of the client or a thread in the server.
+
+For this reason, many of the functions defined in the Installer package are 
+member functions of @code{class Scan_Parse_Parameter_Type}.  If they were not,
+they would need to have a pointer or reference to @code{class Scan_Parse_Parameter_Type}
+as an argument or information from an @code{class Scan_Parse_Parameter_Type} 
+would have to be passed to them as arguments.
+
+In particular, functions that access the MySQL database are usually member functions of @code{Scan_Parse_Parameter_Type},
+@footnote{@code{cull_database} is an exception, because it must run independently of any client/server communication.  
+That is, it may run times when no @code{Scan_Parse_Parameter_Type} objects exist on the server-side.
+@xref{Cull Database}.}
+@c 
+because each object of type @code{Scan_Parse_Parameter_Type} on the server-side receives a connection to the database.
+
+@smalldisplay
+This occurs in the functions @code{listen_auth} and @code{listen_non_auth}.
+@xref{TLS Functions}.
+@end smalldisplay
+
+
+
+
+
+@cindex friend
+@tindex class Entry_Type
+@tindex class GPG_Key_Pair_Type
+@tindex class X509_Cert_Type
+@tindex Entry_Type, class 
+@tindex GPG_Key_Pair_Type, class 
+@tindex X509_Cert_Type, class 
+@c
+@findex accept_data
+@findex client_connect_auth
+@findex client_connect_non_auth
+@findex connect_func
+@findex connect_func_non_auth
+@findex exchange_data_with_client
+@findex exchange_data_with_server
+@findex extract_dn_fields
+@findex hidden_install
+@findex install_packages
+@findex init_globus_site_map
+@findex listen_auth
+@findex listen_non_auth
+@findex parse_input
+@findex remote_install_func
+@findex remote_install_rule_func
+@findex sub_distribute_key_pair
+@findex verify_cert2
+@findex verify_certificate_chain
+@findex verify_last_cert
+@findex yylex
+@findex yyparse
+@findex zzlex
+@c
+The following classes and functions are @code{friends} of @code{Scan_Parse_Parameter_Type}.
+
+@noindent
+Classes:
+@table @code
+@item Entry_Type
+@ref{Entry_Type Reference}
+
+@item GPG_Key_Pair_Type
+@ref{GPG_Key_Pair_Type Reference}
+
+@item X509_Cert_Type
+@ref{X509_Cert_Type Reference}
+@end table
+
+@noindent
+Functions:
+@table @code
+@item accept_data
+@ref{Parser Function Reference} 
+
+@item client_connect_auth
+@itemx client_connect_non_auth
+@ref{Client Connection Function Reference}.
+
+@item connect_func
+@item connect_func_non_auth
+@ref{Server Connection Function Reference}.
+
+@item exchange_data_with_client
+@ref{Server Connection Function Reference}.
+
+@item exchange_data_with_server
+@ref{Client Connection Function Reference} 
+
+@item extract_dn_fields
+@ref{TLS Functions} 
+
+@item hidden_install
+@ref{Hidden Software Installation} 
+
+@item install_packages
+@ref{Software Installation}.
+
+@item init_globus_site_map
+@ref{Utility Function Reference} 
+
+@item listen_auth
+@itemx listen_non_auth
+@ref{TLS Functions} 
+
+@item parse_input
+@ref{Parser Function Reference} 
+
+@item remote_install_func
+@ref{Remote Installation}.
+
+@item remote_install_rule_func
+@ref{Parser Function Reference}.
+
+@item sub_distribute_key_pair
+@ref{GPG Key Distribution}.
+
+@item verify_cert2
+@itemx verify_certificate_chain
+@itemx verify_last_cert
+@ref{TLS Functions} 
+
+@item yylex
+@ref{Scanner Server Functions} 
+
+@item yyparse
+@ref{Parser Server Functions}.
+
+@item zzlex
+@ref{Scanner Client Functions} 
+@end table
+
+
+@menu
+* Scan_Parse_Parameter_Type Data Members::
+* Scan_Parse_Parameter_Type Member Functions::
+@end menu
+
+@c ** (2)
+
+@node Scan_Parse_Parameter_Type Data Members, Scan_Parse_Parameter_Type Member Functions, , Scan_Parse_Parameter_Type Reference
+
+@section Data Members
+
+@c LOG
+@c LDF 2012.01.26.
+@c Updated this section.
+@c ENDLOG 
+
+@vindex Scan_Parse_Parameter_Type::PARSER_DEBUG
+@vindex Scan_Parse_Parameter_Type::thread_ctr
+@vindex Scan_Parse_Parameter_Type::thread_id
+@vindex Scan_Parse_Parameter_Type::start_condition
+@vindex Scan_Parse_Parameter_Type::MAX_BUFFER
+@vindex Scan_Parse_Parameter_Type::date_time_str
+@vindex Scan_Parse_Parameter_Type::in_filename
+@vindex Scan_Parse_Parameter_Type::out_filename
+@vindex Scan_Parse_Parameter_Type::out_strm
+@vindex Scan_Parse_Parameter_Type::msg_strm
+@vindex Scan_Parse_Parameter_Type::up
+@vindex Scan_Parse_Parameter_Type::entries
+@vindex Scan_Parse_Parameter_Type::emendations
+@vindex Scan_Parse_Parameter_Type::install_vector
+@vindex Scan_Parse_Parameter_Type::cert_cred_ptr
+@vindex Scan_Parse_Parameter_Type::anon_server_cred_ptr
+@vindex Scan_Parse_Parameter_Type::anon_client_cred_ptr
+@vindex Scan_Parse_Parameter_Type::ca_list  
+@vindex Scan_Parse_Parameter_Type::ca_list_size
+@vindex Scan_Parse_Parameter_Type::mysql_ptr
+@vindex Scan_Parse_Parameter_Type::user_name
+@vindex Scan_Parse_Parameter_Type::user_id
+@vindex Scan_Parse_Parameter_Type::user_dn
+@vindex Scan_Parse_Parameter_Type::effective_user_dn
+@vindex Scan_Parse_Parameter_Type::effective_user_name
+@vindex Scan_Parse_Parameter_Type::effective_user_id
+@vindex Scan_Parse_Parameter_Type::response_deque
+@vindex Scan_Parse_Parameter_Type::response_deque_mutex
+@vindex Scan_Parse_Parameter_Type::session
+@vindex Scan_Parse_Parameter_Type::prerequisite_list
+@vindex Scan_Parse_Parameter_Type::server_finished
+@vindex Scan_Parse_Parameter_Type::client_finished
+@vindex Scan_Parse_Parameter_Type::prerequisite_string_vector
+@vindex Scan_Parse_Parameter_Type::entry_string_vector
+@vindex Scan_Parse_Parameter_Type::download_url_string
+@vindex Scan_Parse_Parameter_Type::download_command_string
+@vindex Scan_Parse_Parameter_Type::remote_ip_address
+@vindex Scan_Parse_Parameter_Type::remote_port
+@vindex Scan_Parse_Parameter_Type::show_options
+@vindex Scan_Parse_Parameter_Type::proxy_cred_filename
+@vindex Scan_Parse_Parameter_Type::globus_site_set
+@vindex Scan_Parse_Parameter_Type::globus_site_options
+@vindex Scan_Parse_Parameter_Type::MAX_KEY_PAIR_SIZE
+@vindex Scan_Parse_Parameter_Type::key_pair_str[65536]
+@vindex Scan_Parse_Parameter_Type::key_name
+@vindex Scan_Parse_Parameter_Type::long key_id
+@vindex Scan_Parse_Parameter_Type::session_id
+@vindex Scan_Parse_Parameter_Type::session_data
+@vindex Scan_Parse_Parameter_Type::show_level_map
+@vindex Scan_Parse_Parameter_Type::show_environment_shellscript_globus_site_set
+@vindex Scan_Parse_Parameter_Type::environment_globus_site
+@vindex Scan_Parse_Parameter_Type::show_environment_shellscript_globus_site
+@vindex Scan_Parse_Parameter_Type::environment_strm
+@vindex Scan_Parse_Parameter_Type::environment_admin_flag
+@vindex Scan_Parse_Parameter_Type::show_environment_shellscript_options
+@vindex Scan_Parse_Parameter_Type::environment_shellscript_filename_vector
+@c
+@vindex PARSER_DEBUG (Scan_Parse_Parameter_Type)
+@vindex thread_ctr (Scan_Parse_Parameter_Type)
+@vindex thread_id (Scan_Parse_Parameter_Type)
+@vindex start_condition (Scan_Parse_Parameter_Type)
+@vindex MAX_BUFFER (Scan_Parse_Parameter_Type)
+@vindex date_time_str (Scan_Parse_Parameter_Type)
+@vindex in_filename (Scan_Parse_Parameter_Type)
+@vindex out_filename (Scan_Parse_Parameter_Type)
+@vindex out_strm (Scan_Parse_Parameter_Type)
+@vindex msg_strm (Scan_Parse_Parameter_Type)
+@vindex up (Scan_Parse_Parameter_Type)
+@vindex entries (Scan_Parse_Parameter_Type)
+@vindex emendations (Scan_Parse_Parameter_Type)
+@vindex install_vector (Scan_Parse_Parameter_Type)
+@vindex cert_cred_ptr (Scan_Parse_Parameter_Type)
+@vindex anon_server_cred_ptr (Scan_Parse_Parameter_Type)
+@vindex anon_client_cred_ptr (Scan_Parse_Parameter_Type)
+@vindex ca_list   (Scan_Parse_Parameter_Type)
+@vindex ca_list_size (Scan_Parse_Parameter_Type)
+@vindex mysql_ptr (Scan_Parse_Parameter_Type)
+@vindex user_name (Scan_Parse_Parameter_Type)
+@vindex user_id (Scan_Parse_Parameter_Type)
+@vindex user_dn (Scan_Parse_Parameter_Type)
+@vindex effective_user_dn (Scan_Parse_Parameter_Type)
+@vindex effective_user_name (Scan_Parse_Parameter_Type)
+@vindex effective_user_id (Scan_Parse_Parameter_Type)
+@vindex response_deque (Scan_Parse_Parameter_Type)
+@vindex response_deque_mutex (Scan_Parse_Parameter_Type)
+@vindex session (Scan_Parse_Parameter_Type)
+@vindex prerequisite_list (Scan_Parse_Parameter_Type)
+@vindex server_finished (Scan_Parse_Parameter_Type)
+@vindex client_finished (Scan_Parse_Parameter_Type)
+@vindex prerequisite_string_vector (Scan_Parse_Parameter_Type)
+@vindex entry_string_vector (Scan_Parse_Parameter_Type)
+@vindex download_url_string (Scan_Parse_Parameter_Type)
+@vindex download_command_string (Scan_Parse_Parameter_Type)
+@vindex remote_ip_address (Scan_Parse_Parameter_Type)
+@vindex remote_port (Scan_Parse_Parameter_Type)
+@vindex show_options (Scan_Parse_Parameter_Type)
+@vindex proxy_cred_filename (Scan_Parse_Parameter_Type)
+@vindex globus_site_set (Scan_Parse_Parameter_Type)
+@vindex globus_site_options (Scan_Parse_Parameter_Type)
+@vindex MAX_KEY_PAIR_SIZE (Scan_Parse_Parameter_Type)
+@vindex key_pair_str[65536] (Scan_Parse_Parameter_Type)
+@vindex key_name (Scan_Parse_Parameter_Type)
+@vindex long key_id (Scan_Parse_Parameter_Type)
+@vindex session_id (Scan_Parse_Parameter_Type)
+@vindex session_data (Scan_Parse_Parameter_Type:)
+@vindex show_level_map (Scan_Parse_Parameter_Type)
+@vindex show_environment_shellscript_globus_site_set (Scan_Parse_Parameter_Type)
+@vindex environment_globus_site (Scan_Parse_Parameter_Type)
+@vindex show_environment_shellscript_globus_site (Scan_Parse_Parameter_Type)
+@vindex environment_strm (Scan_Parse_Parameter_Type)
+@vindex environment_admin_flag (Scan_Parse_Parameter_Type)
+@vindex show_environment_shellscript_options (Scan_Parse_Parameter_Type)
+@vindex environment_shellscript_filename_vector (Scan_Parse_Parameter_Type)
+@c
+@deftypevr  {Private variables} bool PARSER_DEBUG
+
+@deftypevrx {} int thread_ctr
+
+@deftypevrx {} pthread_t thread_id
+
+@deftypevrx {} int start_condition
+
+@deftypevrx {} {unsigned int} MAX_BUFFER
+
+@deftypevrx {} string date_time_str
+
+@deftypevrx {} string in_filename
+
+@deftypevrx {} string out_filename
+
+@deftypevrx {} ostream* out_strm
+
+@deftypevrx {} stringstream msg_strm
+
+@deftypevrx {} Scan_Parse_Parameter_Type* up
+@end deftypevr
+
+
+@vindex Scan_Parse_Parameter_Type::fd 
+@vindex fd  (Scan_Parse_Parameter_Type)
+@c
+@deftypevr {Private variable} int fd 
+File descriptor.  In @code{connect_func}, 
+passed as an argument to @code{gnutls_transport_set_ptr}.
+@xref{Server Connection Function Reference}, and 
+@ref{Core functions, Core functions, Core functions, gnutls, The GnuTLS Manual}.
+@end deftypevr
+
+
+@deftypevr {Private variables} vector<class Entry_Type> entries
+
+@deftypevrx {} vector<class Entry_Type> emendations
+
+@deftypevrx {} vector<class Entry_Type> install_vector
+
+@deftypevrx {} {gnutls_certificate_credentials_t *} cert_cred_ptr
+
+@deftypevrx {} {gnutls_anon_server_credentials_t *} anon_server_cred_ptr
+
+@deftypevrx {} {gnutls_anon_client_credentials_t *} anon_client_cred_ptr
+
+@deftypevrx {} {gnutls_x509_crt_t *} ca_list
+
+@deftypevrx {} {unsigned int} ca_list_size
+
+@deftypevrx {} {MYSQL *} mysql_ptr
+
+@deftypevrx {} string user_name
+
+@deftypevrx {} {unsigned int} user_id
+
+@deftypevrx {} string user_dn
+@end deftypevr
+
+
+@deftypevr {Private variables} string effective_user_dn
+@deftypevrx {} string effective_user_name
+@deftypevrx {} {unsigned int} effective_user_id
+
+@cindex effective user
+@cindex user, effective
+@cindex delegate
+@cindex delegation
+@c
+@xref{Setting Effective User (optdbcli)}, and @ref{Delegates Database Table}.
+@end deftypevr
+
+
+@deftypevr {Private variable} {deque<Response_Type>} response_deque
+@end deftypevr
+
+@deftypevr {Private variable} pthread_mutex_t response_deque_mutex
+@xref{Response_Type Reference}.
+@end deftypevr
+
+
+@deftypevr {Private variables} {gnutls_session_t *} session
+
+@deftypevrx {} string prerequisite_list
+
+@deftypevrx {} bool server_finished
+
+@deftypevrx {} bool client_finished
+
+@deftypevrx {} vector<string> prerequisite_string_vector
+
+@deftypevrx {} vector<string> entry_string_vector
+
+@deftypevrx {} string download_url_string
+
+@deftypevrx {} string download_command_string
+
+@deftypevrx {} string remote_ip_address
+
+@deftypevrx {} int remote_port
+
+@deftypevrx {} {unsigned int} show_options
+
+@deftypevrx {} string proxy_cred_filename
+
+@deftypevrx {} {set<string>} globus_site_set
+
+@deftypevrx {} {Globus_Site_Info_Type} globus_site_options
+@end deftypevr
+
+
+@deftypevr {Private variable} {static const unsigned int} MAX_KEY_PAIR_SIZE
+Initialized to 65536 (@math{= 2^{16}}).
+@end deftypevr
+
+
+@deftypevr {Private variable} char key_pair_str
+Array with 65536 elements.
+@end deftypevr
+                        
+@deftypevr {Private variables} string key_name
+
+@deftypevrx {} {unsigned long int} key_id
+
+@deftypevrx {} string session_id
+
+@deftypevrx {} {Session_Data_Type *} session_data
+
+@deftypevrx {} {map<int, int>} show_level_map
+
+@deftypevrx {} {set<string>} show_environment_shellscript_globus_site_set
+
+@deftypevrx {} string environment_globus_site
+
+@deftypevrx {} string show_environment_shellscript_globus_site
+
+@deftypevrx {} stringstream environment_strm
+
+@deftypevrx {} {unsigned int} environment_admin_flag
+
+@deftypevrx {} {unsigned int} show_environment_shellscript_options
+
+@deftypevrx {} {vector<string>} environment_shellscript_filename_vector
+
+@end deftypevr
+
+@c ** (2) Scan_Parse_Parameter_Type Member Functions
+
+@node Scan_Parse_Parameter_Type Member Functions, , Scan_Parse_Parameter_Type Data Members, Scan_Parse_Parameter_Type Reference
+
+@section Member Functions
+
+@menu
+* Constructors and Destructor (Scan_Parse_Parameter_Type)::
+* Functions for Managing Users::
+* Functions for Entries::
+* Functions for Prerequisites::
+* Database Functions::
+* Globus Site Functions::
+* Functions for Privileges::
+* Environment Shellscript Functions::
+* Functions for GPG Keys::
+* Session Data Functions::
+* Other Scan_Parse_Parameter_Type Member Functions::
+@end menu
+
+@c *** (3) Constructors and Destructor (Scan_Parse_Parameter_Type)
+
+@node Constructors and Destructor (Scan_Parse_Parameter_Type), Functions for Managing Users, , Scan_Parse_Parameter_Type Member Functions
+
+@subsection Constructors and Destructor
+
+@findex Scan_Parse_Parameter_Type::Scan_Parse_Parameter_Type
+@c
+@deftypefn {Default constructor} void {Scan_Parse_Parameter_Type} (@code{void})
+@end deftypefn
+
+@findex Scan_Parse_Parameter_Type::~Scan_Parse_Parameter_Type
+@c
+@deftypefn {Destructor} {} ~Scan_Parse_Parameter_Type (void)
+@end deftypefn
+
+@c *** (3) Functions for Managing Users
+
+@node Functions for Managing Users, Functions for Entries, Constructors and Destructor (Scan_Parse_Parameter_Type), Scan_Parse_Parameter_Type Member Functions
+
+@subsection Functions for Managing Users
+
+@findex Scan_Parse_Parameter_Type::get_database_username
+@c
+@deftypefn {Functions} string get_database_username (X509_Cert_Type @var{&cert})
+@deftypefnx {} string get_database_username (int @var{user_id})
+@end deftypefn
+
+@findex Scan_Parse_Parameter_Type::validate_distinguished_name
+@c
+@deftypefun int validate_distinguished_name (Response_Type {&@var{response}})
+@end deftypefun
+
+@findex Scan_Parse_Parameter_Type::check_grid_mapfile
+@c
+@deftypefun int check_grid_mapfile (string @var{distinguished_name_str}, X509_Cert_Type {*@var{cert} = 0}, @
+string {*@var{user_name} = 0}, bool {@var{break_on_found} = false})
+@end deftypefun
+
+@findex Scan_Parse_Parameter_Type::check_delegation
+@deftypefun int check_delegation (char @var{*dn_str})
+@end deftypefun
+
+@findex Scan_Parse_Parameter_Type::show_certificates
+@deftypefun int show_certificates (Response_Type @var{&response}, char @var{buffer}[])
+@end deftypefun
+
+@findex Scan_Parse_Parameter_Type::lookup
+@c
+@deftypefun int lookup ({const Distinguished_Name_Type} @var{&dn})
+@end deftypefun
+
+@c *** (3) Functions for Entries
+
+@node Functions for Entries, Functions for Prerequisites, Functions for Managing Users, Scan_Parse_Parameter_Type Member Functions
+
+@subsection Functions for Entries
+
+@menu
+* Functions for Adding Entries::
+* Functions for Modifying Entries::
+* Functions for Deleting Entries::
+* Showing Entries::
+* Functions for Fetching Entry Information::
+@end menu
+
+@c **** (4) Functions for Adding Entries
+
+@node Functions for Adding Entries, Functions for Modifying Entries, , Functions for Entries
+
+@subsubsection Adding Entries
+
+@findex Scan_Parse_Parameter_Type::write_entries
+@c
+@deftypefun int write_entries (void)
+Defined in @file{spptwren.web}.  Writes software database entries to MySQL database, which implies
+that it is only used by @code{optdbsrv}.
+
+Called in @code{parse_input} (@pxref{Parser Function Reference}) after @code{yyparse} 
+exits successfully (@pxref{Parser Server Functions}), 
+if the @code{vector<Entry_Type> param->entries} is non-empty, where
+@code{param} is a pointer to @code{Scan_Parse_Parameter_Type}, passed to @code{parse_input} 
+as an argument.
+
+The @code{Entry_Type} objects on the @code{vector} @code{param->entries} contain information about
+software packages sent to @command{optdbsrv} by the user by means of @samp{START_ENTRY @dots{} END_ENTRY} 
+commands in the input to @command{optdbcli}.  
+@xref{Adding Software Package Information (optdbcli),,Adding Software Package Information}.
+For example, this input:
+
+@example
+START_ENTRY
+PACKAGE_NAME    m4
+PACKAGE_VERSION 1.4.15
+DOWNLOAD_URL ftp://ftp.gwdg.de/pub/gnu/ftp/gnu/m4/m4-1.4.15.tar.gz
+INSTALLATION_SCRIPT <install_m4.sh>
+PUBLIC
+END_ENTRY
+@end example
+
+@noindent 
+causes the following SQL command to be generated and executed in @code{write_entries}:
+
+@example
+insert into Entries (user_id, entry_id, package_name, 
+                     package_version, download_url, 
+                     download_command, maintainer_name, 
+                     maintainer_email_address, private, 
+                     created, last_modified, encrypted, 
+                     owner) 
+  values (1, 1, 'm4', '1.4.15', 
+          'ftp://ftp.gwdg.de/pub/gnu/ftp/gnu/m4/m4-1.4.15.tar.gz', 
+           NULL, NULL, NULL, false, '2012-05-31 11:35:22', 
+           '2012-05-31 11:35:22', false, NULL)
+@end example
+
+Please note that this command does @emph{not} store the file @file{install_m4.sh} containing 
+the installation script in this row of the @samp{Entries} table:
+@code{write_entries} generates requests for the installation script and any other files belonging 
+to this database entry, which are sent to @command{optdbcli} by @code{exchange_data_with_client}, 
+after @code{write_entries} and its caller @code{parse_input}, have exited.  
+@xref{Exchange Data With Client}. 
+Any data contained in files are thus sent separately.  This reason for this is to avoid problems that may arise 
+when transferring data.  There is no predefined limit on the amount of data that a file may contain, 
+so the amount of data to be transferred might be very large, which could be a potential source 
+of problems.  Sending data from files separately ensures that the database entry will not be corrupted 
+at the time of creation because of a problem in transferring the data from the files.
+@end deftypefun
+
+@findex Scan_Parse_Parameter_Type::cond_append
+@c
+@deftypefun int cond_append (Entry_Type @var{&e})
+Defined in @file{scprpmtp.web}.  Called in @code{zzparse} (@pxref{Parser Client Functions})
+in the following rules:.
+
+@iftex
+@tex
+\syntaxgroup
+\advance\parindent by 1cm
+%%
+%% !! TODO:  LDF 2012.05.31.  1cm seems to be a good guess, but it
+%% would be nice to use the actual amount of indentation here.
+%% \parindent == 0in, so it doesn't work to use it on the right-hand side of
+%% the assignment.
+%%
+\vskip.25\baselineskip
+\SetupA{statement} SERVER_ZZ SENDING_ZZ <installation_script>\hfil\break 
+STRING_ZZ FOR_ZZ ENTRY_ZZ <entry_string_list>\hfil\break  
+ORDER_ZZ INTEGER_ZZ 
+
+\SetupA{statement} SERVER_ZZ SENDING_ZZ <download_info_expression>\hfil\break 
+FOR_ZZ ENTRY_ZZ <entry_string_list> ORDER_ZZ INTEGER_ZZ 
+
+\SetupA{statement} SERVER_ZZ SENDING_ZZ DOWNLOAD_URL_ENCRYPTED_ZZ\hfil\break 
+FOR_ZZ ENTRY_ZZ <entry_string_list> ORDER_ZZ INTEGER_ZZ 
+
+\SetupA{statement} SERVER_ZZ SENDING_ZZ DOWNLOAD_COMMAND_ENCRYPTED_ZZ\hfil\break  
+FOR_ZZ ENTRY_ZZ <entry_string_list> ORDER_ZZ INTEGER_ZZ 
+
+\SetupA{statement} SERVER_ZZ SENDING_ZZ AUTHORIZATION_ZZ\hfil\break  
+FOR_ZZ ENTRY_ZZ <entry_string_list> ORDER_ZZ INTEGER_ZZ 
+
+\SetupA{statement} NO_ZZ INSTALLATION_SCRIPT_ZZ FOR_ZZ ENTRY_ZZ\hfil\break 
+<entry_string_list> ORDER_ZZ INTEGER_ZZ
+\par
+\endgroup
+\vskip.5\baselineskip
+@end tex
+@end iftex 
+
+@ifnottex
+@display
+statement: SERVER_ZZ SENDING_ZZ installation_script STRING_ZZ 
+FOR_ZZ ENTRY_ZZ entry_string_list ORDER_ZZ INTEGER_ZZ 
+
+statement: SERVER_ZZ SENDING_ZZ download_info_expression FOR_ZZ ENTRY_ZZ 
+entry_string_list ORDER_ZZ INTEGER_ZZ 
+
+statement: SERVER_ZZ SENDING_ZZ DOWNLOAD_URL_ENCRYPTED_ZZ 
+FOR_ZZ ENTRY_ZZ entry_string_list ORDER_ZZ INTEGER_ZZ 
+
+statement: SERVER_ZZ SENDING_ZZ DOWNLOAD_COMMAND_ENCRYPTED_ZZ 
+FOR_ZZ ENTRY_ZZ entry_string_list ORDER_ZZ INTEGER_ZZ 
+
+statement: SERVER_ZZ SENDING_ZZ AUTHORIZATION_ZZ 
+FOR_ZZ ENTRY_ZZ entry_string_list ORDER_ZZ INTEGER_ZZ 
+
+statement: NO_ZZ INSTALLATION_SCRIPT_ZZ FOR_ZZ ENTRY_ZZ entry_string_list 
+ORDER_ZZ INTEGER_ZZ
+@end display
+@end ifnottex 
+
+That is, this function is called in the course of the @dfn{local installation} of 
+a software package. 
+@xref{Local Software Installation}. 
+
+It conditionally appends @code{Entry_Type} @var{e} to @code{vector<Entry_Type> this->entries}.
+This function ensures that there is only one @code{Entry_Type} object per package on 
+@code{entries} (where package name and package version uniquely identify a package).
+
+It tries to find an object in @code{entries} equal 
+to the argument @code{Entry_Type} @var{e}.
+The @cpp{} Standard Template Library function @code{find}@footnote{With arguments 
+of type @code{vector<Entry_Type>::iterator} and @code{Entry_Type}, e.g.,@*
+@w{@code{vector<Entry_Type>::iterator iter = find(entries.begin(), entries.end(), e)}.}}
+uses the equality operator @code{Entry_Type::operator==}, which returns @code{true}
+if the @code{string} data member @code{package_name} and @code{package_version}
+of two @code{Entry_Type} objects are equal.
+
+If @code{entries} contains a matching element, the values of @code{int Entry_Type::install_order} 
+are compared and the existing @code{Entry_Type} on the vector has its @code{install_order} member set to 
+the maximum of the two values.  This ensures that it will be installed before any packages 
+that require it.
+@end deftypefun
+
+
+@c **** (4) Functions for Modifying Entries
+
+@node Functions for Modifying Entries, Functions for Deleting Entries, Functions for Adding Entries, Functions for Entries
+
+@subsubsection Modifying Entries
+
+
+
+
+
+@findex Scan_Parse_Parameter_Type::add_installation_script
+@findex Scan_Parse_Parameter_Type::add_authorization
+@c
+@deftypefun int add_installation_script (string @var{curr_filename},  @*@
+                                         string @var{curr_package}_name, @*@
+                                         string {@var{curr_package_version} = ""},  @*@
+                                         int {@var{encrypted} = 0})
+
+@deftypefunx int add_authorization (string @var{curr_string}, @*@ 
+                                   string @var{curr_package_name}, @*@
+                                   string {@var{curr_package_version} = ""})
+These functions are needed by the web application, because data from files must first be sent to the 
+computer where the web application is running and from there to the server.  When the data from a file 
+is sent to the web application, it is stored in a temporary file whose name is not known in advance.  The
+web application therefore saves the data, sends the commands for creating entries that it has 
+received from the user, and appends commands for adding data from the files in the appropiate 
+@end deftypefun
+
+@findex Scan_Parse_Parameter_Type::add_download_info 
+@deftypefun int add_download_info (string @var{curr_string},  @*@
+                                   string @var{curr_package_name},  @*@
+                                   string {@var{curr_package_version} = ""},  @*@
+                                   int {@var{download_info_type} = 0})
+@end deftypefun
+
+
+
+@findex Scan_Parse_Parameter_Type::write_emendations
+@c
+@deftypefun int write_emendations (void)
+@end deftypefun
+
+@c **** (4) Functions for Deleting Entries
+
+@node Functions for Deleting Entries, Showing Entries, Functions for Modifying Entries, Functions for Entries
+
+@subsubsection Deleting Entries
+
+See also @ref{Deleting Software Package Information (optdbcli)}.
+
+@findex Scan_Parse_Parameter_Type::delete_entries
+@c
+@deftypefun int delete_entries (string {@var{package_name} = ""}, string {@var{package_version} = ""})
+Deletes all of the entries with @samp{package_name} and @samp{package_version} 
+(if the latter is present) for the current user.
+Normally, it shouldn't be possible for there to be more than one entry for a 
+given @samp{package_name} with the same @samp{package_version} (or an
+empty @samp{package_version}).  
+However, if there is, this function will delete all of them.  It also deletes all 
+rows in the @t{Prerequisites} table where the @samp{entry_id} or @samp{prerequisite_id} corresponds 
+to the values of @samp{Entries.entry_id} found for @samp{package_name}, @samp{package_version} 
+for the current user.
+@end deftypefun
+
+@findex Scan_Parse_Parameter_Type::mark_entries
+@deftypefun int mark_entries (bool @var{deleted = true},  @*@
+                              string {@var{package_name} = ""},  @*@
+                              string {@var{package_version} = ""})
+Defined in @file{spptenfn.web}.
+Marks or unmarks all of the entries with |package_name| and |package_version| 
+(if the latter is present) for the current user (identified by |curr_user_id|)
+as deleted (unless it's already been marked).  
+Normally, it shouldn't be possible for there to be more than one entry for a 
+given |package_name| with the same non-empty |package_version|.  
+However, if there is, this function will mark or unmark all of them.
+
+@end deftypefun
+
+@c **** (4) Showing Entries
+
+@node Showing Entries, Functions for Fetching Entry Information, Functions for Deleting Entries, Functions for Entries
+
+@subsubsection Showing Entries
+
+@findex Scan_Parse_Parameter_Type::show_entries
+@c
+@deftypefun int show_entries (Response_Type {&@var{response}}, char {@var{buffer}[]})
+@end deftypefun
+
+See also @ref{Showing Software Package Information (optdbcli)}.
+
+@c **** (4) Functions for Fetching Entry Information
+
+@node Functions for Fetching Entry Information, , Showing Entries, Functions for Entries
+
+@subsubsection Fetching Entry Information
+
+@findex Scan_Parse_Parameter_Type::get_entries
+@c
+@deftypefun int get_entries ({vector<Entry_Type>} {&@var{ev}}, string @var{package_name}, string {@var{package_version} = ""})
+@end deftypefun
+
+
+@findex Scan_Parse_Parameter_Type::fetch_installation_script
+@c
+@deftypefun int fetch_installation_script (Response_Type {&@var{response}})
+@end deftypefun
+
+@findex Scan_Parse_Parameter_Type::fetch_download_info
+@c
+@deftypefun int fetch_download_info (Response_Type {&@var{response}})
+@end deftypefun
+
+@findex Scan_Parse_Parameter_Type::fetch_authorization
+@deftypefun int fetch_authorization (Response_Type {&@var{response}})
+@end deftypefun
+
+@findex Scan_Parse_Parameter_Type::get_encrypted
+@deftypefun int get_encrypted ({const int} {&@var{entry_id}}, string {*@var{key_name} = 0}, @
+                                string {*@var{owner} = 0})
+@end deftypefun
+
+@c *** (3) Functions for Prerequisites
+
+@node Functions for Prerequisites, Database Functions, Functions for Entries, Scan_Parse_Parameter_Type Member Functions
+
+@subsection Functions for Prerequisites
+
+@findex Scan_Parse_Parameter_Type::fetch_prerequisites
+@c
+@deftypefun int fetch_prerequisites (Response_Type {&@var{response}})
+@end deftypefun
+
+
+@findex Scan_Parse_Parameter_Type::sub_fetch_prerequisites
+@c
+@deftypefun int sub_fetch_prerequisites (MYSQL_RES {*@var{result}}, @*@
+                                         {unsigned int} @var{row_ctr}, @*@
+                                         {unsigned int} @var{field_ctr}, @*@
+                                         Entry_Type {&@var{entry}})
+@end deftypefun
+
+
+@findex Scan_Parse_Parameter_Type::request_prerequisites
+@c
+@deftypefun int request_prerequisites (string @var{package_name}, string {@var{package_version} = ""})
+@end deftypefun
+
+
+@findex Scan_Parse_Parameter_Type::add_prerequisite
+@c
+@deftypefun int add_prerequisite (int @var{curr_entry_id}, {const Entry_Type} {&@var{e}})
+@c
+@deftypefunx int add_prerequisite (string @var{package_name}, @*@
+                                   string @var{package_version}, @*@
+                                   string @var{prerequisite_name}, @*@
+                                   string @var{prerequisite_version})
+The first version is called in @samp{Scan_Parse_Parameter_Type::write_entries}
+and in the second version, which is called in @samp{yyparse}.
+
+Return values:
+@c
+@table @asis
+@item 0 
+Success
+
+@item 1 
+SQL query, mysql_fetch_row or strtol failed
+
+@item 2 
+No entry that matches this prerequisite
+
+@item 3 
+Ambiguous match for prerequisite
+
+@item 4 
+Duplicate prerequisite
+@end table
+@c
+@end deftypefun
+
+@findex Scan_Parse_Parameter_Type::delete_prerequisites
+@c
+@deftypefun int delete_prerequisites (bool @var{delete_all}, @*@
+                                       string @var{package_name}, @*@
+                                       string @var{package_version}, @*@
+                                       string {@var{prerequisite_name} = ""}, @*@
+                                       string {@var{prerequisite_version} = ""})
+@end deftypefun
+
+
+@c *** (3) Database Functions
+
+@node Database Functions, Globus Site Functions, Functions for Prerequisites, Scan_Parse_Parameter_Type Member Functions
+
+@subsection Database Functions
+
+@findex Scan_Parse_Parameter_Type::check_database_tables
+@c
+@deftypefun int check_database_tables (void)
+Defined in @file{spptdbfn.web}.
+@end deftypefun
+
+@findex Scan_Parse_Parameter_Type::lock_tables
+@c
+@deftypefn {Function} int lock_tables (vector<string> {*@var{table_vector}}, @
+                                       bool {@var{unlock} = false}, string {@var{table} = ""})
+@deftypefnx {inline function} int lock_table (string @var{s})
+@deftypefnx {inline function} int unlock_tables (void)
+@code{lock_tables} is defined in @file{spptdbfn.web}.
+The others are defined within the @code{class} declaration of @code{Scan_Parse_Parameter_Type}
+in @file{scprpmtp.web}.  They simply call @code{lock_tables} with appropriate arguments.
+
+@code{lock_table} (with a @code{string} argument) is defined in order to make it more
+convenient to lock a single table, i.e., so the programmer doesn't have to declare a 
+@code{vector<string>} and push the name of the table onto it just in order to call @code{lock_tables}.
+
+@code{unlock_tables} doesn't requre any arguments, because the MySQL command for unlocking tables
+doesn't take any, that is, all tables locked by a MySQL client session are unlocked.
+@end deftypefn
+
+@c *** (3) Globus Site Functions
+
+@node Globus Site Functions, Functions for Privileges, Database Functions, Scan_Parse_Parameter_Type Member Functions
+
+@subsection Globus Site Functions
+
+The functions in this subsection are used for adding, deleting and editing data 
+pertaining to Globus sites.  This data is stored in the database tables
+@samp{Globus_Sites} and @samp{Globus_Sites_Admins}.
+@xref{Globus_Sites Database Table}, and @ref{Globus_Sites_Admins Database Table}.
+They are declared in @file{scprpmtp.web} and defined in @file{spptgsfn.web}.
+
+These functions use the @code{Scan_Parse_Parameter_Type} member function 
+@code{check_privileges} (@pxref{Scan_Parse_Parameter_Type Member Functions}) 
+to determine whether the user is permitted to perform the action in question, 
+i.e, whether or not he or she may access and/or change the relevant data in the 
+@samp{Globus_Sites} and @samp{Globus_Sites_Admins} database tables.
+If not, the server sends an error code to the client and the latter issues 
+an error or a warning message, depending on the particular action requested.
+
+@c !! TODO: Add example.  LDF 2012.05.04.
+
+@findex Scan_Parse_Parameter_Type::add_globus_site
+@c
+@deftypefun int add_globus_site (void)
+@end deftypefun
+
+@findex Scan_Parse_Parameter_Type::mark_globus_site
+@c
+@deftypefun int mark_globus_site (bool @var{delete_gs}, string @var{globus_site}, @
+                                  int {@var{enable_optional} = 0})
+@end deftypefun
+
+
+@findex Scan_Parse_Parameter_Type::show_globus_sites
+@c
+@deftypefun int show_globus_sites (Response_Type {&@var{response}}, char {@var{buffer}[]})
+@end deftypefun
+
+
+@findex Scan_Parse_Parameter_Type::delete_globus_sites
+@c
+@deftypefun int delete_globus_sites (bool @var{finally})
+@end deftypefun
+
+@findex Scan_Parse_Parameter_Type::enable_globus_site
+@c
+@deftypefun int enable_globus_site (string @var{globus_site}, bool {@var{enable} = true})
+@end deftypefun
+
+@findex Scan_Parse_Parameter_Type::disable_globus_site
+@c
+@deftypefn {@code{inline} function} int disable_globus_site (string @var{globus_site})
+Calls @code{enable_globus_site} (see above) with @var{enable} = @code{false}.
+@end deftypefn
+
+@findex Scan_Parse_Parameter_Type::edit_globus_site
+@c
+@deftypefun int edit_globus_site (string @var{globus_site}, int @var{set_or_unset})
+@end deftypefun
+
+@findex Scan_Parse_Parameter_Type::check_globus_site_admin
+@c
+@deftypefun int check_globus_site_admin ({unsigned int} user_id, string globus_site)
+@end deftypefun
+
+
+@findex Scan_Parse_Parameter_Type::edit_globus_site_admin 
+@c
+@deftypefun int edit_globus_site_admin (string @var{globus_site}, @
+                       int @var{admin_user_id}, 
+                       int @var{action})
+@end deftypefun
+
+@c *** (3) Functions for Privileges
+
+@node Functions for Privileges, Environment Shellscript Functions, Globus Site Functions, Scan_Parse_Parameter_Type Member Functions
+
+@subsection Functions for Privileges
+
+@findex Scan_Parse_Parameter_Type::check_privileges
+@c
+@deftypefun int check_privileges ({unsigned int} {&@var{privilege_val}}, @
+                 bool {@var{quit_on_success} = false}, @
+                 string {@var{privilege} = ""}, @
+                 string {@var{globus_site} = ""}, @
+                 int {*@var{save_globus_site_id} = 0})
+Used by various other @code{Scan_Parse_Parameter_Type} member functions for Globus sites.
+@xref{Globus Site Functions}, above. 
+@end deftypefun
+
+
+@findex Scan_Parse_Parameter_Type::show_privileges
+@c
+@deftypefun int show_privileges (Response_Type {&@var{response}}, char {@var{buffer}[]})
+
+@end deftypefun
+
+@c *** (3) Environment Shellscript Functions
+
+@node Environment Shellscript Functions, Functions for GPG Keys, Functions for Privileges, Scan_Parse_Parameter_Type Member Functions
+
+@subsection Environment Shellscript Functions
+
+@findex Scan_Parse_Parameter_Type::fetch_environment_shellscripts
+@deftypefun int fetch_environment_shellscripts (Response_Type {&@var{response}})
+@end deftypefun
+
+@findex Scan_Parse_Parameter_Type::store_environment_shellscript
+@deftypefun int store_environment_shellscript (void)
+@end deftypefun
+
+@findex Scan_Parse_Parameter_Type::delete_environment_shellscripts
+@deftypefun int delete_environment_shellscripts (int {@var{id} = 0}, string {@var{globus_site} = ""})
+@end deftypefun
+
+@findex Scan_Parse_Parameter_Type::show_environment_shellscripts
+@deftypefun int show_environment_shellscripts (Response_Type {&@var{response}}, char {@var{buffer}[]})
+@end deftypefun
+
+@findex Scan_Parse_Parameter_Type::enable_environment_shellscript
+@deftypefun int enable_environment_shellscript ({unsigned int} @var{id}, bool {@var{disable_flag} = false})
+@end deftypefun
+
+@c *** (3) Functions for GPG Keys
+
+@node Functions for GPG Keys, Session Data Functions, Environment Shellscript Functions, Scan_Parse_Parameter_Type Member Functions
+
+@subsection Functions for GPG Keys
+
+@findex Scan_Parse_Parameter_Type::get_key_name
+@c
+@deftypefun string get_key_name ({const string} {&@var{owner}})
+@end deftypefun
+
+@findex Scan_Parse_Parameter_Type::store_key_pair
+@c
+@deftypefun int store_key_pair ({const char } {*@var{filename}})
+@end deftypefun
+
+@findex Scan_Parse_Parameter_Type::store_public_key
+@c
+@deftypefun int store_public_key ({const char} {*@var{filename}})
+@end deftypefun
+
+@findex Scan_Parse_Parameter_Type::fetch_key_pair
+@c
+@deftypefun int fetch_key_pair (Response_Type {&@var{response}})
+@end deftypefun
+
+@findex Scan_Parse_Parameter_Type::get_key_pair
+@c
+@deftypefun int get_key_pair (void)
+@end deftypefun
+
+@findex Scan_Parse_Parameter_Type::install_key_pair
+@c
+@deftypefun int install_key_pair ({const char} {*@var{key_name}}, {const char} {*@var{filename}})
+@end deftypefun
+
+@findex Scan_Parse_Parameter_Type::get_optinum_installer_gpg_pubkey_fingerprint
+@c
+@deftypefun int get_optinum_installer_gpg_pubkey_fingerprint (void)
+@end deftypefun
+
+@findex Scan_Parse_Parameter_Type::distribute_key_pair
+@c
+@deftypefun int distribute_key_pair (Response_Type {&@var{response}})
+@end deftypefun
+
+@findex Scan_Parse_Parameter_Type::check_public_key
+@c
+@deftypefun int check_public_key (void)
+@end deftypefun
+
+@findex Scan_Parse_Parameter_Type::delete_key_pair
+@c
+@deftypefun int delete_key_pair (void)
+@end deftypefun
+
+@findex Scan_Parse_Parameter_Type::delete_public_key
+@c
+@deftypefun int delete_public_key (void)
+@end deftypefun
+
+@c *** (3) Session Data Functions
+
+@node Session Data Functions, Other Scan_Parse_Parameter_Type Member Functions, Functions for GPG Keys, Scan_Parse_Parameter_Type Member Functions
+
+@subsection Session Data Functions
+
+@findex Scan_Parse_Parameter_Type::get_session_data
+@c
+@deftypefun int get_session_data (void)
+@end deftypefun
+
+@c *** (3) Other Scan_Parse_Parameter_Type Member Functions
+
+@node Other Scan_Parse_Parameter_Type Member Functions, , Session Data Functions, Scan_Parse_Parameter_Type Member Functions
+
+@subsection Other Member Functions
+
+@findex Scan_Parse_Parameter_Type::send_data_to_peer
+@c
+@deftypefun int send_data_to_peer (Response_Type {&@var{response}}, bool {@var{delete_local_file} = false})
+Defined in @file{spptsdtp.web}.
+Called in the functions @code{exchange_data_with_client} and 
+@code{exchange_data_with_server}.
+@xref{Exchange Data With Client}, and @ref{Exchange Data With Server}.
+@end deftypefun
+
+@findex Scan_Parse_Parameter_Type::submit_mysql_query
+@deftypefun int submit_mysql_query (string @var{query}, @*@
+                                    MYSQL_RES {*&@var{result}}, @*@
+                                    {unsigned int} {*@var{row_ctr} = 0}, @*@
+                                    {unsigned int} {*@var{field_ctr} = 0}, @*@
+                                    long {*@var{affected_rows}} = 0)
+@end deftypefun
+
+@findex Scan_Parse_Parameter_Type::show
+@c
+@deftypefun void show (string {@var{s} = "Scan_Parse_Parameter_Type:"})
+@end deftypefun
+
+
+@c * (1) Local Variables for Emacs
+
+@c Local Variables:
+@c mode:Texinfo
+@c abbrev-mode:t
+@c eval:(outline-minor-mode t)
+@c outline-regexp:"@c *\\*+"
+@c eval:(set (make-local-variable 'run-texi2dvi-on-file) "installer.texi")
+@c End:

@@ -1,0 +1,487 @@
+@c lstsrcfs.texi, Variable Index, Miscellaneous Functions, Top
+
+@c This file is part of the Optinum Grid Manual.
+@c Created by Laurence D. Finston (LDF) 2010-05-31 16:40:47 +0200 (Mon, 31 May 2010)
+
+@c Copyright (C) 2010, 2011, 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbh Goettingen
+
+@c Author:  Laurence D. Finston (LDF)
+
+@c See the section "GNU Free Documentation License" in the file 
+@c fdl.texi for copying conditions.
+
+
+@c * (1) Lists of Source Files
+
+@c @node Lists of Source Files, Variable Index, Utility Function Reference, Top
+
+@node Lists of Source Files, FDL, Glossary, Top
+
+@unnumbered Lists of Source Files
+
+@menu
+* Client/Server (optdbcli/optdbsrv) Source File List::
+* Hidden Installation (scrinstl) Source File List::
+* Web Application (optwbsrv) Source File List::
+@end menu
+
+@c ** (2) Client/Server (optdbcli/optdbsrv) Source File List
+
+@node Client/Server (optdbcli/optdbsrv) Source File List, Hidden Installation (scrinstl) Source File List,, Lists of Source Files
+
+@unnumberedsec Client/Server Source File List
+
+@menu
+* Client/Server (optdbcli/optdbsrv) CWEB Files::
+* Client/Server (optdbcli/optdbsrv) Shellscripts::
+@end menu
+
+@c *** (3) Client/Server (optdbcli/optdbsrv) CWEB Files
+
+@node Client/Server (optdbcli/optdbsrv) CWEB Files, Client/Server (optdbcli/optdbsrv) Shellscripts, , Client/Server (optdbcli/optdbsrv) Source File List
+
+@unnumberedsubsec Client/Server CWEB Files
+
+@c cmdlnopt.web
+@c cnnctcli.web
+@c connect.web
+@c dbsrvcli.web
+@c dhprxcrt.web
+@c dstngnmt.web
+@c entries.web
+@c ex_rfc2818.web
+@c ex_verify.web
+@c glblfncs.web
+@c glblvrbl.web
+@c glsinftp.web
+@c gntlsfnc.web
+@c helper.web
+@c instchwn.web
+@c instkypr.web
+@c instllfn.web
+@c kllprcss.web
+@c lstnfncs.web
+@c oldsckt.web
+@c optdbcli.web
+@c optdbsrv.web
+@c parser.web
+@c prsrclnt.web
+@c prsrfncs.web
+@c rspnstp.web
+@c scanner.web
+@c scnrclnt.web
+@c scprpmtp.web
+@c spptdbfn.web
+@c spptenfn.web
+@c spptenvf.web
+@c spptgsfn.web
+@c spptkyfn.web
+@c spptprvl.web
+@c spptsdtp.web
+@c spptshen.web
+@c spptwren.web
+@c sssndttp.web
+@c strtinst.web
+@c thrdfncs.web
+@c utilfncs.web
+@c x509cert.web
+
+@table @file
+@item cmdlnopt.web
+Code for command line options
+
+@item cnnctcli.web
+GNUTLS connections for the client
+
+@item connect.web
+GNUTLS connections for the server
+
+@item dbsrvcli.web
+CWEB driver file.  Contains no C++ code.
+
+@item dhprxcrt.web 
+
+@item dstngnmt.web
+
+@item entries.web
+Declaration of @code{class Entry_Type} and member function definitions.
+
+@item ex_rfc2818.web
+GNUTLS functions.  Taken from the GNUTLS distribution and adapted. (!! CHECK)
+
+@item ex_verify.web
+GNUTLS functions.  Taken from the GNUTLS distribution and adapted. (!! CHECK)
+
+@item glblfncs.web
+Global functions.
+
+@item glblvrbl.web
+Global variables and constants.
+
+@item glsinftp.web
+Declaration of @code{class Globus_Site_Info_Type} and member function definitions.
+
+@item gntlsfnc.web
+GNUTLS functions.  Taken from the GNUTLS distribution and adapted. (!! CHECK)
+
+@item helper.web
+GNUTLS functions.  Taken from the GNUTLS distribution and adapted. (!! CHECK)
+
+@item instchwn.web
+This file contains the @code{main} (and only) function 
+for the program @samp{instchwn}, which changes the owner for files
+installed using ``hidden installation''.  @xref{Hidden Software Installation}.
+
+@item instkypr.web                             
+Install GPG key pair.
+
+@item instllfn.web
+Installation.
+
+@item kllprcss.web
+
+@item lstnfncs.web
+``Listen'' functions for the server.
+
+@item oldsckt.web
+Functions for using sockets.  Not used.
+
+@item optdbcli.web
+The @code{main} function for the client.
+
+@item optdbrsv.web
+The @code{main} function for a rudimentary version of the server that
+can be called directly from the local host, i.e., without using a client.
+
+@item optdbsrv.web
+The @code{main} function for the server.
+
+@item optwbsrv.web
+The functions @code{main}, @code{init} and @code{parse_args} 
+for the web application.
+
+@item parser.web
+Bison code for the server's parser function (@code{yyparse}).
+
+@item prsrclnt.web
+Bison code for the client's parser function (@code{zzparse}).
+
+@item prsrfncs.web
+Functions for use in the parsers (@code{yyparse} and @code{zzparse}).
+
+@item prswbsrv.web
+The GNU Bison input file for the web application @samp{optwbsrv}.
+
+@item rspnstp.web
+
+@item scanner.web
+
+@item scnrclnt.web
+
+@item scnwbsrv.web
+The Flex input file for the web application @samp{optwbsrv}.
+
+@item scprpmtp.web
+
+@item spptdbfn.web
+@code{Scan_Parse_Parameter_Type} member function definitions for use with the database.
+
+@item spptenfn.web
+Definition of @code{Scan_Parse_Parameter_Type::mark_entries}.
+@xref{Functions for Entries}.
+
+@item spptenvf.web
+
+@item spptgsfn.web
+
+@item spptkyfn.web        
+
+@item spptprvl.web
+@code{Scan_Parse_Parameter_Type} member function definitions for ``privileges''.
+@c !! TODO:  LDF 2012.05.07.  Add cross reference, when I've added a section about privileges. 
+@xref{Privileges Database Table}.
+
+@item spptsdtp.web
+
+@item spptshen.web        
+
+@item spptwren.web        
+
+@item sssndttp.web        
+
+@item strtinst.web        
+
+@item thrdfncs.web        
+
+@item utilfncs.web        
+
+@item x509cert.web
+
+@end table
+
+@c *** (3)
+
+@node Client/Server (optdbcli/optdbsrv) Shellscripts, , Client/Server (optdbcli/optdbsrv) CWEB Files, Client/Server (optdbcli/optdbsrv) Source File List
+
+@unnumberedsubsec Client/Server Shellscripts
+
+@table @file
+
+@item checkproxy.sh
+
+@item delopttf.sh
+
+@item gen_proxy.sh
+Generate proxy credentials.  @file{gen_proxy.sh} uses the @samp{grid-proxy-init} program from 
+the Globus Toolkit distribution.  @strong{Please note} that if the 
+environment variable @samp{GLOBUS_LOCATION} is not set, this shellscript sets it to 
+@file{/usr/local/globus-4.0.8}.  If this directory does not exist or does not contain
+@samp{grid-proxy-init} (in the subdirectory @file{/bin/}) or the shellscripts @file{globus-user-env.sh} 
+and @file{globus-devel-env.sh} (in the subdirectory @file{/etc/}), this shellscript will fail. 
+
+@item instchwn.sh
+Shellscript.  Wrapper script for calling the program @samp{instchwn} 
+(see @file{instchwn.web}, above), which changes the owner for files
+installed using ``hidden installation''.  
+@xref{Client/Server (optdbcli/optdbsrv) CWEB Files}.
+
+@item instkypr.sh
+Install GPG key pair.  Wrapper script for the program @samp{instkypr} (see above).
+
+@item instoipk.sh
+GPG Public Key for @samp{optinum_installer} and set trust level to ``full''.
+
+@item kill_optdbsrv.sh
+
+@item kyprinst.sh
+
+@item prpencfs.sh
+@itemx clprpenc.sh
+
+@item setupkyp.sh
+Create GPG key pair using Distinguished Name from certificate.
+Sign the public key belonging to 'optinum_installer (scrinstl)' with it.
+The filename of the certificate may be passed as the first (currently only)
+argument to this shell script.  Otherwise, the default is './usercert.pem', 
+if it exists.  If it does not exist, this shellscript issues an error message 
+and exits with exit status 1.
+
+@item strtinst.sh
+Wrapper script for calling @samp{strtinst}.  @xref{Start Remote Installation}.
+@end table
+
+@c *** (3)
+
+@c ** (2)
+
+@node Hidden Installation (scrinstl) Source File List, Web Application (optwbsrv) Source File List, Client/Server (optdbcli/optdbsrv) Source File List, Lists of Source Files
+
+
+@unnumberedsec Hidden Installation Source File List
+
+@table @file
+@item cnnctfnc.web
+
+@item dstngnmt.web
+
+@item glblvrbl.web
+
+@item hdprxcrt.web
+
+@item paramtp.web
+
+@item prginstl.web
+
+@item rdmstrfs.web
+
+@item scrclnt.web
+
+@item scrinstl.web
+
+@item scrsrvr.web
+
+@item secure.web
+
+@item utilfncs.web
+@end table
+
+@menu
+* Hidden Installation (scrinstl) CWEB Files::
+* Hidden Installation (scrinstl) Shellscripts::
+@end menu
+
+@c *** (3)
+
+@node Hidden Installation (scrinstl) CWEB Files, Hidden Installation (scrinstl) Shellscripts, , Hidden Installation (scrinstl) Source File List
+
+@unnumberedsubsec Hidden Installation CWEB Files
+
+@c cnnctfnc.web
+@c dstngnmt.web
+@c glblvrbl.web
+@c hdprxcrt.web
+@c paramtp.web
+@c prginstl.web
+@c rdmstrfs.web
+@c scrclnt.web
+@c scrinstl.web
+@c scrsrvr.web
+@c secure.web
+@c ttemp.web
+@c utilfncs.web
+
+@table @file
+@item cnnctfnc.web
+
+@item dstngnmt.web
+
+@item glblvrbl.web
+
+@item hdprxcrt.web
+
+@item paramtp.web
+
+@item prginstl.web
+
+@item rdmstrfs.web
+
+@item scrclnt.web
+
+@item scrinstl.web
+
+@item scrsrvr.web
+
+@item secure.web
+
+@item utilfncs.web
+@end table
+
+@c *** (3)
+
+@node Hidden Installation (scrinstl) Shellscripts, , Hidden Installation (scrinstl) CWEB Files, Hidden Installation (scrinstl) Source File List
+
+@unnumberedsubsec Hidden Installation Shellscripts
+
+
+@table @file
+@item restart_scrinstl.sh
+
+@item start_scrinstl.sh
+
+@item setup_logs.sh
+
+@item gnkeybtc.sh
+@end table
+
+
+@c ** (2) Web Application (optwbsrv) Source File List
+
+@node Web Application (optwbsrv) Source File List, , Hidden Installation (scrinstl) Source File List, Lists of Source Files
+
+@unnumberedsec Web Application Source File List
+
+@c auxfltp.web
+@c ckietype.web
+@c dbfuncs.web
+@c optwbsrv.web
+@c optwbsub.web
+@c optwtyps.web
+@c prswbsrv.web
+@c scnwbsrv.web
+@c test_js.web
+@c thrdfncs.web
+@c utilfncs.web
+
+
+@table @file
+@item auxfltp.web
+Declaration of @samp{struct Auxiliary_File_Type}.
+
+@item ckietype.web
+
+@item dbfuncs.web
+
+@item optwbsrv.web
+
+@item optwbsub.web
+
+@item optwtyps.web
+
+@item prswbsrv.web
+
+@item scnwbsrv.web
+
+@item test_js.web
+
+@item thrdfncs.web
+
+@item utilfncs.web
+@end table
+
+@menu
+* Web Application (optwbsrv) CWEB Files::
+* Web Application (optwbsrv) Shellscripts::
+@end menu
+
+@c *** (3)
+
+@node Web Application (optwbsrv) CWEB Files, Web Application (optwbsrv) Shellscripts, , Web Application (optwbsrv) Source File List
+
+@unnumberedsubsec Application CWEB Files
+
+@table @file
+@item auxfltp.web
+
+@item ckietype.web
+
+@item dbfuncs.web
+
+@item optwbsrv.web
+
+@item optwbsub.web
+
+@item optwebap.web
+
+@item optwtyps.web
+
+@item prswbsrv.web
+
+@item scnwbsrv.web
+
+@item thrdfncs.web
+
+@item utilfncs.web
+@end table
+
+
+@c *** (3)
+
+@node Web Application (optwbsrv) Shellscripts, , Web Application (optwbsrv) CWEB Files, Web Application (optwbsrv) Source File List
+
+@unnumberedsubsec Application Shellscripts
+
+@table @file
+@item kill_optwbsub.sh
+
+@item restart_optwbsub.sh
+
+@item setup_logs.sh
+
+@item start_optwbsub.sh
+
+@item prinscrp.sh
+
+@item prspstdt.sh
+
+@item rnstlsrv.sh
+
+@end table
+
+
+@c Local Variables:
+@c mode:Texinfo
+@c abbrev-mode:t
+@c eval:(outline-minor-mode t)
+@c outline-regexp:"@c *\\*+"
+@c eval:(set (make-local-variable 'run-texi2dvi-on-file) "installer.texi")
+@c End:

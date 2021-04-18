@@ -1,0 +1,392 @@
+@c rspnstp.texi
+@c Created by Laurence D. Finston (LDF) Fri May 28 14:20:00 CEST 2010
+
+@c This file is part of the Optinum Grid Installer User and Reference Manual.
+
+@c Copyright (C) 2010, 2011, 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbh Goettingen
+
+@c Author:  Laurence D. Finston (LDF)
+
+@c See the section "GNU Free Documentation License" in the file 
+@c fdl.texi for copying conditions.
+
+@c * (1) Response_Type Reference
+
+@node Response_Type Reference, Scan_Parse_Parameter_Type Reference, Distinguished_Name_Type Reference, Top
+@chapter Response_Type Reference
+
+@cindex friend
+@tindex class Scan_Parse_Parameter_Type
+@tindex Scan_Parse_Parameter_Type, class
+@tindex Response_Type, class
+@tindex class Response_Type
+@c
+@findex client_connect_auth
+@findex client_connect_non_auth
+@findex exchange_data_with_server
+@findex connect_func
+@findex connect_func_non_auth
+@findex exchange_data_with_client
+@findex remote_install_rule_func
+@findex remote_install_func
+@findex sub_distribute_key_pair
+@findex yyparse
+@findex zzparse
+@c
+@code{class Response_Type} is defined in @file{rspnstp.web}.
+
+Objects of type @code{Response_Type} are used by both the server and the client 
+to control their actions and to carry information from function-to-function within the 
+program (in the case of the client) or the thread (in the case of the server).
+
+@cindex state (of program)
+@cindex program state
+@c
+As explained in @ref{Scan_Parse_Parameter_Type Reference}, an object of 
+type @code{class Scan_Parse_Parameter_Type} exists for each instance of 
+@samp{optdbcli} and each thread in @samp{optdbsrv}.  This object represents the 
+``state'', so to speak, of a run of the client or a thread in the server.
+
+@tindex deque
+@tindex stack
+@cindex deque
+@cindex stack
+@cindex response
+@c
+@code{class Scan_Parse_Parameter_Type} contains a data member 
+@code{deque<Response_Type> response_deque}.  
+@xref{Scan_Parse_Parameter_Type Data Members}.
+@code{deque} is a @dfn{container class} 
+from the @cpp{} standard template library.  A @code{deque} is like a stack, 
+except that items can be pushed onto and popped off of both ends.
+
+@cindex parser rules
+@c
+Many parser rules and functions within @samp{optdbsrv} and @samp{optdbcli} create
+``responses'' in the form of objects of type @code{Response_Type} and push them onto
+the front or the back of @code{response_deque} during the course of execution:  Onto the 
+front, if an action needs to be carried out right away and onto the back, if it can wait 
+until all the other pending operations have been done.
+
+@smalldisplay
+Normally, it is intended that the programmer only push items 
+onto the front or back of @code{Scan_Parse_Parameter_Type::response_deque}.
+Finer control of the order in which responses are processed is not usually 
+needed, especially considering that one will not normally know what 
+responses are on the @code{deque}.
+
+However, as a special case, the function @code{deque_exchange_front_2}
+(@pxref{Utility Function Reference}) swaps the front two items
+on @code{response_deque}.  Currently, this is only used 
+in the server-side parser rule
+@samp{statement: CLIENT_YY SENDING_YY KEY_PAIR_YY STRING_YY STRING_YY}, 
+where it causes messages to be sent to the client in an order
+which seems to the author to make more sense than would otherwise be the case.
+@end smalldisplay
+
+The communication between client and server is handled by the function
+@code{exchange_data_with_server} (@pxref{Exchange Data With Server}) on the client side
+and @code{exchange_data_with_client} (@pxref{Exchange Data With Client}) 
+on the server side.  As long as @code{Scan_Parse_Parameter_Type::response_deque} 
+contains one or more responses, (i.e., objects of type @code{class Response_Type}), 
+these functions pop the one at the front of the @code{deque} off, examine it, and 
+carry out the necessary actions.  Functions may be called that cause one or more
+new responses to be added to the front or back of the @code{deque}, either 
+due to the functioning of the program itself, or because of messages 
+sent from the peer.  When there are no more responses left to be processed 
+on either side, the communication between server and client is ended.
+
+The following classes and functions are @code{friends} of @code{class Response_Type}.
+
+@noindent
+Classes:
+@table @code
+@item Scan_Parse_Parameter_Type
+@ref{Scan_Parse_Parameter_Type Reference}.
+@end table
+
+@noindent
+Functions:
+@table @code
+@item client_connect_auth
+@itemx client_connect_non_auth
+@itemx exchange_data_with_server
+@ref{Client Connection Function Reference}.
+
+@item connect_func
+@item connect_func_non_auth
+@item exchange_data_with_client
+@ref{Server Connection Function Reference}.
+
+@item remote_install_rule_func
+@ref{Parser Function Reference}.
+
+@item remote_install_func
+@ref{Remote Installation}.
+
+@item sub_distribute_key_pair
+@ref{GPG Key Distribution}.
+
+@item yyparse
+@ref{Parser Server Functions}.
+
+@item zzparse
+@ref{Parser Client Functions}.
+@end table
+
+
+@menu
+* Response_Type Data Members::
+* Response_Type Member Functions::
+@end menu
+
+@c ** (2) Response_Type Data Members
+
+@node Response_Type Data Members, Response_Type Member Functions, , Response_Type Reference
+@comment  node-name,  next,  previous,  up
+
+@section Data Members
+
+@vindex Response_Type::local_filename 
+@vindex Response_Type::local_filename_1 
+@vindex Response_Type::remote_filename
+@vindex Response_Type::entry_name
+@vindex Response_Type::version
+@vindex Response_Type::entry_id
+@vindex Response_Type::distinguished_name_str
+@vindex Response_Type::type
+@vindex Response_Type::install_order
+@vindex Response_Type::command
+@vindex Response_Type::entries_all
+@vindex Response_Type::entries_single
+@vindex Response_Type::entries_public
+@vindex Response_Type::entries_user
+@vindex Response_Type::entries_with_prerequisites
+@vindex Response_Type::entries_with_dependents
+@vindex Response_Type::output_format
+@vindex Response_Type::entries_ctr
+@vindex Response_Type::certificate_user
+@vindex Response_Type::certificates_all
+@vindex Response_Type::privileges_user
+@vindex Response_Type::privileges_all
+@vindex Response_Type::local_stdout_filename
+@vindex Response_Type::local_stderr_filename
+@vindex Response_Type::remote_stdout_filename
+@vindex Response_Type::remote_stderr_filename
+@vindex Response_Type::globus_site
+@vindex Response_Type::globus_site_set
+@vindex Response_Type::show_level_map
+@vindex Response_Type::show_environment_shellscript_options
+@c
+@vindex local_filename (Response_Type)
+@vindex local_filename_1 (Response_Type)
+@vindex remote_filename (Response_Type)
+@vindex entry_name (Response_Type)
+@vindex version (Response_Type)
+@vindex entry_id (Response_Type)
+@vindex distinguished_name_str (Response_Type)
+@vindex type (Response_Type)
+@vindex install_order (Response_Type)
+@vindex command (Response_Type)
+@vindex entries_all (Response_Type)
+@vindex entries_single (Response_Type)
+@vindex entries_public (Response_Type)
+@vindex entries_user (Response_Type)
+@vindex entries_with_prerequisites (Response_Type)
+@vindex entries_with_dependents (Response_Type)
+@vindex output_format (Response_Type)
+@vindex entries_ctr (Response_Type)
+@vindex certificate_user (Response_Type)
+@vindex certificates_all (Response_Type)
+@vindex privileges_user (Response_Type)
+@vindex privileges_all (Response_Type)
+@vindex local_stdout_filename (Response_Type)
+@vindex local_stderr_filename (Response_Type)
+@vindex remote_stdout_filename (Response_Type)
+@vindex remote_stderr_filename (Response_Type)
+@vindex globus_site (Response_Type)
+@vindex globus_site_set (Response_Type)
+@vindex show_level_map (Response_Type)
+@vindex show_environment_shellscript_options (Response_Type)
+@c
+@deftypevr  {Private data members} string local_filename 
+@deftypevrx {} string local_filename_1
+@deftypevrx {} string remote_filename
+@deftypevrx {} string entry_name
+@deftypevrx {} string version
+@deftypevrx {} int entry_id
+@end deftypevr
+
+
+@deftypevr {Private data member} int type
+Value should be set to one of the ``@code{_TYPE}'' constants described below.
+If @code{type} is @code{COMMAND_ONLY_TYPE}, then only the string stored in @code{command} 
+(see below) is sent to the peer.
+
+@end deftypevr
+
+
+@deftypevr {Private data members} string distinguished_name_str
+@deftypevrx {} int install_order
+@end deftypevr
+
+@deftypevr {Private data member} string command
+@end deftypevr
+
+@deftypevr {Private data members} bool entries_all
+@deftypevrx {} bool entries_single
+@deftypevrx {} bool entries_public
+@deftypevrx {} bool entries_user
+@deftypevrx {} bool entries_with_prerequisites
+@deftypevrx {} bool entries_with_dependents
+@deftypevrx {} int output_format
+@deftypevrx {} int entries_ctr
+@deftypevrx {} bool certificate_user
+@deftypevrx {} bool certificates_all
+@deftypevrx {} bool privileges_user
+@deftypevrx {} bool privileges_all
+@deftypevrx {} string local_stdout_filename
+@deftypevrx {} string local_stderr_filename
+@deftypevrx {} string remote_stdout_filename
+@deftypevrx {} string remote_stderr_filename
+@deftypevrx {} string globus_site
+@deftypevrx {} {set<string>} globus_site_set
+@deftypevrx {} {map<int, int>} show_level_map
+@deftypevrx {} {unsigned int} show_environment_shellscript_options
+@end deftypevr
+
+@vindex Response_Type::NULL_RESPONSE_TYPE
+@vindex Response_Type::INSTALLATION_SCRIPT_TYPE
+@vindex Response_Type::INSTALLATION_SCRIPT_ENCRYPTED_TYPE
+@vindex Response_Type::COMMAND_ONLY_TYPE
+@vindex Response_Type::FETCH_INSTALLATION_SCRIPT_TYPE
+@vindex Response_Type::FETCH_DOWNLOAD_INFO_TYPE
+@vindex Response_Type::FETCH_AUTHORIZATION_TYPE
+@vindex Response_Type::FETCH_PREREQUISITES_TYPE
+@vindex Response_Type::VALIDATE_DISTINGUISHED_NAME_TYPE
+@vindex Response_Type::SEND_ENVIRONMENT_SHELLSCRIPT_TYPE
+@vindex Response_Type::FETCH_ENVIRONMENT_SHELLSCRIPT_TYPE
+@vindex Response_Type::RETURN_ENVIRONMENT_SHELLSCRIPT_TYPE
+@vindex Response_Type::SHOW_ENTRIES_TYPE
+@vindex Response_Type::SHOW_CERTIFICATES_TYPE
+@vindex Response_Type::SHOW_ENVIRONMENT_SHELLSCRIPTS_TYPE
+@vindex Response_Type::SHOW_GLOBUS_SITES_TYPE
+@vindex Response_Type::SHOW_PRIVILEGES_TYPE
+@vindex Response_Type::DOWNLOAD_URL_TYPE
+@vindex Response_Type::DOWNLOAD_COMMAND_TYPE
+@vindex Response_Type::DOWNLOAD_URL_ENCRYPTED_TYPE
+@vindex Response_Type::DOWNLOAD_COMMAND_ENCRYPTED_TYPE
+@vindex Response_Type::AUTHORIZATION_TYPE
+@vindex Response_Type::PROXY_CREDENTIAL_TYPE
+@vindex Response_Type::REMOTE_INSTALL_TYPE
+@vindex Response_Type::SECRET_KEY_TYPE
+@vindex Response_Type::PUBLIC_KEY_TYPE
+@vindex Response_Type::KEY_PAIR_TYPE
+@vindex Response_Type::FETCH_KEY_PAIR_TYPE
+@vindex Response_Type::DISTRIBUTE_KEY_PAIR_TYPE
+@vindex Response_Type::OUTPUT_FORMAT_PLAIN_TEXT
+@vindex Response_Type::OUTPUT_FORMAT_HTML
+@vindex Response_Type::OUTPUT_FORMAT_TEX
+@vindex Response_Type::OUTPUT_FORMAT_JAVASCRIPT
+@c
+@vindex NULL_RESPONSE_TYPE (Response_Type)
+@vindex INSTALLATION_SCRIPT_TYPE (Response_Type)
+@vindex INSTALLATION_SCRIPT_ENCRYPTED_TYPE (Response_Type)
+@vindex COMMAND_ONLY_TYPE (Response_Type)
+@vindex FETCH_INSTALLATION_SCRIPT_TYPE (Response_Type)
+@vindex FETCH_DOWNLOAD_INFO_TYPE (Response_Type)
+@vindex FETCH_AUTHORIZATION_TYPE (Response_Type)
+@vindex FETCH_PREREQUISITES_TYPE (Response_Type)
+@vindex VALIDATE_DISTINGUISHED_NAME_TYPE (Response_Type)
+@vindex SEND_ENVIRONMENT_TYPE (Response_Type)
+@vindex SEND_ENVIRONMENT_SHELLSCRIPT_TYPE (Response_Type)
+@vindex FETCH_ENVIRONMENT_SHELLSCRIPT_TYPE (Response_Type)
+@vindex RETURN_ENVIRONMENT_SHELLSCRIPT_TYPE (Response_Type)
+@vindex SHOW_ENTRIES_TYPE (Response_Type)
+@vindex SHOW_CERTIFICATES_TYPE (Response_Type)
+@vindex SHOW_ENVIRONMENT_SHELLSCRIPTS_TYPE (Response_Type)
+@vindex SHOW_GLOBUS_SITES_TYPE (Response_Type)
+@vindex SHOW_PRIVILEGES_TYPE (Response_Type)
+@vindex DOWNLOAD_URL_TYPE (Response_Type)
+@vindex DOWNLOAD_COMMAND_TYPE (Response_Type)
+@vindex DOWNLOAD_URL_ENCRYPTED_TYPE (Response_Type)
+@vindex DOWNLOAD_COMMAND_ENCRYPTED_TYPE (Response_Type)
+@vindex AUTHORIZATION_TYPE (Response_Type)
+@vindex PROXY_CREDENTIAL_TYPE (Response_Type)
+@vindex REMOTE_INSTALL_TYPE (Response_Type)
+@vindex SECRET_KEY_TYPE (Response_Type)
+@vindex PUBLIC_KEY_TYPE (Response_Type)
+@vindex KEY_PAIR_TYPE (Response_Type)
+@vindex FETCH_KEY_PAIR_TYPE (Response_Type)
+@vindex DISTRIBUTE_KEY_PAIR_TYPE (Response_Type)
+@vindex OUTPUT_FORMAT_PLAIN_TEXT (Response_Type)
+@vindex OUTPUT_FORMAT_HTML (Response_Type)
+@vindex OUTPUT_FORMAT_TEX (Response_Type)
+@vindex OUTPUT_FORMAT_JAVASCRIPT (Response_Type)
+@c
+@deftypevr {Public static constants} @
+               {static const int} {NULL_RESPONSE_TYPE = 0}
+@deftypevrx {} {static const int} {INSTALLATION_SCRIPT_TYPE = 1}
+@deftypevrx {} {static const int} {INSTALLATION_SCRIPT_ENCRYPTED_TYPE = 2}
+@deftypevrx {} {static const int} {COMMAND_ONLY_TYPE = 3}
+@deftypevrx {} {static const int} {FETCH_INSTALLATION_SCRIPT_TYPE = 4}
+@deftypevrx {} {static const int} {FETCH_DOWNLOAD_INFO_TYPE = 5}
+@deftypevrx {} {static const int} {FETCH_AUTHORIZATION_TYPE = 6}
+@deftypevrx {} {static const int} {FETCH_PREREQUISITES_TYPE = 7}
+@deftypevrx {} {static const int} {FETCH_ENVIRONMENT_SHELLSCRIPT_TYPE = 8}
+@deftypevrx {} {static const int} {SEND_ENVIRONMENT_SHELLSCRIPTS_TYPE = 9}
+@deftypevrx {} {static const int} {RETURN_ENVIRONMENT_SHELLSCRIPT_TYPE = 10}
+@deftypevrx {} {static const int} {VALIDATE_DISTINGUISHED_NAME_TYPE = 11}
+@deftypevrx {} {static const int} {SHOW_ENTRIES_TYPE = 12}
+@deftypevrx {} {static const int} {SHOW_CERTIFICATES_TYPE = 13}
+@deftypevrx {} {static const int} {SHOW_ENVIRONMENT_SHELLSCRIPTS_TYPE = 14}
+@deftypevrx {} {static const int} {SHOW_GLOBUS_SITES_TYPE = 15}
+@deftypevrx {} {static const int} {SHOW_PRIVILEGES_TYPE = 16}
+@deftypevrx {} {static const int} {DOWNLOAD_URL_TYPE = 17}
+@deftypevrx {} {static const int} {DOWNLOAD_COMMAND_TYPE = 18}
+@deftypevrx {} {static const int} {DOWNLOAD_URL_ENCRYPTED_TYPE = 19}
+@deftypevrx {} {static const int} {DOWNLOAD_COMMAND_ENCRYPTED_TYPE = 20}
+@deftypevrx {} {static const int} {AUTHORIZATION_TYPE = 21}
+@deftypevrx {} {static const int} {PROXY_CREDENTIAL_TYPE = 22}
+@deftypevrx {} {static const int} {REMOTE_INSTALL_TYPE = 23}
+@deftypevrx {} {static const int} {SECRET_KEY_TYPE = 24}
+@deftypevrx {} {static const int} {PUBLIC_KEY_TYPE = 25}
+@deftypevrx {} {static const int} {KEY_PAIR_TYPE = 26}
+@deftypevrx {} {static const int} {FETCH_KEY_PAIR_TYPE = 27}
+@deftypevrx {} {static const int} {DISTRIBUTE_KEY_PAIR_TYPE = 28}
+Constants for setting the @code{int type} data member.
+@end deftypevr
+
+@deftypevr {Public static constants} {static const int} {OUTPUT_FORMAT_PLAIN_TEXT = 0}
+@deftypevrx {} {static const int} {OUTPUT_FORMAT_HTML = 1}
+@deftypevrx {} {static const int} {OUTPUT_FORMAT_TEX = 2}
+@deftypevrx {} {static const int} {OUTPUT_FORMAT_JAVASCRIPT = 3}
+Constants for setting the @code{int output_format} data member.
+@end deftypevr
+
+@c ** (2) Response_Type Member Functions
+
+@node Response_Type Member Functions, , Response_Type Data Members, Response_Type Reference
+@comment  node-name,  next,  previous,  up
+
+@section Member Functions
+
+@findex Response_Type::Response_Type
+@c
+@deftypefn {Default constructor} void {Response_Type} (@code{void})
+@end deftypefn
+
+@findex Response_Type::show
+@c
+@deftypefun int show (string @var{s})
+@end deftypefun
+
+@c * (1) Local Variables for Emacs
+
+@c Local Variables:
+@c mode:Texinfo
+@c abbrev-mode:t
+@c eval:(outline-minor-mode t)
+@c outline-regexp:"@c *\\*+"
+@c eval:(set (make-local-variable 'run-texi2dvi-on-file) "installer.texi")
+@c End:

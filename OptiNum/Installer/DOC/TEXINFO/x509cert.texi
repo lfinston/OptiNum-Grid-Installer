@@ -1,0 +1,204 @@
+@c x509cert.texi
+@c Created by Laurence D. Finston (LDF) Mon May 31 14:00:47 CEST 2010
+
+@c This file is part of the Optinum Grid Installer User and Reference Manual.
+
+@c Copyright (C) 2010, 2011, 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbh Goettingen
+
+@c Author:  Laurence D. Finston (LDF)
+
+@c See the section "GNU Free Documentation License" in the file 
+@c fdl.texi for copying conditions.
+
+@c * (1) X509_Cert_Type Reference
+
+@node X509_Cert_Type Reference, Proxy Credential Function Reference, TLS Connections, Top
+
+@chapter X509_Cert_Type Reference
+
+@tindex X509_Cert_Type, class 
+@tindex class X509_Cert_Type
+@c
+@code{class X509_Cert_Type} is defined in
+@file{x509cert.web}.
+
+@cindex friend
+@c
+@tindex class Distinguished_Name_Type
+@tindex class Scan_Parse_Parameter_Type
+@c
+@tindex Distinguished_Name_Type, class
+@tindex Scan_Parse_Parameter_Type, class
+@c
+@findex connect_func
+@findex extract_dn_fields
+@findex verify_certificate_chain
+@c
+The following classes and functions are @code{friends} of @code{X509_Cert_Type}.
+
+@noindent
+Classes:
+@table @code
+@item Distinguished_Name_Type
+@ref{Distinguished_Name_Type Reference} 
+
+@item Scan_Parse_Parameter_Type
+@ref{Scan_Parse_Parameter_Type Reference}.
+@end table
+
+@noindent
+Functions:
+@table @code
+@item connect_func
+@ref{Server Connection Function Reference}.
+
+@item extract_dn_fields
+@ref{TLS Functions} 
+
+@item verify_certificate_chain
+@ref{TLS Functions} 
+@end table
+
+@menu
+* X509_Cert_Type Data Members::      
+* X509_Cert_Type Member Functions::
+@end menu
+
+@c ** (2) X509_Cert_Type Data Members
+
+@node X509_Cert_Type Data Members, X509_Cert_Type Member Functions, , X509_Cert_Type Reference
+@comment  node-name,  next,  previous,  up
+
+@section Data Members
+
+@vindex X509_Cert_Type::organization
+@vindex X509_Cert_Type::organizationalUnitName
+@vindex X509_Cert_Type::commonName
+@vindex X509_Cert_Type::countryName
+@vindex X509_Cert_Type::localityName
+@vindex X509_Cert_Type::stateOrProvinceName
+@vindex X509_Cert_Type::serialNumber
+@vindex X509_Cert_Type::Validity_notBefore
+@vindex X509_Cert_Type::Validity_notAfter
+@vindex X509_Cert_Type::issuer_cert
+@vindex X509_Cert_Type::user_name
+@vindex X509_Cert_Type::user_id
+@c
+@vindex organization (X509_Cert_Type)
+@vindex organizationalUnitName (X509_Cert_Type)
+@vindex commonName (X509_Cert_Type)
+@vindex countryName (X509_Cert_Type)
+@vindex localityName (X509_Cert_Type)
+@vindex stateOrProvinceName (X509_Cert_Type)
+@vindex serialNumber (X509_Cert_Type)
+@vindex Validity_notBefore (X509_Cert_Type)
+@vindex Validity_notAfter (X509_Cert_Type)
+@vindex issuer_cert (X509_Cert_Type)
+@vindex user_name (X509_Cert_Type)
+@vindex user_id (X509_Cert_Type)
+@c
+@deftypevr  {Private variables} string organization
+@deftypevrx {} string organizationalUnitName  
+@deftypevrx {} string commonName              
+@deftypevrx {} string countryName             
+@deftypevrx {} string localityName            
+@deftypevrx {} string stateOrProvinceName     
+@deftypevrx {} {unsigned int} serialNumber      
+@deftypevrx {} time_t Validity_notBefore      
+@deftypevrx {} time_t Validity_notAfter       
+@deftypevrx {} {X509_Cert_Type*} issuer_cert       
+@deftypevrx {} string user_name               
+@deftypevrx {} {unsigned int} user_id           
+@end deftypevr
+   
+@c ** (2) X509_Cert_Type Member Functions
+
+@node X509_Cert_Type Member Functions, , X509_Cert_Type Data Members, X509_Cert_Type Reference
+@comment  node-name,  next,  previous,  up
+
+@section Member Functions
+
+@findex X509_Cert_Type::X509_Cert_Type
+@findex X509_Cert_Type (Constructor)
+@c
+@deftypefn {Default constructor} {void} {X509_Cert_Type} (@code{void})
+@end deftypefn
+
+@c !! TODO:  `@*@' after the second-to-last line (For `time_t VValidity_notBefore = 0') causes
+@c an "Unbalanced parentheses" error.  Try to find out why.
+@c
+@c LDF 2010.05.31.
+
+@findex X509_Cert_Type::X509_Cert_Type
+@findex X509_Cert_Type (Constructor)
+@c
+@deftypefn {Constructor} {void} X509_Cert_Type (@code{unsigned int} @var{sserialNumber},  @*@
+                                         @code{X509_Cert_Type}     {@var{*iissuer_cert} @code{= 0}},  @*@
+                                         @code{string}             {@var{oorganization } @code{= ""}},  @*@
+                                         @code{string}             {@var{oorganizationalUnitName } @code{= ""}},  @*@
+                                         @code{string}             {@var{ccommonName } @code{= ""}},  @*@
+                                         @code{string}             {@var{ccountryName } @code{= ""}}, @*@ 
+                                         @code{string}             {@var{llocalityName } @code{= ""}}, @*@ 
+                                         @code{string}             {@var{sstateOrProvinceName } @code{= ""}}, @*@
+                                         @code{unsigned int}       {@var{uuser_id} @code{= 0}}, @*@
+                                         @code{string}             {@var{uuser_name } @code{= ""}}, @*@
+                                         @code{time_t}             {@var{VValidity_notBefore} @code{= 0}}, @*@
+                                         @code{time_t}             {@var{VValidity_notAfter} @code{= 0}})
+@end deftypefn
+
+@findex set (X509_Cert_Type)
+@findex X509_Cert_Type::set
+@c
+@deftypefun int set (@code{unsigned int}    sserialNumber,  @*@
+                     @code{X509_Cert_Type*} iissuer_cert            =  0, @*@
+                     @code{string}          oorganization           = "",  @*@
+                     @code{string}          oorganizationalUnitName = "", @*@
+                     @code{string}          ccommonName             = "", @*@
+                     @code{string}          ccountryName            = "", @*@
+                     @code{string}          llocalityName           = "",   @*@
+                     @code{string}          sstateOrProvinceName    = "", @*@
+                     @code{unsigned int}    uuser_id                =  0, @*@
+                     @code{string}          uuser_name              = "", @*@
+                     @code{time_t}          VValidity_notBefore     =  0, @*@
+                     @code{time_t}          VValidity_notAfter      =  0)
+
+@end deftypefun
+
+
+@findex X509_Cert_Type::show
+@findex show (X509_Cert_Type)
+@c
+@deftypefun void show (@code{string} @var{s = ""}, @
+                       @code{Scan_Parse_Parameter_Type *} @var{param = 0}, @
+                       @code{bool} @var{show_issuer = false})
+@end deftypefun
+
+@findex X509_Cert_Type::is_in_database
+@findex is_in_database (X509_Cert_Type)
+@c
+@deftypefun bool is_in_database (@code{Scan_Parse_Parameter_Type *} {@var{param} = 0})
+@end deftypefun
+
+@findex X509_Cert_Type::insert
+@findex insert (X509_Cert_Type)
+@c
+@deftypefun int insert (@code{Scan_Parse_Parameter_Type *} {@var{param} = 0})
+@end deftypefun
+
+@findex X509_Cert_Type::get_database_username
+@findex get_database_username (X509_Cert_Type)
+@c
+@deftypefun string get_database_username (@code{Scan_Parse_Parameter_Type *} {@var{param} = 0})
+@end deftypefun
+
+
+
+@c * (1) Local Variables for Emacs
+
+@c Local Variables:
+@c mode:Texinfo
+@c abbrev-mode:t
+@c eval:(outline-minor-mode t)
+@c outline-regexp:"@c *\\*+"
+@c eval:(set (make-local-variable 'run-texi2dvi-on-file) "installer.texi")
+@c End:

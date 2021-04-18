@@ -1,0 +1,247 @@
+This is installer.info, produced by makeinfo version 4.13 from
+installer.texi.
+
+OptiNum Grid Installer User and Reference Manual, edition 1.0.
+The author is Laurence D. Finston.
+
+   Copyright (C) 2010, 2011, 2012, 2013 Gesellschaft fu"r
+wissenschaftliche Datenverarbeitung mbH, Go"ttingen, Germany
+
+     Permission is granted to copy, distribute and/or modify this
+     document under the terms of the GNU Free Documentation License,
+     Version 1.2 or any later version published by the Free Software
+     Foundation; with no Invariant Sections, with the Front-Cover Texts
+     being "GWDG Archive Interface User and Reference Manual", and no
+     Back-Cover Text.  A copy of the license is included in the section
+     entitled "GNU Free Documentation License."
+
+INFO-DIR-SECTION non-GNU packages
+START-INFO-DIR-ENTRY
+* OptiNum Grid Installer: (GWDG).  OptiNum Grid Installer
+END-INFO-DIR-ENTRY
+
+
+Indirect:
+installer.info-1: 899
+installer.info-2: 239162
+installer.info-3: 519432
+
+Tag Table:
+(Indirect)
+Node: Top899
+Node: List of Figures10025
+Node: Introduction10137
+Node: Building and Installing11158
+Node: Server and Client11428
+Node: Database Setup13044
+Node: Prerequisites for Building and Installing14323
+Node: Communication Among the Programs15719
+Node: Invoking optdbcli/optdbsrv16024
+Node: Command Line Arguments and Options17579
+Node: Help Options18746
+Node: Connection Options19114
+Node: X.509 Authentication/Authorization Options19939
+Node: Input and Output Options22841
+Node: Software Installation Options23400
+Node: Debugging Options29102
+Node: Session Data Options31009
+Node: Alphabetical List of Options31751
+Node: Variable Reference Invoking34404
+Node: Function Reference Invoking34917
+Node: Using the Server Program optdbsrv35373
+Node: Using the Client Program optdbcli37934
+Node: How the Client and the Server Communicate42094
+Node: How To Read Parser Rules44919
+Node: Sample Dialogue52014
+Node: Software Package Information (optdbcli)52429
+Node: Adding Software Package Information (optdbcli)52840
+Node: Deleting Software Package Information (optdbcli)55349
+Ref: Deleting Software Package Information (optdbcli)-Footnote-163450
+Node: Showing Software Package Information (optdbcli)63540
+Node: Setting Effective User (optdbcli)65973
+Node: Showing X.509 Certificates (optdbcli)67821
+Node: Environment Shellscripts (optdbcli)69679
+Node: Sending Environment Shellscripts (optdbcli)70036
+Node: Showing Environment Shellscripts (optdbcli)72378
+Node: Showing Privileges (optdbcli)74060
+Node: Retrieving Information and Installing Locally (optdbcli)76470
+Node: Remote Installation (optdbcli)81887
+Node: Transferring Proxy Credential (optdbcli)83341
+Node: Globus Sites (optdbcli)85559
+Node: Adding Globus Sites (optdbcli)86156
+Node: Enabling and Disabling Globus Sites (optdbcli)86937
+Node: Deleting and Undeleting Globus Sites (optdbcli)87315
+Node: Globus Site Administrators (optdbcli)87834
+Node: Global Variables and Constants optdbcli/optdbsrv88717
+Node: Global Constants optdbcli/optdbsrv89084
+Node: Global Variables optdbcli/optdbsrv90883
+Node: Global Functions optdbcli/optdbsrv94531
+Node: Server Connection Function Reference95446
+Node: Exchange Data With Client97549
+Node: Client Connection Function Reference98035
+Node: Exchange Data With Server98971
+Node: Web Application99457
+Node: Accessing the Web Application101139
+Node: Data Files Web Application102761
+Ref: Data Files Web Application-Footnote-1105256
+Node: Auxiliary_File_Type105481
+Node: Global Variables and Constants Web Application105758
+Node: Web Application Functions106094
+Node: Scanner Web Application106624
+Node: Scanner Web Application Variables108199
+Node: Scanner Web Application Functions108404
+Node: Parser Web Application108637
+Node: Parser Web Application Functions108890
+Node: Software Installation109150
+Node: Normal Software Installation115424
+Node: Hidden Software Installation115619
+Node: Local Software Installation117691
+Node: Remote Software Installation118604
+Node: TLS Connections119636
+Node: Preprocessor Macros for TLS119936
+Node: Types for TLS120333
+Node: TLS Variables120804
+Node: TLS Functions121899
+Node: X509_Cert_Type Reference127694
+Node: X509_Cert_Type Data Members128436
+Node: X509_Cert_Type Member Functions128971
+Node: Proxy Credential Function Reference130639
+Node: Scanner Server132859
+Node: Scanner Server Variables133146
+Node: Scanner Server Functions133352
+Node: Parser Server133691
+Node: Parser Server Symbols Rules and States134641
+Node: Parser Server Functions235798
+Node: Scanner Client236070
+Node: Scanner Client Variables236336
+Node: Scanner Client Functions236542
+Node: Parser Client236881
+Node: Parser Client Symbols Rules and States239162
+Node: Parser Client Functions398815
+Node: Entry_Type Reference399087
+Node: Entry_Type Data Members401475
+Node: Entry_Type Member Functions402660
+Node: Entry_Type Constructors402960
+Node: Entry_Type Operators403418
+Node: Entry_Type Other Functions403945
+Node: Comparison Classes for Entry_Type404352
+Node: Operators for Comparison Classes for Entry_Type404965
+Node: Distinguished_Name_Type Reference406060
+Node: Distinguished_Name_Type Data Members407344
+Node: Distinguished_Name_Type Member Functions407768
+Node: Response_Type Reference408874
+Node: Response_Type Data Members412761
+Node: Response_Type Member Functions415969
+Node: Scan_Parse_Parameter_Type Reference416231
+Ref: Scan_Parse_Parameter_Type Reference-Footnote-1419020
+Node: Scan_Parse_Parameter_Type Data Members419252
+Node: Scan_Parse_Parameter_Type Member Functions422038
+Node: Constructors and Destructor (Scan_Parse_Parameter_Type)422631
+Node: Functions for Managing Users422994
+Node: Functions for Entries423830
+Node: Functions for Adding Entries424244
+Ref: Functions for Adding Entries-Footnote-1429254
+Node: Functions for Modifying Entries429419
+Node: Functions for Deleting Entries430712
+Node: Showing Entries432297
+Node: Functions for Fetching Entry Information432655
+Node: Functions for Prerequisites433276
+Node: Database Functions434698
+Node: Globus Site Functions435900
+Node: Functions for Privileges437791
+Node: Environment Shellscript Functions438448
+Node: Functions for GPG Keys439156
+Node: Session Data Functions440023
+Node: Other Scan_Parse_Parameter_Type Member Functions440321
+Node: Globus_Site_Info_Type Reference441118
+Node: Globus_Site_Info_Type Data Members442015
+Node: Globus_Site_Info_Type Member Functions442720
+Node: Parser Function Reference443040
+Node: GPG_Key_Pair_Type Reference443877
+Node: GPG_Key_Pair_Type Data Members444564
+Node: GPG_Key_Pair_Type Member Functions444938
+Node: Session_Data_Type Reference445277
+Node: Session_Data_Type Data Members445746
+Node: Session_Data_Type Member Functions445965
+Node: Utility Function Reference446589
+Node: Thread Function Reference447544
+Node: Remote Installation447832
+Node: GPG Key Distribution451148
+Node: Cull Database451398
+Node: Hidden Installation Reference (scrinstl)452572
+Node: Global Variables (scrinstl)452973
+Node: Global Functions (scrinstl)453526
+Node: Distinguished_Name_Type (scrinstl)456681
+Node: Distinguished_Name_Type Data Members (scrinstl)457509
+Node: Distinguished_Name_Type Member Functions (scrinstl)458033
+Node: Parameter_Type (scrinstl)459115
+Node: Parameter_Type Data Members (scrinstl)459932
+Node: Auxiliary Program and Shellscript Reference460209
+Node: Start Remote Installation460656
+Node: Kill Process462682
+Node: Install GPG Key Pair463083
+Node: Change Owner for Installed Files463857
+Node: Generate Passwords or Passphrases464205
+Node: optpsgen Options464994
+Node: optpsgen Global Variables469150
+Node: optpsgen Functions471052
+Node: Purge Installed Files471318
+Node: Database Tables and Views472286
+Node: Users Database Table472903
+Node: User_Info Database View473122
+Node: Certificates Database Table473772
+Node: Privileges Database Table474647
+Node: Delegates Database Table476339
+Node: Entries Database Table477049
+Node: Prerequisites Database Table478458
+Node: Globus_Sites Database Table478786
+Node: Key_Pairs Database Table479161
+Node: Public_Keys Database Table479522
+Node: Session_Data Database Table479853
+Node: Environment_Shellscripts Database Table480385
+Node: Globus_Sites_Admins Database Table481241
+Node: Glossary481808
+Node: A Glossary482342
+Node: B Glossary482419
+Node: C Glossary482515
+Node: D Glossary482840
+Node: E Glossary482936
+Node: F Glossary483032
+Node: G Glossary483197
+Node: H Glossary483474
+Node: I Glossary483586
+Node: J Glossary483682
+Node: K Glossary483778
+Node: L Glossary483874
+Node: M Glossary483970
+Node: N Glossary484066
+Node: O Glossary484162
+Node: P Glossary484258
+Node: Q Glossary484685
+Node: R Glossary484781
+Node: S Glossary484877
+Node: T Glossary485050
+Node: U Glossary485205
+Node: V Glossary485354
+Node: W Glossary485450
+Node: X Glossary485546
+Node: Y Glossary486000
+Node: Z Glossary486096
+Node: Lists of Source Files486173
+Node: Client/Server (optdbcli/optdbsrv) Source File List486476
+Node: Client/Server (optdbcli/optdbsrv) CWEB Files486816
+Node: Client/Server (optdbcli/optdbsrv) Shellscripts489814
+Node: Hidden Installation (scrinstl) Source File List491687
+Node: Hidden Installation (scrinstl) CWEB Files492272
+Node: Hidden Installation (scrinstl) Shellscripts492702
+Node: Web Application (optwbsrv) Source File List493025
+Node: Web Application (optwbsrv) CWEB Files493571
+Node: Web Application (optwbsrv) Shellscripts493960
+Node: FDL494305
+Node: GPL519432
+Node: Variable Index556969
+Node: Data Type Index663876
+Node: Function Index673048
+Node: Concept Index728951
+
+End Tag Table

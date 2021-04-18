@@ -1,0 +1,707 @@
+@c sftwpkin.texi
+
+@c Created by Laurence D. Finston (LDF) Thu May 24 11:09:21 CEST 2012
+
+@c This file is part of the Optinum Grid Installer User and Reference Manual.
+
+@c Copyright (C) 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbh Goettingen
+
+@c Author:  Laurence D. Finston (LDF)
+
+@c See the section "GNU Free Documentation License" in the file 
+@c fdl.texi for copying conditions.
+
+@c *** (3) Software Package Information (optdbcli)
+
+@node Software Package Information (optdbcli)
+
+@section Software Package Information
+
+@menu
+* Adding Software Package Information (optdbcli)::
+* Deleting Software Package Information (optdbcli)::
+* Showing Software Package Information (optdbcli)::
+@end menu
+
+@c **** (4) Adding Software Package Information (optdbcli)
+@node Adding Software Package Information (optdbcli), Deleting Software Package Information (optdbcli), , Software Package Information (optdbcli)
+
+@subsection Adding Software Package Information
+
+@iftex
+@tex
+\syntaxgroup
+<statement>: START_ENTRY <entry_statement_list> END_ENTRY
+
+\Setup{entry_statement_list} {\Empty}\hfil\break 
+| <entry_statement_list> <keyword_value_pair>\hfil\break 
+| <entry_statement_list> <prerequisite_statement>\hfil\break 
+| <entry_statement_list> PRIVATE\hfil\break 
+| <entry_statement_list> PUBLIC\hfil\break 
+
+\Setup{keyword_value_pair} PACKAGE_NAME STRING\hfil\break 
+| PACKAGE_VERSION STRING\hfil\break 
+| PACKAGE_VERSION INTEGER\hfil\break 
+| DOWNLOAD_URL STRING\hfil\break 
+| DOWNLOAD_URL_ENCRYPTED STRING\hfil\break 
+| DOWNLOAD_COMMAND STRING\hfil\break 
+| DOWNLOAD_COMMAND_ENCRYPTED STRING\hfil\break 
+| INSTALLATION_SCRIPT STRING\hfil\break 
+| INSTALLATION_SCRIPT_ENCRYPTED STRING\hfil\break 
+| OWNER STRING\hfil\break 
+| AUTHORIZATION STRING\hfil\break 
+
+\Setup{prerequisite_statement} PREREQUISITE STRING\hfil\break 
+| PREREQUISITE STRING STRING
+\par
+\endgroup
+@end tex
+@end iftex 
+
+@ifnottex
+@display
+statement: START_ENTRY entry_statement_list END_ENTRY
+
+entry_statement_list: /* empty */
+                    | entry_statement_list keyword_value_pair
+                    | entry_statement_list prerequisite_statement
+                    | entry_statement_list PRIVATE
+                    | entry_statement_list PUBLIC
+
+keyword_value_pair: PACKAGE_NAME STRING
+                  | PACKAGE_VERSION STRING
+                  | PACKAGE_VERSION INTEGER
+                  | DOWNLOAD_URL STRING
+                  | DOWNLOAD_URL_ENCRYPTED STRING
+                  | DOWNLOAD_COMMAND STRING
+                  | DOWNLOAD_COMMAND_ENCRYPTED STRING
+                  | INSTALLATION_SCRIPT STRING
+                  | INSTALLATION_SCRIPT_ENCRYPTED STRING
+                  | OWNER STRING
+                  | AUTHORIZATION STRING
+
+prerequisite_statement: PREREQUISITE STRING
+                      | PREREQUISITE STRING STRING
+@end display
+@end ifnottex 
+
+In the sample dialogue above, the user passes the following input to
+@samp{optdbcli}, which sends it on to to @samp{optdbsrv}:
+
+@example
+START_ENTRY
+PACKAGE_NAME    m4
+PACKAGE_VERSION 1.4.15
+DOWNLOAD_URL    http://ftp.gnu.org/gnu/m4/m4-1.4.15.tar.gz
+INSTALLATION_SCRIPT "m4_install.sh"
+END_ENTRY
+
+END
+@end example
+
+@noindent 
+Here, the @samp{DOWNLOAD_URL} keyword is used.  When @samp{optdbcli}
+is invoked at a later time to initiate the installation of 
+@samp{m4 1.4.15}, @command{wget} is used to download the compressed
+archive file (``gzipped tar file'' or @dfn{tarball})
+@file{m4-1.4.15.tar.gz} located at 
+@url{http://ftp.gnu.org/gnu/m4/m4-1.4.15.tar.gz}.
+
+This approach will not work for packages that cannot simply be
+download in this way.  For example, 
+
+@example
+DOWNLOAD_COMMAND git clone git://git.savannah.gnu.org/m4.git
+@end example
+
+
+@cindex shell expansion
+@cindex expansion, shell
+@cindex wildcards (shell expansion)
+@cindex shell expansion, wildcards
+@c
+@noindent
+In this case, the download URL and the filename for the installation
+script don't require quoting, since they don't contain any whitespace
+or characters that might be interpreted as @dfn{wildcards} for
+expansion in the course of processing by the server.  Nonetheless, it
+is safest to quote download URLs just in case.  Double quotation
+marks, as above, or angle braces (<>) may be used.
+
+@c *** (3) Entries table row, no encrypted data
+
+@c From /home/lfinsto/optinum_gwdg/vortrag_09.2011/tables.tex
+
+@iftex 
+@tex
+\vfil\eject
+\begingroup
+\catcode`\_=\active
+
+\def_{\_}
+
+\catcode`\<=\active
+\catcode`\>=\active
+
+\def<{$\langle$}
+\def>{$\rangle$}
+
+\begingroup
+\baselineskip=.75\baselineskip
+\global\setbox1=\vbox{\hbox{\#! /bin/bash}%
+\hbox{echo "m4 installation script"}%
+\hbox{{\rmnine PACKAGE_NAME}$=$m4}%
+\hbox{{\rmnine PACKAGE_VERSION}$=$1.4.15}%
+\hbox{$\lbrack\ldots\rbrack$}}
+\endgroup
+
+\setbox2=\vbox to \ht1{\vfil\hbox{installation_script}\vfil}
+
+\offinterlineskip
+
+\def\A#1#2{height2pt&\omit&&\omit&\cr 
+&#1&&#2&\cr
+\noalign{\hrule}}
+
+\global\setbox0=\vtop{\halign{&\vrule#&\strut\hss\hskip3pt#\hskip3pt\hss\cr
+%\multispan4\hss{\twelvebf Eintrag $\ldots$}\hss\cr
+\noalign{\vskip10pt\hrule}
+%
+\A{user_id}{1}
+\A{entry_id}{9}
+\A{package_name}{m4}
+\A{package_version}{1.4.15}
+\A{version_ctr}{{\rmnine NULL}}
+\A{download_url}{ftp://ftp.gwdg.de/pub/gnu/ftp/gnu/m4/m4-latest.tar.gz}
+\A{download_command}{{\rmnine NULL}}
+\A{maintainer_name}{{\rmnine NULL}}
+\A{maintainer_email_address}{{\rmnine NULL}}
+\A{private}{0}
+\A{checked_by_admin}{0}
+\A{\box2}{\box1}
+\A{created}{2011-09-09 07:30:56 UTC}
+\A{last_modified}{2011-09-09 07:30:56 UTC}
+\A{encrypted}{0}
+\A{owner}{{\rmnine NULL}}
+\A{download_url_encrypted}{{\rmnine NULL}}
+\A{download_command_encrypted}{{\rmnine NULL}}
+\A{installation_script_encrypted}{{\rmnine NULL}}
+\A{ authorization}{{\rmnine NULL}}
+}}
+
+\endgroup
+
+\centerline{{\twelvebf Entries Table Row Without Encrypted Data}}
+\vskip\baselineskip
+\hbox to 0pt{\box0\hss}
+\vskip\baselineskip
+\rightline{Fig.~\the\figctr}
+\global\advance\figctr by 1
+\write\figout{\bslchar FLE{Entries Table Row Without Encrypted Data}{\the\pageno}}
+\vfil\eject
+@end tex
+@end iftex
+
+@ifhtml
+@display
+[Table not available in HTML]
+@end display
+@end ifhtml
+
+@ifinfo
+[Table not available in Info]
+@end ifinfo
+
+@c *** (3) Row from Entries table with encrypted data.
+
+
+@iftex
+@tex 
+\begingroup
+
+\catcode`\_=\active
+
+\def_{\_}
+
+%% download_url_encrypted
+
+\setbox3=\hbox{hQIOA9va92BAyk8NEAf8C0SjONIwZnp5l9J3y76ETzlUduHP0+SMdhby}
+\setbox6=\hbox{Qgs09ppkWMS3f8pAzmbKONGr80V98bhX/ryJdiPZVIlCrzmidogxX2AI}
+
+\dimen0=\ifdim\wd3>\wd6\wd3\else\wd6\fi
+
+%% installation_script_encrypted
+
+\setbox7=\hbox{hQIOA9va92BAyk8NEAgAgXA5CM9GDE3Vt5jnhthmF4Dei9taUCShQrrc}
+\setbox8=\hbox{rlvAT+GI49bjYVsm5FaH3lJHccOyXVE8n/1JhD47BOPGXNwm6inAbMps}
+
+\dimen1=\ifdim\wd7>\wd8\wd7\else\wd8\fi
+
+\setbox\scratchboxa=\hbox{hQIOA9va92BAyk8NEAf9GTwSyTxCZFVKH1jJByMDqVG0b0hAjP9}
+\setbox\scratchboxb=\hbox{SyPr1CqK3dFtqreNIxz6WU2UT8HRIMvLu3HA8bqfV44H+7Ipf8Y}
+
+\dimen2=\ifdim\wd\scratchboxa>\wd\scratchboxb\wd\scratchboxa\else\wd\scratchboxb\fi
+
+\catcode`\<=\active
+\catcode`\>=\active
+
+\def<{$\langle$}
+\def>{$\rangle$}
+
+\begingroup
+\baselineskip=.825\baselineskip
+
+\global\setbox1=\vbox{{\rmnine\hbox{C=DE/O=GridGermany/OU=Gesellschaft fuer 
+wissenschaftliche }%
+\hbox{Datenverarbeitung mbH/CN=Laurence Finston}}}
+
+\global\setbox2=\vbox to \ht1{\vfil \hbox{owner}\vfil}
+
+\global\setbox4=\vbox{\vskip2pt\hbox to \dimen0{{-}{-}{-}{-}{-}BEGIN PGP MESSAGE{-}{-}{-}{-}{-}\hfil}
+\hbox to \dimen0{Version: GnuPG v2.0.9 (GNU/Linux)\hfil}%
+\box3
+\box6
+\hbox{\strut $\lbrack\ldots\rbrack$\hfil}%
+\hbox{{-}{-}{-}{-}{-}END PGP MESSAGE{-}{-}{-}{-}{-}\hfil}\vskip2pt}
+
+\global\setbox9=\vbox{\vskip2pt\hbox to \dimen0{{-}{-}{-}{-}{-}BEGIN PGP MESSAGE{-}{-}{-}{-}{-}\hfil}
+\hbox to \dimen0{Version: GnuPG v2.0.9 (GNU/Linux)\hfil}%
+\box7
+\box8
+\hbox{\strut $\lbrack\ldots\rbrack$\hfil}%
+\hbox{{-}{-}{-}{-}{-}END PGP MESSAGE{-}{-}{-}{-}{-}\hfil}\vskip2pt}
+
+\global\setbox\scratchboxc=\vbox{\vskip2pt\hbox to \dimen0{{-}{-}{-}{-}{-}BEGIN PGP MESSAGE{-}{-}{-}{-}{-}\hfil}
+\hbox to \dimen0{Version: GnuPG v2.0.9 (GNU/Linux)\hfil}%
+\box\scratchboxa
+\box\scratchboxb
+\hbox{\strut $\lbrack\ldots\rbrack$\hfil}%
+\hbox{{-}{-}{-}{-}{-}END PGP MESSAGE{-}{-}{-}{-}{-}\hfil}\vskip2pt}
+
+\global\setbox\scratchboxd=\vbox to \ht\scratchboxc{\vfil \hbox{authorization}\vfil}
+
+\endgroup
+
+\setbox5=\vbox to \ht4{\vfil\hbox{download_url_encrypted}\vfil}
+\setbox8=\vbox to \ht9{\vfil\hbox{installation_script_encrypted}\vfil}
+
+%% Boxes used:    0, 1,       4, 5,    8, 9
+%% Boxes unused:        2, 3,       7,  
+
+\offinterlineskip
+
+\def\A#1#2{height2pt&\omit&&\omit&\cr 
+&#1&&#2&\cr
+\noalign{\hrule}}
+
+\setbox0=\vtop{\halign{&\vrule#&\strut\hss\hskip3pt#\hskip3pt\hss\cr
+%% \multispan4\hss{\largebf Eintrag aus der Tabelle \largebflgq/Entries\largebfrgq/
+%% mit verschlüsselten Feldern}\hss\cr
+\noalign{\vskip10pt\hrule}
+%
+\A{user_id}{1}
+\A{entry_id}{11}
+\A{package_name}{hello}
+\A{package_version}{2.7}
+\A{version_ctr}{{\rmnine NULL}}
+\A{download_url}{{\rmnine NULL}}
+\A{download_command}{{\rmnine NULL}}
+\A{maintainer_name}{{\rmnine NULL}}
+\A{maintainer_email_address}{{\rmnine NULL}}
+\A{private}{1}
+\A{checked_by_admin}{0}
+\A{installation_script}{{\rmnine NONE}}
+\A{created}{2011-09-09 07:30:56 UTC}
+\A{last_modified}{2011-09-09 07:30:56 UTC}
+\A{encrypted}{1}
+\A{\box2}{\box1}
+\A{\box5}{\box4}
+%%
+\A{download_command_encrypted}{{\rmnine NULL}}
+\A{\box8}{\box9}
+\A{\box\scratchboxd}{\box\scratchboxc}
+}}
+\centerline{{\twelvebf Entries Table Row With Encrypted Data}}
+\vskip.75cm
+\hbox to \hsize{\hskip-.75in\box0\hss}
+\endgroup
+\vskip\baselineskip
+\rightline{Fig.~\the\figctr}
+\global\advance\figctr by 1
+\write\figout{\bslchar FLE{Entries Table Row With Encrypted Data}{\the\pageno}}
+\vfil\eject
+@end tex
+@end iftex
+
+@ifhtml
+@display
+[Table not available in HTML]
+@end display
+@end ifhtml
+
+@ifinfo
+[Table not available in Info]
+@end ifinfo
+
+@c **** (4) Deleting Software Package Information (optdbcli)
+@node Deleting Software Package Information (optdbcli), , Adding Software Package Information (optdbcli),  Software Package Information (optdbcli)
+
+@subsection Deleting Software Package Information
+
+@iftex
+@tex
+\syntaxgroup
+\Setup{statement} MARK AS DELETED ENTRY <entry_string_list>\hfil\break 
+| MARK AS DELETED ALL ENTRIES FOR USER\hfil\break 
+| UNDELETE ENTRY <entry_string_list>\hfil\break 
+| UNDELETE ALL DELETED ENTRIES FOR USER\hfil\break 
+| DELETE ENTRY <entry_string_list> FINALLY\hfil\break
+| DELETE ALL ENTRIES FOR USER FINALLY\hfil\break 
+| DELETE PREREQUISITE <prerequisite_string_list> FOR ENTRY <entry_string_list>\hfil\break 
+| DELETE PREREQUISITES FOR ENTRY <entry_string_list>\hfil\break 
+
+<entry_string_list>: {\Empty} | <entry_string_list> STRING
+
+<prerequisite_string_list>:   {\Empty} | <prerequisite_string_list> STRING
+
+\par
+\endgroup
+@end tex
+@end iftex
+
+@ifnottex
+@display
+statement:   MARK AS DELETED ENTRY entry_string_list
+           | MARK AS DELETED ALL ENTRIES FOR USER
+           | UNDELETE ENTRY entry_string_list
+           | UNDELETE ALL DELETED ENTRIES FOR USER
+           | DELETE ENTRY entry_string_list FINALLY
+           | DELETE ALL ENTRIES FOR USER FINALLY
+           | DELETE PREREQUISITE prerequisite_string_list FOR ENTRY entry_string_list
+           | DELETE PREREQUISITES FOR ENTRY entry_string_list
+
+entry_string_list: /* empty */ | entry_string_list STRING
+
+prerequisite_string_list:   /* empty */
+                          | prerequisite_string_list STRING
+
+
+@end display
+@end ifnottex
+
+A software package entry can be marked for deletion, for example:
+
+@example
+mark as deleted entry "hello" "2.7"
+@result{} 
+Marked entry `hello 2.7' as deleted successfully.
+
+show entry hello 2.7
+@result{} 
+*** User Entries ***
+
+user_id:                        1
+commonName:                     Laurence Finston
+organizationalUnitName:         Gesellschaft fuer wissenschaftliche \
+                                Datenverarbeitung mbH
+countryName:                    DE
+entry_id:                       1
+package_name:                   hello
+package_version:                2.7
+version_ctr:                    NULL
+download_url: \
+   ftp://ftp.gwdg.de/pub/gnu/ftp/gnu/hello/hello-2.7.tar.gz
+download_command:               NULL
+maintainer_name:                NULL
+maintainer_email_address:       NULL
+private:                        0
+checked_by_admin:               0
+installation_script:            PRESENT
+created:                        2012-05-21 12:16:25 UTC
+last_modified:                  2012-05-21 14:19:12 UTC
+encrypted:                      0
+owner:                          NULL
+download_url_encrypted:         NULL
+download_command_encrypted:     NULL
+installation_script_encrypted:  NULL
+
+authorization:                  NULL
+
+deleted:                        1
+@end example
+
+@noindent 
+The @samp{deleted} field is set to 1 (@samp{true}) and the timestamp in the @samp{last_modified} 
+field is updated.  The entry will now remain in the database for approximately 24 hours before
+being deleted by the function @code{cull_database} (@pxref{Cull Database}).  This function 
+runs in a thread of its own and ``wakes up'' every two hours to delete expired items from 
+the database.  A software package entry that has been marked for deletion should therefore never
+remain in the @samp{Entries} table for more than 26 hours plus a few seconds.
+
+Between the time that an entry has been marked for deletion and the time it's actually deleted, 
+it will still be shown by a @samp{show} command and @emph{and can still be installed}.  
+It can also be ``undeleted'', if the user decides that it's needed after all:
+
+@example
+undelete entry hello 2.7
+@result{} 
+Unmarked entry `hello 2.7' as deleted successfully.
+@end example
+
+The @samp{delete @dots{} finally} commands delete one or more entries 
+``irrevocably''@footnote{Of course, a new entry containing the same data can be created again at any time.}:
+
+@example
+delete entry hello 2.7 finally
+@result{} 
+Deleted entry `hello 2.7'.
+@end example
+
+Marking an entry for deletion that's already been marked or undeleting one that hasn't been 
+marked for deletion has no effect.  Nor does marking or undeleting a non-existent entry.
+However, in all of these cases the server sends a warning to the client:
+
+@example
+mark as deleted entry bison 2.4.3
+@result{} 
+Marked entry `bison 2.4.3' as deleted successfully.
+
+mark as deleted entry bison 2.4.3
+@result{} 
+WARNING!  Failed to mark entry `bison 2.4.3' as deleted:
+Entry already marked for deletion.
+Continuing.
+WARNING!  In `main':  `warnings_occurred' == 1
+(No errors)
+See error logfile `/tmp/optdbcli_error.log.JV95cR' and/or \
+   logfile `/tmp/optdbcli.log.pXk2pp' for more information.
+Exiting function with return value 4.
+
+delete entry bison 2.4.3 finally
+@result{} 
+Deleted entry `bison 2.4.3'.
+
+delete entry bison 2.4.3 finally
+@result{} 
+WARNING!  Failed to delete entry `bison 2.4.3'.  Continuing.
+WARNING!  In `main':  `warnings_occurred' == 1
+(No errors)
+See error logfile `/tmp/optdbcli_error.log.GT0Rhp' and/or \
+   logfile `/tmp/optdbcli.log.uM6H0M' for more information.
+@end example
+
+@cindex culling software package entries
+@cindex deleting prerequisites
+@c
+When software package entries are deleted ``finally'', or ``culled'' from the @samp{Entries} database table 
+by @code{cull_database}, rows in the @samp{Prerequisites} table that refer to these packages are 
+deleted, too.  Please note that they are @emph{not} deleted when a package has merely been marked 
+for deletion.  Otherwise, the information in the @samp{Prerequisites} table would be lost, if the 
+package were undeleted before being deleted finally.
+
+In the following example, @samp{m4 1.4.15} is a prerequisite of both @samp{bison 2.4.3} and @samp{hello 2.7}.
+After the entry for @samp{m4 1.4.15} has been deleted, it is no longer a prerequisite of the other packages:
+
+@example
+show entries user with_dependents with_prerequisites
+@result{} 
+*** User Entries ***
+
+user_id:                        1
+commonName:                     Laurence Finston
+organizationalUnitName:         Gesellschaft fuer wissenschaftliche \
+                                   Datenverarbeitung mbH
+countryName:                    DE
+entry_id:                       1
+package_name:                   bison
+package_version:                2.4.3
+[...]
+deleted:                        0
+
+Prerequisites:                  m4 1.4.15
+
+No dependents
+
+
+user_id:                        1
+commonName:                     Laurence Finston
+organizationalUnitName:         Gesellschaft fuer wissenschaftliche \
+                                   Datenverarbeitung mbH
+countryName:                    DE
+entry_id:                       2
+package_name:                   hello
+package_version:                2.7
+[...]
+deleted:                        0
+
+Prerequisites:                  m4 1.4.15
+
+No dependents
+
+
+user_id:                        1
+commonName:                     Laurence Finston
+organizationalUnitName:         Gesellschaft fuer wissenschaftliche \
+                                   Datenverarbeitung mbH
+countryName:                    DE
+entry_id:                       3
+package_name:                   m4
+package_version:                1.4.15
+[...]
+deleted:                        0
+
+No prerequisites
+
+Dependents:                     bison 2.4.3
+                                hello 2.7
+
+delete entry m4 1.4.15 finally
+@result{} 
+Deleted entry `m4 1.4.15'.
+
+show entries user with_dependents with_prerequisites
+@result{} 
+*** User Entries ***
+
+user_id:                        1
+commonName:                     Laurence Finston
+organizationalUnitName:         Gesellschaft fuer wissenschaftliche \
+                                   Datenverarbeitung mbH
+countryName:                    DE
+entry_id:                       1
+package_name:                   bison
+package_version:                2.4.3
+[...]
+
+deleted:                        0
+
+No prerequisites
+
+No dependents
+
+
+user_id:                        1
+commonName:                     Laurence Finston
+organizationalUnitName:         Gesellschaft fuer wissenschaftliche \
+                                   Datenverarbeitung mbH
+countryName:                    DE
+entry_id:                       2
+package_name:                   hello
+package_version:                2.7
+[...]
+deleted:                        0
+
+No prerequisites
+
+No dependents
+@end example
+
+See also @ref{Functions for Deleting Entries}.
+
+@c **** (4) Showing Software Package Information (optdbcli)
+@node Showing Software Package Information (optdbcli), , , Software Package Information (optdbcli)
+
+@subsection Showing Software Package Information
+
+The @samp{show entries} command is used for fetching information about
+software packages from the database and displaying them on the user's
+computer terminal.
+
+The complete syntax of the @samp{show entries} command is as follows:
+
+@iftex
+@tex
+\syntaxgroup
+\Setup{statement} 
+SHOW ENTRY <entry_string_list> <show_option_list>\hfil\break 
+| SHOW ENTRIES <show_option_list>
+
+<show_option_list>: {\Empty} | <show_option_list> <show_option>
+
+\Setup{show_option} 
+ALL | USER | PUBLIC | WITH_PREREQUISITES WITH_DEPENDENTS\hfil\break
+| WITH_INSTALLATION_SCRIPT | HTML | JAVASCRIPT | LEVELS <level_list>
+
+\Setup{level_list} {\Empty} | <level_list> INTEGER INTEGER\hfil\break
+| <level_list> INTEGER INTEGER SEMI_COLON\hfil\break
+| <level_list> INTEGER INTEGER SLASH
+\par
+\endgroup
+@end tex
+@end iftex
+
+@ifnottex
+@display
+statement:   SHOW ENTRY entry_string_list show_option_list
+           | SHOW ENTRIES show_option_list
+
+show_option_list: /* empty */
+                | show_option_list show_option
+
+show_option: ALL
+           | USER
+           | PUBLIC
+           | WITH_PREREQUISITES
+           | WITH_DEPENDENTS
+           | WITH_INSTALLATION_SCRIPT
+           | HTML
+           | JAVASCRIPT
+           | LEVELS level_list
+
+level_list: /* empty */
+          | level_list INTEGER INTEGER
+          | level_list INTEGER INTEGER SEMI_COLON
+          | level_list INTEGER INTEGER SLASH
+@end display
+@end ifnottex
+
+Example:
+
+@example
+show entries user
+@result{}
+*** User Entries ***
+
+user_id:                        1
+commonName:                     Laurence Finston
+organizationalUnitName:         Gesellschaft fuer wissenschaftliche \
+                                   Datenverarbeitung mbH
+countryName:                    DE
+entry_id:                       1
+package_name:                   hello
+package_version:                2.7
+version_ctr:                    NULL
+download_url:                   ftp://ftp.gwdg.de/pub/gnu/ftp/gnu/\
+                                   hello/hello-2.7.tar.gz
+download_command:               NULL
+maintainer_name:                NULL
+maintainer_email_address:       NULL
+private:                        0
+checked_by_admin:               0
+installation_script:            PRESENT
+created:                        2012-05-14 13:00:45 UTC
+last_modified:                  2012-05-14 13:00:45 UTC
+encrypted:                      0
+owner:                          NULL
+download_url_encrypted:         NULL
+download_command_encrypted:     NULL
+installation_script_encrypted:  NULL
+
+authorization:                  NULL
+
+deleted:                        0
+
+@end example
+
+See also @ref{Showing Entries}.
+
+
+@c * (1) Local Variables for Emacs
+  
+@c Local Variables:
+@c mode:Texinfo
+@c abbrev-mode:t
+@c eval:(outline-minor-mode t)
+@c outline-regexp:"@c *\\*+"
+@c eval:(set (make-local-variable 'run-texi2dvi-on-file) "installer.texi")
+@c End:

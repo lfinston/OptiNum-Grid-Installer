@@ -1,0 +1,61 @@
+@c utilfncs.texi
+@c Created by Laurence D. Finston (LDF) Wed May  5 14:36:02 CEST 2010
+@c This file is part of the Optinum Grid Installer User and Reference Manual.
+
+@c Copyright (C) 2010, 2011, 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbh Goettingen
+
+@c Author:  Laurence D. Finston (LDF)
+
+@c See the section "GNU Free Documentation License" in the file 
+@c fdl.texi for copying conditions.
+
+@c * (1) Utility Function Reference
+
+@node  Utility Function Reference, Thread Function Reference, Session_Data_Type Reference, Top
+@chapter Utility Function Reference
+
+@deftypefun int init_globus_site_map (void)
+Defined in @file{lstnfncs.web}.
+@end deftypefun
+
+@deftypefun void delete_temp_files (void)
+@end deftypefun
+
+@deftypefun void delete_fifos (void)
+@end deftypefun
+
+@deftypefun {const char*} get_dir (uid_t uid)
+@end deftypefun
+
+@deftypefun int check_dir ({const string} path, bool {exit_on_found = false})
+@end deftypefun
+
+@deftypefun int dir_is_empty ({const string} path)
+@end deftypefun
+
+@deftypefun int get_date_time (time_t* {t = 0}, char {*d = 0}, time_t {s = 0})
+@end deftypefun
+
+@deftypefun int create_temp_file (string& filename, ofstream {*out_strm = 0}, string {prefix = "FF"})
+@end deftypefun
+
+@deftypefun string get_proxy_cred_filename (string @var{user_name})
+@end deftypefun
+
+@deftypefn {Template function} {template <class C> int} deque_exchange_front_2 ({deque<C>} {&d})
+@end deftypefn
+
+@deftypefun int set_debug_level (bool {&DEBUG})
+@end deftypefun
+
+@c ** (2)
+
+@c * (1) Local Variables for Emacs
+  
+@c Local Variables:
+@c mode:Texinfo
+@c abbrev-mode:t
+@c eval:(outline-minor-mode t)
+@c outline-regexp:"@c *\\*+"
+@c eval:(set (make-local-variable 'run-texi2dvi-on-file) "installer.texi")
+@c End:

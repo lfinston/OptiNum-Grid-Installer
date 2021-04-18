@@ -1,0 +1,108 @@
+%% figures.tex
+%% Created by Laurence D. Finston (LDF) Thu Nov  4 17:09:09 CET 2010
+
+%% $Id: figures.tex 7845 2012-04-10 15:23:42Z finston $
+
+%% * (1) Top
+
+%% ** (2)
+
+\input epsf 
+\nopagenumbers
+
+\input colordvi.tex
+
+%\input rotate.tex  %% (copied from ./tex/generic/dvips/rotate.tex)
+
+%% Example of rotation:  
+%%
+%% \vbox to \vsize{\vss
+%% \rotl0  %% Rotate box0
+%% \vskip2cm
+%% }
+%%
+%% For more information, see
+%%
+%% LDF 2010.11.25.
+
+\def\epsfsize#1#2{#1}
+
+
+%% ** (2) Papersize, margins, offsets, etc.
+
+%% DIN A4 Portrait
+
+\iftrue % \iffalse
+\special{papersize=210mm, 297mm}
+\hsize=210mm
+\vsize=297mm
+\fi
+
+%% DIN A3 Portrait
+
+\iffalse
+\special{papersize=297mm, 420mm}
+\hsize=210mm
+\vsize=297mm
+\fi
+
+\advance\voffset by -1in
+\advance\voffset by 1cm
+
+\advance\hoffset by -1in
+\advance\hsize by 1in
+
+\advance\hoffset by 1cm
+\advance\hsize by -4.5cm
+
+\advance\baselineskip by 4pt
+
+%% ** (2) Fonts
+
+\font\large=cmr12
+\font\small=cmr8
+\font\largebf=cmbx12
+\font\largett=cmtt12
+
+
+%% ** (2)
+
+\pageno=1
+
+\headline={\hfil}
+
+\parindent=0pt
+
+
+\large
+
+%% ** (2) Page 1 --- Softwarepaket der Datenbank hinzufuegen
+
+\line{\hskip 0cm\epsffile{figures.1}\hss}
+\vskip2\baselineskip
+
+
+\vfil\eject
+            
+\bye
+
+
+
+%% ** (2) 
+
+
+%% ** (2) End of TeX code
+
+
+\bye
+
+%% * (1) Local variables for Emacs.
+
+%% Local Variables:
+%% mode:plain-TeX
+%% eval:(outline-minor-mode t)
+%% eval:(read-abbrev-file abbrev-file-name)
+%% abbrev-mode:t
+%% outline-regexp:"%% [*\f]+"
+%% End:
+

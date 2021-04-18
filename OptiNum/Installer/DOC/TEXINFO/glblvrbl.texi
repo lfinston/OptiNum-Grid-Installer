@@ -1,0 +1,265 @@
+@c glblvrbl.texi
+@c Created by Laurence D. Finston (LDF) Wed May  5 14:45:25 CEST 2010
+
+@c This file is part of the Optinum Grid Installer User and Reference Manual.
+@c Copyright (C) 2010, 2011, 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbh Goettingen
+@c See the section "GNU Free Documentation License" in the file 
+@c fdl.texi for copying conditions.
+
+@c Author:  Laurence D. Finston (LDF)
+
+@c * (1)  Global Variables and Constants optdbcli/optdbsrv
+
+@node  Global Variables and Constants optdbcli/optdbsrv, Global Functions optdbcli/optdbsrv, Using the Client Program optdbcli, Top
+@chapter Global Variables and Constants optdbcli/optdbsrv
+
+@menu
+* Global Constants optdbcli/optdbsrv::
+* Global Variables optdbcli/optdbsrv::
+@end menu
+
+@c ** (2) Global Constants optdbcli/optdbsrv
+
+@node Global Constants optdbcli/optdbsrv, Global Variables optdbcli/optdbsrv,  , Global Variables and Constants optdbcli/optdbsrv
+@comment  node-name,  next,  previous,  up
+
+@section Global Constants optdbcli/optdbsrv
+
+@deftypevr {Global Constant} string {DEFAULT_PORT_STR_AUTH = "5556"}
+
+The port to which users will be connecting per default with authentication as a @code{string}.
+@end deftypevr
+
+
+@deftypevr {Global Constant} int {DEFAULT_PORT_NUM_AUTH = 5556}   
+The port to which users will be connecting  per default with authentication as an integer.
+@end deftypevr
+
+@deftypevr {Global Constant} string {DEFAULT_PORT_STR_NON_AUTH = "5557"}
+The port to which users will be connecting per default without authentication as a @code{string}.
+@end deftypevr
+
+@deftypevr {Global Constant} int {DEFAULT_PORT_NUM_NON_AUTH = 5557}
+The port to which users will be connecting  per default without authentication as an integer.
+@end deftypevr
+
+
+@deftypevr  {Global Constants} int {MAX_PROTOCOL = 4} 
+@deftypevrx {} int {NULL_PROTOCOL = 0} 
+@deftypevrx {} int {FTP_PROTOCOL = 1}  
+@deftypevrx {} int {HTTP_PROTOCOL = 2} 
+@deftypevrx {} int {HTTPS_PROTOCOL = 3}
+@code{MAX_PROTOCOL} must be changed whenever protocols are added.
+@end deftypevr
+
+@deftypevr {} string {DEFAULT_CA_FILENAME}
+The default value is conditionally compiled, depending on the
+platform.  It is only non-empty for a selection of machines known to
+the author.  If non-empty, the filename is always
+@file{DFN-VereinPCAGrid-G01.pem}, but the path differs.
+
+@deftypevrx {} string {DEFAULT_CRL_FILENAME = ""}
+@end deftypevr
+
+@deftypevr {Global Constant} int {MAX_FILENAME = 128}
+@end deftypevr
+
+@deftypevr {Global Constant} int {MAX_USER_ID = 128}
+@end deftypevr
+
+@deftypevr {Global Constant} {unsigned int} {SHOW_USER_ENTRIES   = 1}
+@end deftypevr
+
+@deftypevr {Global Constant} {unsigned int} {SHOW_PUBLIC_ENTRIES = 2}
+@end deftypevr
+
+@deftypevr {Global Constant} string {DEFAULT_LOG_FILENAME = "/tmp/optdbcli.log"}
+@end deftypevr
+
+@deftypevr {Global Constant} string {DEFAULT_ERR_LOG_FILENAME = "/tmp/optdbcli_error.log"}
+@end deftypevr
+
+@c ** (2) Global Variables optdbcli/optdbsrv
+
+@node Global Variables optdbcli/optdbsrv,  , Global Constants optdbcli/optdbsrv, Global Variables and Constants optdbcli/optdbsrv
+
+@section Global Variables optdbcli/optdbsrv
+
+@deftypevr {Global Variable} {unsigned int} thread_ctr
+Initialized to 0.
+@end deftypevr
+
+@deftypevr {Global Variables} pthread_mutex_t thread_ctr_mutex
+@deftypevrx {} pthread_mutex_t cerr_mutex
+@deftypevrx {} pthread_mutex_t global_variable_mutex
+@deftypevrx {} pthread_mutex_t session_data_mutex
+@deftypevrx {} pthread_mutex_t log_strm_mutex
+@deftypevrx {} pthread_mutex_t err_log_strm_mutex
+Mutexes.
+@end deftypevr
+
+@deftypevr {Global Variables} ofstream output_file_strm
+@deftypevrx {} ofstream log_strm
+@deftypevrx {} ofstream err_log_strm
+Output file streams.
+@end deftypevr
+
+@deftypevr {Global Variables} string server_ip_address
+The IP address of the server.  Used by the client.
+@end deftypevr
+
+@deftypevr {Global Variables} string port_str_auth
+@deftypevrx {} string port_str_non_auth
+@deftypevrx {} int port_num_auth     
+@deftypevrx {} int port_num_non_auth 
+Ports.  Initialized to @code{""} or @code{0}, as appropriate.
+@end deftypevr
+
+@deftypevr {Global Variables} string input_filename
+@deftypevrx {} string output_filename
+Filenames.
+@end deftypevr
+
+@deftypevr {Global Variable} bool {save_temp_files = false}
+@end deftypevr
+
+@deftypevr {Global Variable} string {owner_certificate = ""}
+@end deftypevr
+
+@deftypevr {Global Variable} int {sleep_value = 0}  
+For debugging.
+@end deftypevr
+
+@deftypevr {Global Variable} {map<string, string>} dn_fields
+@end deftypevr
+
+@deftypevr {Global Variable} {map<string, string>} dn_username_map
+@end deftypevr
+
+@deftypevr {Global Variables} bool is_client
+@deftypevrx {} bool is_server
+@end deftypevr
+
+@deftypevr {Global Variables} string distinguished_name_str  
+@deftypevrx {} Distinguished_Name_Type distinguished_name
+@deftypevrx {} {vector<Distinguished_Name_Type>} distinguished_name_vector
+@end deftypevr
+
+@deftypevr {Global Variable} string grid_mapfile_filename
+Initialized to a value depending on conditionally compiled code.
+@end deftypevr
+
+@deftypevr {Global Variables} {vector<string>} package_names
+@deftypevrx {} {vector<string>} package_versions
+@end deftypevr
+
+@deftypevr {Global Variable} bool {resolve_dependencies = true}
+@end deftypevr
+
+@deftypevr {Global Variable} bool {install = false}
+@end deftypevr
+
+@deftypevr {Global Variable} bool {fetch = false}
+@end deftypevr
+
+@deftypevr {Global Variable} bool {authenticated_connection = false}
+@end deftypevr
+
+@deftypevr {Global Variable} int {errors_occurred = 0}
+@end deftypevr
+
+@deftypevr {Global Variable} int {warnings_occurred = 0}
+@end deftypevr
+
+@deftypevr {Global Variables} string {DEFAULT_CERT_FILENAME}
+@deftypevrx {} string {DEFAULT_KEY_FILENAME}
+@end deftypevr
+
+@deftypevr {Global Variables} string log_filename
+@deftypevrx {} string err_log_filename
+@end deftypevr
+
+@deftypevr {Global Variables} bool download_fail_continue
+@deftypevrx {} bool install_fail_continue
+@end deftypevr
+
+@deftypevr {Global variable} string {link_directory}
+@end deftypevr
+
+@deftypevr {Global variable} int {create_links_value = 0}
+@end deftypevr
+
+@deftypevr {Global variable} {string} globus_site
+Set by means of the @option{--globus-site} option.
+@end deftypevr
+
+@deftypevr {Global variable} {map<string, bool>} globus_site_map
+@end deftypevr
+
+@deftypevr {Global variable} string optinum_installer_gpg_pubkey_fingerprint
+@end deftypevr
+
+@deftypevr {Global variable} string gpg_homedir
+@end deftypevr
+
+@deftypevr {Global variable} int {trace_value = 0}
+@end deftypevr
+
+@deftypevr {Global variable} bool {scanner_trace = false}
+@end deftypevr
+
+@deftypevr {Global variable} bool {reinstall_flag = false}
+@end deftypevr
+
+@deftypevr {Global variable} string install_directory
+@end deftypevr
+
+@deftypevr {Global variable} int {prerequisites_reinstall_value = 0}
+@end deftypevr
+
+@deftypevr {Global variable} {vector<string>} temp_file_vector
+@end deftypevr
+
+@deftypevr {Global variable} {vector<string>} fifo_vector
+@end deftypevr
+
+@deftypevr {Global variable} string proxy_cred_filename
+@end deftypevr
+   
+@deftypevr {Global variable} bool {transfer_proxy_cred = false}
+@end deftypevr
+
+@deftypevr {Global variable} string transfer_proxy_cred_filename
+@end deftypevr
+
+@deftypevr {Global variable} bool {proxy_cred_verified = false}
+@end deftypevr
+
+@deftypevr {Global variables} {vector<string>} cert_filenames
+@deftypevrx {} {vector<string>} key_filenames
+@end deftypevr
+
+
+@deftypevr {Global variables} {vector<string>} ca_filenames   
+For server only, unless the client needs to verify a proxy credential.
+In this case, only the first one is used.
+@end deftypevr
+
+@deftypevr {Global variables} {vector<string>} crl_filenames
+For server only.
+@end deftypevr
+     
+@deftypevr {Global variable} string session_id  
+For client only.
+@end deftypevr
+
+
+@c * (1) Local Variables for Emacs
+  
+@c Local Variables:
+@c mode:Texinfo
+@c abbrev-mode:t
+@c eval:(outline-minor-mode t)
+@c outline-regexp:"@c *\\*+"
+@c eval:(set (make-local-variable 'run-texi2dvi-on-file) "installer.texi")
+@c End:

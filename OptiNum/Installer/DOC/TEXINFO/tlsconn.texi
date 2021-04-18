@@ -1,0 +1,325 @@
+@c * (1) Top
+
+@c tlsconn.texi
+@c This file is part of the Optinum Grid Installer User and Reference Manual.
+
+@c Copyright (C) 2010, 2011, 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbh Goettingen
+
+@c Author:  Laurence D. Finston (LDF)
+
+@c See the section "GNU Free Documentation License" in the file 
+@c fdl.texi for copying conditions.
+
+
+@c LOG
+@c LDF 2010.05.05.
+@c ex_rfc2818.web:  Only |int verify_certificate|.  Done.
+@c ex_verify.web:  All variables and functions done.
+
+@c LDF 2010.05.12.
+@c gntlsfnc.web:  Included.  Working on formatting.
+@c ENDLOG 
+
+@c * (1) TLS Connections
+
+@node TLS Connections, X509_Cert_Type Reference, Software Installation, Top
+
+@chapter TLS Connections
+
+
+TLS Connections:  Communication using TLS.
+
+@menu
+* Preprocessor Macros for TLS::      
+* Types for TLS::
+* TLS Variables::
+* TLS Functions::
+@end menu
+
+@c ** (2) Preprocessor Macros for TLS
+@node Preprocessor Macros for TLS, Types for TLS, , TLS Connections
+
+@section Preprocessor Macros for TLS
+
+@defvr  {Preprocessor Macros} {TLS_SESSION_CACHE = 50}
+@defvrx {}                    {MAX_SESSION_ID_SIZE = 32}
+@defvrx {}                    {MAX_SESSION_DATA_SIZE = 512}
+@defvrx {}                    {DH_BITS = 1024}
+@defvrx {}                    {SA = struct sockaddr}
+@defvrx {}                    {SOCKET_ERR (err,s) if(err==-1) perror(s);pthread_exit(0);}
+@end defvr
+
+@c ** (2) Types for TLS
+@node Types for TLS, TLS Variables, Preprocessor Macros for TLS, TLS Connections
+@comment  node-name,  next,  previous,  up
+
+@section Types for TLS
+
+@tindex CACHE
+@code{CACHE} is @code{struct} declared by means of a @code{typedef} in 
+@file{gntlsfnc.web}.
+
+@deftypevr  {Data members} char {session_id[MAX_SESSION_ID_SIZE]}
+@deftypevrx {}             char {session_id[MAX_SESSION_ID_SIZE]}
+@deftypevrx {}             int {session_id_size}
+@deftypevrx {}             char {session_data[MAX_SESSION_DATA_SIZE]}
+@deftypevrx {}             int {session_data_size}
+Declared in @file{gntlsfnc.web}.
+@end deftypevr
+
+@c ** (2) TLS Variables
+
+@node TLS Variables, TLS Functions, Types for TLS, TLS Connections
+@comment  node-name,  next,  previous,  up
+
+@section Variables for TLS
+
+@vindex crl_list
+@cindex CRL
+@cindex Certificate Revocation List (CRL)
+@cindex revocation list
+@c
+@deftypevar {gnutls_x509_crl_t *} {crl_list}
+Global within @file{ex_verify.web}.
+All the available CRLs (Certificate Revocation Lists).
+@end deftypevar
+
+@deftypevar int crl_list_size
+Global within @file{ex_verify.web}.
+@end deftypevar
+
+
+@deftypevar  {static char} {srp_dh_group2048[]}
+Global within @file{gntlsfnc.web}.
+
+@c   "-----BEGIN DH PARAMETERS-----\n"
+@c   "MIIBBwKCAQCsa9tBMkqam/Fm3l4TiVgvr3K2ZRmH7gf8MZKUPbVgUKNzKcu0oJnt\n"
+@c   "gZPgdXdnoT3VIxKrSwMxDc1/SKnaBP1Q6Ag5ae23Z7DPYJUXmhY6s2YaBfvV+qro\n"
+@c   "KRipli8Lk7hV+XmT7Jde6qgNdArb9P90c1nQQdXDPqcdKB5EaxR3O8qXtDoj+4AW\n"
+@c   "dr0gekNsZIHx0rkHhxdGGludMuaI+HdIVEUjtSSw1X1ep3onddLs+gMs+9v1L7N4\n"
+@c   "YWAnkATleuavh05zA85TKZzMBBx7wwjYKlaY86jQw4JxrjX46dv7tpS1yAPYn3rk\n"
+@c   "Nd4jbVJfVHWbZeNy/NaO8g+nER+eSv9zAgEC\n"
+@c   "-----END DH PARAMETERS-----\n";
+
+@end deftypevar
+
+@vindex cache_db
+@deftypevar {static CACHE *} cache_db
+Global within @file{gntlsfnc.web}.
+@end deftypevar
+
+@deftypevar {static int} {cache_db_ptr}
+Global within @file{gntlsfnc.web}.
+@end deftypevar
+
+@deftypevr {File-local constant} {const string} mysql_password_encrypted
+If used, @code{mysql_password_encrypted} should be a  
+password for the MySQL database engine, encrypted using GPG and ASCII-encoded.
+It is used in @code{listen_auth} (@pxref{TLS Functions}, below) for
+connecting with the MySQL database on platforms where a password is
+required.  This should be the case for ``production'' installations of
+@samp{optdbsrv}, but may not be for local installations used for testing.
+@end deftypevr
+
+
+@c ** (2) TLS Functions
+
+@node TLS Functions,  , TLS Variables, TLS Connections
+
+@section TLS Functions
+
+@deftypefun int verify_certificate (gnutls_session_t @var{session}, {const char} @var{*hostname} = 0)
+Defined in @file{ex_rfc2818.web}.
+@end deftypefun
+
+@deftypefun int verify_certificate_chain (gnutls_session_t session, @*@
+                                          const char *hostname, @*@
+                                          const gnutls_datum_t *cert_chain, @*@
+                                          int cert_chain_length, @*@
+                                          gnutls_x509_crt_t *ca_list, @*@
+                                          int ca_list_size, @*@
+                                          X509_Cert_Type* user_cert   = 0, @*@
+                                          X509_Cert_Type* issuer_cert = 0, @*@
+                                          Scan_Parse_Parameter_Type* param   = 0)
+Defined in @file{ex_verify.web}.
+@end deftypefun
+
+
+
+@deftypefn {Static Function} void verify_cert2 (gnutls_x509_crt_t @var{crt}, @*@
+                                                gnutls_x509_crt_t @var{issuer}, @*@
+                                                {gnutls_x509_crl_t *} @var{crl_list}, @*@ 
+                                                int @var{crl_list_size}, @*@
+                                                {Scan_Parse_Parameter_Type *} @var{param} = 0)
+
+Defined in @file{ex_verify.web}.
+Verifies a certificate against an other certificate
+which is supposed to be it's issuer. Also checks the
+@var{crl_list}, if any, for whether the certificate has been revoked.
+@end deftypefn
+
+@deftypefun void verify_last_cert (gnutls_x509_crt_t crt, @*@
+                  gnutls_x509_crt_t * ca_list, @*@
+                  int ca_list_size, @*@
+                  gnutls_x509_crl_t *crl_list, @*@
+                  int crl_list_size, @*@
+                  Scan_Parse_Parameter_Type* param = 0)
+Defined in @file{ex_verify.web}.
+@end deftypefun
+
+@deftypefun gnutls_session_t initialize_tls_session (gnutls_certificate_credentials_t& @
+                                                     @var{cert_cred})
+
+Defined in @file{gntlsfnc.web}.
+@end deftypefun
+
+
+@deftypefun int generate_dh_params (gnutls_dh_params_t& @var{dh_params});
+Defined in @file{gntlsfnc.web}.
+@end deftypefun
+
+
+@deftypefun int generate_dh_params_non_auth (gnutls_dh_params_t& @var{dh_params})
+Defined in @file{gntlsfnc.web}.
+@end deftypefun
+
+@deftypefun gnutls_session_t initialize_tls_session_non_auth (gnutls_anon_server_credentials_t& @
+                                                              @var{anoncred})
+Defined in @file{gntlsfnc.web}.
+@end deftypefun
+
+@deftypefun int generate_rsa_params (gnutls_rsa_params_t& @var{rsa_params})
+Defined in @file{gntlsfnc.web}.
+@end deftypefun
+
+
+@deftypefun void wrap_db_init (void)
+Defined in @file{gntlsfnc.web}.
+@end deftypefun
+
+@deftypefun void wrap_db_deinit (void)
+Defined in @file{gntlsfnc.web}.
+@end deftypefun
+
+@deftypefun int wrap_db_store (void @var{*dbf}, gnutls_datum_t @var{key}, gnutls_datum_t @var{data})
+Defined in @file{gntlsfnc.web}.
+@end deftypefun
+
+@deftypefun gnutls_datum_t wrap_db_fetch (void @var{*dbf}, gnutls_datum_t @var{key})
+Defined in @file{gntlsfnc.web}.
+@end deftypefun
+
+
+@deftypefun int wrap_db_delete (void @var{*dbf}, gnutls_datum_t @var{key})
+Defined in @file{gntlsfnc.web}.
+@end deftypefun
+
+
+@deftypefun int print_info (gnutls_session_t @var{session})
+Defined in @file{gntlsfnc.web}.
+@end deftypefun
+
+
+@deftypefun {const char *} bin2hex ({const void} @var{*bin}, size_t @var{bin_size})
+Defined in @file{gntlsfnc.web}.
+@end deftypefun
+
+
+@deftypefun void print_x509_certificate_info (gnutls_session_t @var{session})
+Defined in @file{gntlsfnc.web}.
+@end deftypefun
+
+@deftypefun int extract_dn_fields (gnutls_x509_crt_t& @var{cert}, @*@
+                   X509_Cert_Type* {@var{x509_cert} = 0}, @*@
+                   bool {@var{subject} = true}, @*@
+                   Scan_Parse_Parameter_Type* {@var{param} = 0}) 
+Defined in @file{gntlsfnc.web}.
+The |bool subject| argument should be |false| when this function is 
+used for the issuer's certificate.
+@end deftypefun
+
+
+@cindex listen
+@cindex listening
+@c
+@deftypefun {void*} listen_auth (void* v)
+Defined in @file{lstnfncs.web}.
+
+Thread function, called via @samp{pthread_ctreate} in @samp{main} of
+@samp{optdbsrv}.
+
+This function ``listens'' in an endless ``accept'' loop 
+on a port (5556 per default) for incoming connections with 
+authentication/authorization using X.509 certificates.
+
+Theoretically,
+any application could contact the server, 
+but in practice it only makes sense for @samp{optdbcli} (or
+@samp{optdbcli_1}) to do this.  
+
+After contact is initiated, a GNUTLS session is started and X.509
+certificates are exchanged for mutual authentication/authorization.
+If this fails, the connection is broken off.  If it succeeds, 
+it will a new thread with the function @samp{connect_func} as its
+thread function.  First, however, it creates a new object of type
+@samp{Scan_Parse_Parameter_Type}.  A pointer to this object is passed
+to @samp{pthread_create} as a parameter and on to
+@samp{connect_func}.  @samp{listen_func} sets several data members of
+this @samp{Scan_Parse_Parameter_Type};  in particular, 
+@samp{listen_func} creates a connection to the MySQL database and 
+this connection is represented by 
+@samp{MYSQL* Scan_Parse_Parameter_Type::mysql_ptr}.  (If
+@samp{listen_func} fails to create the connection to the database, the
+thread will exit unsuccessfully.
+
+The new thread is created with the attribute
+@samp{PTHREAD_CREATE_DETACHED}, so that @samp{listen_func} doesn't
+have to join with it.  There's no need to check whether
+@samp{connect_func} succeeds or fails and any errors or warnings will
+be logged.
+
+Theoretically, if no errors occur, @samp{listen_auth} could run
+forever, waiting for and handling incoming connections.  However, it
+does contain some ``clean-up'' code following the main ``accept''
+loop. 
+
+@end deftypefun
+
+@cindex listen
+@cindex listening
+@c
+@deftypefun {void*} listen_non_auth (void* v)
+Defined in @file{lstnfncs.web}.
+
+Thread function, called via @samp{pthread_ctreate} in @samp{main} of
+@samp{optdbsrv}.  It is analogous to @samp{listen_func} (see above),
+except that @samp{listen_non_auth} doesn't require any form of 
+authentication/authorization on the part of the client.  It is assumed
+that any authentication/authorization required has been performed in
+some other way before the client application has been called.
+
+The default port on which @samp{listen_non_auth} listens is 5557.
+
+@end deftypefun
+
+@deftypefun int tcp_connect (string ip_address = "127.0.0.1", string port_str = "5556")
+Defined in @file{helper.web}.
+@end deftypefun
+
+@deftypefun void tcp_close (int @var{sd})
+Defined in @file{helper.web}.
+@end deftypefun
+
+@deftypefun void* get_in_addr (struct sockaddr *sa)
+Defined in @file{helper.web}.
+@end deftypefun
+
+@c * (1) Local Variables for Emacs
+  
+@c Local Variables:
+@c mode:Texinfo
+@c abbrev-mode:t
+@c eval:(outline-minor-mode t)
+@c outline-regexp:"@c *\\*+"
+@c eval:(set (make-local-variable 'run-texi2dvi-on-file) "installer.texi")
+@c End:

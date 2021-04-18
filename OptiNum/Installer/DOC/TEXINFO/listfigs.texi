@@ -1,0 +1,48 @@
+@c listfigs.texi
+
+@c This file is part of the Optinum Grid Manual.
+@c Created by Laurence D. Finston (LDF) Wed May 30 10:20:56 CEST 2012
+
+@c Copyright (C) 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbh Goettingen
+
+@c See the section "GNU Free Documentation License" in the file 
+@c fdl.texi for copying conditions.
+
+@c * (1) List of Figures
+
+@node List of Figures, Introduction, , Top
+
+@unnumbered List of Figures
+
+@iftex
+@tex
+\begingroup
+\newread\pagein
+\openin\pagein=pageno.txt
+\read\pagein to \A
+\global\pageno=\A
+\global\advance\pageno by -1
+\closein\pagein
+\endgroup
+
+\input listfigs.aux1
+
+@end tex
+@end iftex
+
+
+@iftex
+@tex
+\vfil\eject
+@end tex
+@end iftex
+
+
+@c Local Variables:
+@c mode:Texinfo
+@c abbrev-mode:t
+@c eval:(outline-minor-mode t)
+@c outline-regexp:"@c *\\*+"
+@c eval:(set (make-local-variable 'run-texi2dvi-on-file) "installer.texi")
+@c End:
+

@@ -1,0 +1,1118 @@
+@c optdbcli.texi
+
+@c Created by Laurence D. Finston (LDF) Thu Mar  8 16:50:44 CET 2012
+
+@c This file is part of the Optinum Grid Installer User and Reference Manual.
+
+@c Copyright (C) 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbh Goettingen
+
+@c Author:  Laurence D. Finston (LDF)
+
+@c See the section "GNU Free Documentation License" in the file 
+@c fdl.texi for copying conditions.
+
+
+@c ** (2) Using the Client Program optdbcli
+
+@node Using the Client Program optdbcli, Global Variables and Constants optdbcli/optdbsrv, Using the Server Program optdbsrv, Top
+
+@chapter Using the Client Program optdbcli
+
+Most users will only require the client program @samp{optdbcli} and
+won't need to build, install or run the server program @samp{optdbsrv}, 
+as long as there's an instance of the latter running somewhere to
+which the client can connect.
+
+@samp{optdbcli} is used for several different purposes:
+
+@enumerate
+@item Storing information in the remote software database administered by
+@samp{optdbsrv}
+
+@item Initiating a remote software installation on the cluster front-end
+computer associated with a Globus site
+
+@item Fetching information about software packages from the remote database and
+installing the software on the local machine where @samp{optdbcli} is running
+
+@item Fetching and displaying information from various tables of the remote database
+
+@item For users who are responsible for maintaining information about
+Globus sites, certain administrative tasks can be performed using @samp{optdbcli}
+instead of accessing the database using a MySQL client (such as @command{mysql}).
+@c !! TODO:  LDF 2012.05.08.  Add cross ref, when I've written section about these 
+@c commands.
+@end enumerate
+
+In the first two cases, commands, either from a a file or passed to
+@samp{optdbcli} via standard input, are sent by @samp{optdbcli} to the
+server program @samp{optdbsrv}.  They are not processed in any way by
+@samp{optdbcli}.
+
+In the third case, no input file or input from a pipe is used, because
+in the ``normal'' case of a remote installation, @samp{optdbcli} is
+called as part of a @dfn{Globus job} and there is no way of passing it input
+in either of these ways, at least not at present.  Instead, the
+command line options @option{--install} or @option{--reinstall}
+together with the options @option{--package-name} and optionally
+@option{--package-version} are used to control the operation of
+@samp{optdbcli}.
+
+Let's assume that the server @samp{optdbsrv} is running on
+@samp{optinum-srv.gwdg.de} and that the file @file{input.txt} contains
+commands for telling the server to store information about software
+packages and how to install them in the database for the user who's
+invoking the client.  The contents of @file{input.txt} can be sent to
+the server in the following, equivalent ways:
+
+@table @command
+
+@item optdbcli --input-file input.txt optinum-srv.gwdg.de
+
+@item optdbcli --input-file=input.txt optinum-srv.gwdg.de 
+
+@item optdbcli --input-file "input.txt" optinum-srv.gwdg.de 
+
+@item optdbcli optinum-srv.gwdg.de input.txt 5556
+
+@item cat input.txt | optdbcli optinum-srv.gwdg.de 
+
+@end table
+
+@cindex shell expansion
+@cindex expansion, shell
+@cindex shell expansion, suppressing
+@cindex expansion, shell, suppressing
+@c
+@noindent 
+Arguments may be quoted to prevent expansion by the shell
+(@pxref{Shell Expansion, , , bash, The GNU Bash Manual}).
+@xref{Invoking optdbcli/optdbsrv}, for details about options and their arguments.
+
+These invocations assume that the user's certificate and private key
+file and  
+are in the default location, namely @file{$HOME/.globus/usercert.pem}
+and @file{$HOME/.globus/userkey.pem}, respectively.
+In addition, it assumes that the @dfn{CA certificate} (Certificate Authority
+certificate) is also in the default location, which is determined by
+means of conditionally compiled code.  If these files are not in the
+default locations, they must be specified using the options 
+@option{--cert-filename}, @option{--key-filename} and/or
+@option{--ca-filename}.  In addition, the default filenames may be
+changed in the source code before building the package, if desired.
+
+@strong{Please note} that the default value for the path of the CA certificate
+is the empty string for platforms that are not among the ones referred
+to specifically in the conditionally compiled code!  It will therefore
+normally be necessary to specify the CA certificate using the
+@option{--ca-filename} option.
+
+@menu
+* How the Client and the Server Communicate::
+* How To Read Parser Rules::
+* Sample Dialogue::
+* Software Package Information (optdbcli)::
+* Setting Effective User (optdbcli)::
+* Showing X.509 Certificates (optdbcli)::
+* Environment Shellscripts (optdbcli)::
+* Showing Privileges (optdbcli)::
+* Retrieving Information and Installing Locally (optdbcli)::
+* Remote Installation (optdbcli)::
+* Transferring Proxy Credential (optdbcli)::
+* Globus Sites (optdbcli)::
+* Globus Site Administrators (optdbcli)::
+@end menu
+
+@c *** (3) How the Client and the Server Communicate
+@node How the Client and the Server Communicate, How To Read Parser Rules, , Using the Client Program optdbcli
+
+@section How the Client and the Server Communicate
+
+When @samp{optdbcli} is invoked, input can be passed to it:
+
+@enumerate 
+@item as the argument to the @option{--input-filename} option
+
+@item as a non-option filename argument following the name or IP address of
+the machine where the server program is running 
+(e.g., @samp{optinum-srv.gwdg.de test_input.txt}) 
+
+@item through a pipe to its standard input.  In this case, the input need not be stored 
+in a file, it could be a string argument to the @command{echo} command or the output 
+of another command or program.  
+@end enumerate
+
+@noindent 
+@xref{Invoking optdbcli/optdbsrv}.
+
+@cindex authentication/authorization
+@cindex authentication
+@cindex authorization
+@cindex handshake
+@cindex GNUTLS
+@cindex TLS (Transport Layer Security)
+@cindex Transport Layer Security, TLS 
+@c
+@samp{optdbcli} does not process these commands in any way, but passes
+them unexamined to @samp{optdbsrv}, following the @dfn{handshake
+procedure}, i.e., authentication/authorization using an X.509
+certificate/private key pair or an X.509 proxy credential, and the
+establishment of secure communication using the GNUTLS library, which
+implements the TLS 1.0 protocol.
+@c @xref{Top, The GnuTLS Manual, The GnuTLS Manual, gnutls, The GnuTLS Manual}.
+
+@cindex parser functions
+@c
+@cindex language
+@c
+@findex yyparse
+@findex zzparse
+@c
+@samp{optdbcli} and @samp{optdbsrv} each contains its own @dfn{parser
+function}, @code{yyparse} for @samp{optdbsrv} and @code{zzparse} for
+@samp{optdbcli}.  @xref{Parser Client Functions}, and @ref{Parser
+Client Functions}.  A parser function in effect implements a
+``language'' that a computer program ``understands'', so to speak.
+
+@cindex rules of grammar
+@cindex grammar, rules of
+@cindex parser rules
+@cindex parser actions
+@cindex rules, parser
+@cindex actions, parser
+@c
+The parser functions @code{yyparse} and @code{zzparse} are generated
+by the program GNU Bison from input in a special format that generates
+@dfn{rules of grammar} and specifies actions to be taken when input to
+the program ``matches'' the rules.  For more information about GNU
+Bison, parsing, etc., 
+see @ref{Top, Bison, Bison, bison, The GNU Bison Manual}.
+
+@command{optdbcli} and @command{optdbsrv} have different parser functions
+and therefore each has its own ``language''.  They communicate by
+sending each other messages using each other's language.  That is,
+@command{optdbcli} sends messages to @command{optdbsrv} in @command{optdbcli's}
+language and @command{optdbsrv} sends messages back to @command{optdbcli} in
+@command{optdbcli}'s.  This implies that the programs send messages that
+they themselves wouldn't be able to interpret, but there is no need
+for them to be able to do this.
+
+The commands in the input that can be passed to @command{optdbcli} are in
+the ``@command{optdbsrv} language''.  Certain command-line options to
+@command{optdbcli} also cause it to send commands to
+@command{optdbsrv}.  The latter then takes action on these commands,
+where appropriate, and sends commands back to @command{optdbcli}, which
+may react by sending more commands back to @command{optdbsrv}.  This
+continues until both partners are finished sending commands to the
+peer.  At this point, the connection is ended (normally by
+@command{optdbcli}, unless there's an error).
+@xref{Exchange Data With Client}, and @ref{Exchange Data With Server}.
+
+@c !! TODO:  LDF 2012.04.04.  Expand on this.  Verbosity of rules.  Easy
+@c to add rules ad hoc.  Avoiding conflicts.  Note that options can lead
+@c to conflicts without it necessarily being clear why.  Put in MP
+@c illustrations.  Edit them.
+
+@c *** (3) How To Read Parser Rules
+@node How To Read Parser Rules, Sample Dialogue, How the Client and the Server Communicate, Using the Client Program optdbcli
+
+@section How To Read Parser Rules
+
+The following sections provide examples of commands that can appear in the 
+input file.  For complete information about the symbols, grammar rules and states of 
+@code{yyparse}, i.e., the parser function for @command{optdbsrv}, @pxref{Parser Server}.
+
+This is an example of a parser rule:
+
+@iftex
+@tex
+\syntaxgroup
+<program>: <statement_list> END
+\par
+\endgroup
+@noindent
+@end tex
+@end iftex
+
+@ifnottex
+@display
+program: statement_list END
+@end display
+@end ifnottex
+
+@cindex non-terminal symbols
+@cindex terminal symbols
+@cindex symbols, terminal 
+@cindex symbols, non-terminal 
+@cindex tokens (non-terminal symbols)
+@c
+@noindent 
+Parser rules have a @dfn{left-hand} and a @dfn{right-hand side}, separated by 
+the symbol @samp{@MAPS{}}.  The items that appear in a parser rule are either 
+@dfn{terminal} or @dfn{non-terminal symbols}.  In this manual, terminal symbols, 
+also known as @dfn{tokens},  are printed in 
+@iftex
+uppercase in a fixed-width, typewriter-style font,
+@end iftex
+@ifnottex
+uppercase, 
+@end ifnottex
+like @samp{END} in this example.
+Non-terminal symbols are printed in 
+@iftex
+lowercase in a roman font,  
+@end iftex
+@ifnottex
+lowercase,
+@end ifnottex
+and surrounded by angle braces, like @samp{@NONTERM{program}} and @samp{@NONTERM{statement_list}}
+in this example.
+
+Only a single, non-terminal symbol can ever appear on the left-hand side of a rule, 
+like @samp{@NONTERM{program}} in this example.  Non-terminal symbols can also appear 
+on the right-hand sides of rules, like @samp{@NONTERM{statement_list}} in this example,
+while terminal symbols can only appear on the right-hand side of parser rules.
+
+@cindex _YY (suffix)
+@cindex _ZZ (suffix)
+@cindex suffixes
+@c
+In the reference sections @ref{Parser Server} and @ref{Parser Client}
+you will see that the terminal symbols all end in `@t{_YY}' or
+`@t{_ZZ}', respectively.  This is because terminal symbols are
+implemented in the C code as preprocessor macros, the definitions
+appear in the header file generated by @command{bison} and the latter
+is included by various other source files.  The suffixes `@t{_YY}' and
+`@t{_ZZ}' help to ensure that these names won't interfere with the
+names of other entities in the source code, e.g., variables,
+functions, other preprocessor macros, etc.  @emph{In this section and other
+other sections containing examples of parser rules, the suffixes are
+omitted for the sake of better readability.}
+
+
+@findex yyscan
+@findex zzscan
+@findex yyparse
+@findex zzparse
+@c
+The non-terminal symbol on the left-hand side is the ``target'' of the rule.  It @dfn{maps to} 
+the sequence of items on the right-hand side of the rule.  When the @samp{optdbsrv} 
+or @samp{optdbcli} receives input, the scanner function @code{yyscan}
+or @code{zzscan}, respectively, converts the stream of characters into
+a sequence of tokens (i.e., terminal symbols) and passes the latter to
+the parser function @code{yyparse} or @code{zzparse}, respectively.
+
+@cindex reducing
+The parser function matches the sequence of tokens to its set of rules
+@dfn{reducing} as it proceeds.  If the sequence of tokens fails to match
+the grammar rules defined by the Bison code, this causes an error.
+
+A single left-hand side can map to more than one right-hand side:
+
+@iftex
+@tex
+\syntaxgroup
+\Setup{download_info} 
+DOWNLOAD_URL | DOWNLOAD_COMMAND | <download_info_encrypted>
+\par
+\endgroup
+@noindent
+@end tex
+@end iftex
+@c
+@ifnottex
+@display
+download_info: DOWNLOAD_URL | DOWNLOAD_COMMAND | download_info_encrypted
+@end display
+@end ifnottex
+
+@noindent 
+The @samp{@VERT{}} symbol stands for ``or''.  The previous example is
+thus equivalent to:
+
+@iftex
+@tex
+\syntaxgroup
+<download_info>: DOWNLOAD_URL\hfil\break
+<download_info>: DOWNLOAD_COMMAND\hfil\break
+<download_info>: <download_info_encrypted>\hfil\break
+\par
+\endgroup
+@noindent
+@end tex
+@end iftex
+@c
+@ifnottex
+@display
+download_info: DOWNLOAD_URL 
+download_info: DOWNLOAD_COMMAND 
+download_info: download_info_encrypted
+@end display
+@end ifnottex
+
+@noindent 
+That is, @t{DOWNLOAD_URL}, @t{DOWNLOAD_COMMAND}, and @NONTERM{download_info_encrypted} 
+all @dfn{reduce to} @NONTERM{download_info}.
+
+Many rules contain the special ``symbol'' @samp{(@t{Empty})}, which
+stands for ``nothing'' or ``no symbol at all'', e.g., 
+
+@iftex
+@tex
+\syntaxgroup
+<statement_list>: {\Empty} | <statement_list> <statement>
+\par
+\endgroup
+@noindent
+@end tex
+@end iftex
+@c
+@ifnottex
+@display
+statement_list: (Empty) | statement_list statement
+@end display
+@end ifnottex
+
+@cindex recursive rules
+@cindex recursion
+@c
+@noindent 
+This means that a @NONTERM{statement_list} may be empty, i.e., map to
+no symbols at all, or it may map to a @NONTERM{statement_list}
+followed by a @NONTERM{statement}.  This is an example of a
+@dfn{recursive rule}, where the non-terminal on the left-hand side
+also appears on the right-hand side of the rule.
+This example means that a @NONTERM{statement_list} can be nothing or a 
+@NONTERM{statement_list} followed by a @NONTERM{statement}.  In this
+way, a @NONTERM{statement_list} can be constructed from an unlimited
+number of statements, including no statements at all!
+
+For example, input containing only @t{END} is valid for
+@samp{optdbsrv}:
+
+@example
+echo "END" | optdbcli localhost
+@end example
+
+@cindex start symbol
+@noindent 
+@samp{optdbcli} sends the input to @samp{optdbsrv}.  The scanner
+function @code{yyscan} converts the character @samp{E}, @samp{N} and
+@samp{D} to the token @samp{END} (really @samp{END_YY}, as explained above) 
+and passes the latter to the parser function @code{yyparse}.  From the point of view of
+@code{yyparse}, a @NONTERM{program} is a @NONTERM{statement_list}
+followed by the terminal symbol @t{END}.  The ``nothing'' preceding
+@t{END} matches the rule `@NONTERM{statement_list} @MAPS{}
+(@t{Empty})', reducing to @NONTERM{statement_list}, which, followed by 
+the @t{END} token, in turn matches the rule
+@samp{@NONTERM{program} @MAPS{} @NONTERM{statement_list} @t{END}},
+ending execution successfully.
+
+@cindex options
+@samp{(@t{Empty})} can also be used for @dfn{options}, i.e., elements
+of commands which may appear or be left out, e.g.,
+
+@iftex
+@tex
+\syntaxgroup
+\par
+\Setup{statement} SHOW CERTIFICATE USER <html_optional>\hfil\break
+| SHOW CERTIFICATES ALL <html_optional>
+
+<html_optional>: {\Empty} | HTML
+\endgroup
+@noindent
+@end tex
+@end iftex
+@c
+@ifnottex
+@display
+statement: SHOW CERTIFICATE USER html_optional
+         | SHOW CERTIFICATES ALL html_optional
+
+html_optional: (Empty)| HTML
+@end display
+@end ifnottex
+
+@noindent 
+If the option @samp{HTML} is used, the output is formatted as for a
+web page, using HTML commands.  If left out, it is formatted as plain
+text.
+
+Implementing options by means of rules with empty right-hand sides in
+this way usually works well, but occasionally it causes reduce/reduce
+conflicts in the grammar, whereby there is no obvious reason why it
+should occur in one case but not in another.  In such cases, the
+grammar must be reformulated in order to remove the conflicts.
+@xref{Reduce/Reduce, Reduce/Reduce Conflicts, Reduce/Reduce Conflicts, bison, The GNU Bison Manual}, 
+and @ref{Grammar File, Bison Grammar Files, Bison Grammar Files, bison, The GNU Bison Manual},
+for more information about Bison grammars in general.
+
+@cindex keyword
+@c
+There is nearly a one-to-one correspondence between the commands a
+user writes and the parser rules for @code{yyparse}, except for the 
+ones that process messages returned from @samp{optdbcli}.
+Most of the terminal symbols correspond to keywords of the ``optdbsrv'' language, 
+such as @samp{SHOW}, @samp{HTML}, @samp{FOR}, @samp{TO}, etc.
+It is not necessary to type them in uppercase, as in the descriptions
+of the parser rules;  they can be typed either in uppercase or
+lowercase, but the cases cannot be mixed within a single word, e.g.,
+
+@example
+show entries user
+SHOW ENTRIES USER
+SHOW entries USER
+show ENTRIES user
+etc.,
+@end example
+
+@noindent 
+are all valid, but not @samp{sHow eNtrIES uSer}.
+
+@c !! KLUDGE:  LDF 2012.04.11.  A group would be better here, but
+@c doesn't work in this version of Texinfo.  I don't know if it works
+@c in a later one.  @float has the desired effect, namely not putting
+@c too much vertical space in the table.  This otherwise occurs
+@c because of the illustration (in @image) below.
+
+
+The following terminal symbols, however, do not refer to keywords:
+
+@table @samp
+@item INTEGER
+An optional sign @samp{+} or @samp{-}, followed by one or more decimal
+digits 0--9.
+
+@item STRING
+@cindex Flex
+@cindex scanner (Flex)
+@c
+Strings may contain the alphanumerical characters and a selection of
+special characters.  This selection may need to be extended depending
+on what characters are used in URLs, filenames, or other items that
+can appear in commands for @samp{optdbsrv}.  
+The selection is determined by the corresponding rules in the file
+@file{scanner.web}, from which the input file for Flex is generated.
+
+Strings may be undelimited or delimited by double quotation marks (@samp{"}) or
+angle braces (@samp{<>}).
+
+@itemx SEMI_COLON
+@itemx SLASH
+@cindex punctuation
+@cindex punctuation characters
+@cindex characters, punctuation
+@c
+Punctuation characters in the input are converted to
+appropriately-named tokens.  Currently, these are the only punctuation
+characters used in the input for @samp{optdbsrv}.
+@end table
+
+Some other terminal or non-terminal symbols may appear in rules that
+do not correspond to commands which would ever be written by a user,
+but which are generated by @samp{optdbcli} as responses
+and sent back to @samp{optdbsrv}.
+
+@c *** (3) Sample Dialogue
+@node Sample Dialogue, Software Package Information (optdbcli), How To Read Parser Rules, Using the Client Program optdbcli
+
+@section Sample Dialogue
+
+The following is a sample dialogue between the client program
+@samp{optdbcli} and the server program @samp{optdbsrv}, leaving out
+a couple of less interesting steps.
+
+@c !! TODO:  Make output for other formats.  LDF 2012.05.30.
+@c Also, I could put a table for the output below the dialogue.  The 
+@c 
+
+@c !! START HERE:  LDF 2012.05.31.  The sample dialogue for software installation from 
+@c /home/lfinsto/optinum_gwdg/vortrag_old/figures.pdf (figures.ldf) is outdated.
+
+
+@iftex
+@tex
+\begingroup
+\hsize=1.5\hsize
+@image{figures_1}
+\endgroup
+\vskip.5\baselineskip
+\rightline{Fig.~\the\figctr}
+\global\advance\figctr by 1
+\write\figout{\bslchar FLE{Sample Dialogue}{\the\pageno}}
+@end tex
+@end iftex
+
+@ifinfo
+@ifplaintext
+(Illustration not available in plain text format)
+@end ifplaintext
+@ifnotplaintext
+(Illustration not available in Info format)
+@end ifnotplaintext
+@end ifinfo
+
+@ifhtml
+(Illustration not available in HTML format)
+@end ifhtml
+
+@c *** (3) Software Package Information (optdbcli) (sftwpkin.texi)
+
+@include sftwpkin.texi
+
+@c *** (3)
+
+@node Setting Effective User (optdbcli), Showing X.509 Certificates (optdbcli), Software Package Information (optdbcli), Using the Client Program optdbcli
+
+@section Setting Effective User
+
+@iftex
+@tex
+\syntaxgroup
+<statement>: SET EFFECTIVE_USER STRING
+\par
+\endgroup
+\vskip.5\baselineskip
+@end tex
+@end iftex 
+
+@ifnottex
+@display
+statement: SET EFFECTIVE_USER STRING
+@end display
+@end ifnottex
+
+@cindex Distinguished Name
+@cindex delegate
+@cindex delegation
+@cindex effective user
+@cindex user, effective
+@c
+@samp{STRING} is the Distinguished Name of another user.
+
+Example:
+@example
+SET EFFECTIVE_USER "/C=DE/O=GridGermany/OU=Gesellschaft fuer \
+   wissenschaftliche Datenverarbeitung mbH/CN=Laurence Finston"
+@result{} 
+Set effective user succeeded.
+@end example
+
+This command can only be executed by a user who is permitted to act as a @dfn{delegate} for 
+the user referred to by the Distinguished Name (@samp{STRING}) argument.  That is, 
+there must be a corresponding row in the @samp{Delegates} database table 
+(@pxref{Delegates Database Table}) or the user who executes the command must have 
+the @samp{superuser} privilege.  @xref{Privileges Database Table}.  Otherwise, 
+an error message is issued and @samp{optdbcli} exits:
+
+@example
+SET EFFECTIVE_USER "/C=DE/O=GridGermany/OU=Gesellschaft fuer \
+   wissenschaftliche Datenverarbeitung mbH/CN=Laurence Finston"
+@result{} 
+ERROR:  In `zzparse':
+Set effective user failed.
+Exiting `zzparse' unsuccessfully With return value 1.
+ERROR!  In `exchange_data_with_server':  `zzparse' returned  1
+
+Exiting function unsuccessfully with return value 1.
+ERROR!  (3) In `client_connect_auth':  `exchange_data_with_server' \
+   failed, returning 1:
+Exiting function unsuccessfully with return value 1.
+ERROR!  In `main':  `client_connect_auth' failed, returning 1
+`errors_occurred' == 2
+`warnings_occurred' == 0
+See error logfile `/tmp/optdbcli_error.log.AL2MbF' and/or \
+   logfile `/tmp/optdbcli.log.dkHaAP' for more information.
+Exiting `main' unsuccessfully with exit value 1.
+@end example
+
+@c *** (3) Showing X.509 Certificates (optdbcli)
+@node Showing X.509 Certificates (optdbcli), Environment Shellscripts (optdbcli), Setting Effective User (optdbcli), Using the Client Program optdbcli
+
+@section Showing X.509 Certificates
+
+The complete syntax of the @samp{show certificates} command is as follows:
+
+@iftex
+@tex
+\syntaxgroup
+
+\Setup{statement} SHOW CERTIFICATE USER <html_optional>\hfil\break 
+                | SHOW CERTIFICATES ALL <html_optional>
+
+\Setup{html_optional} {\Empty} | HTML
+
+\par
+\endgroup
+@end tex
+@end iftex
+
+
+@ifnottex
+@display
+statement: SHOW CERTIFICATE USER html_optional
+         | SHOW CERTIFICATES ALL html_optional
+
+html_optional: /* empty */
+             | HTML
+
+@end display
+@end ifnottex
+
+Any user can show the data stored in the remote database for his or her own X.509 certificate, 
+i.e., the row for that user in 
+the @samp{Certificates} database table.  @xref{Certificates Database Table}.  There should be 
+row for all users;  if there isn't, @samp{optdbcli} should have exited.
+
+Only users with at least one of the privileges @samp{superuser}, @samp{show_certificates}, 
+@samp{add_globus_site_admin}, or @samp{delete_globus_site_admin} may show certificate information
+for other users.  
+
+Users who can add or delete administrators of the data pertaining to 
+Globus sites in the @samp{Globus_Sites} database table 
+must be able to view the certificate information in order to find the user IDs 
+for the @command{add admin globus_site} and  @command{delete admin globus_site} commands.
+@xref{Globus_Sites Database Table}, and @ref{Globus_Sites_Admins Database Table}.
+
+Normally, the @samp{show_certificates} should be set for these users, 
+but the function @code{Scan_Parse_Parameter_Type::edit_globus_site_admin}
+will check @samp{add_globus_site_admin} or @samp{delete_globus_site_admin}, as 
+appropriate, just in case it isn't.  @xref{Globus Site Functions}.
+
+If a user without at least one of these privileges sends the command 
+@samp{show certificates all} to the server, his or her own certificate data will be shown 
+and a warning will be issued that the user may not view the certificate data for other users.
+
+
+@c *** (3) Environment Shellscripts
+
+@include envrshsc.texi
+
+
+
+@c *** (3) Showing Privileges (optdbcli)
+@node Showing Privileges (optdbcli), Retrieving Information and Installing Locally (optdbcli), Environment Shellscripts (optdbcli), Using the Client Program optdbcli
+
+@section Showing Privileges
+
+The complete syntax of the @samp{show privileges} command is as
+follows:
+
+@iftex
+@tex
+\syntaxgroup
+<statement>: SHOW PRIVILEGES USER <html_optional> | SHOW PRIVILEGES ALL <html_optional>
+
+<html_optional>: {\Empty} | HTML
+\par
+\endgroup
+@end tex
+@end iftex 
+
+@ifnottex
+@display
+@end display
+statement: SHOW PRIVILEGES USER html_optional
+         | SHOW PRIVILEGES ALL html_optional
+
+html_optional: /* Empty */ | HTML
+@end ifnottex 
+
+Any user can show his or her own privileges, i.e., the row (if any) for that user in 
+the @samp{Privileges} database table.  @xref{Privileges Database Table}.  If a user has no 
+special privileges, then there will probably be no data in the table for that user.  However, 
+it is possible that there would be a row with a value of 0 for each of the fields corresponding 
+to a privilege.
+
+Only users with the privilege @samp{superuser} or @samp{show_privileges} can show data for other users 
+from the @samp{Privileges} table.  If a user without at least one of these privileges sends the command 
+@samp{show privileges all} to the server, his or her own privileges will be shown (if they exist) and a warning 
+will be issued that the user may not view privileges information about other users:
+
+@example
+show privileges all
+@result{}
+*** Privileges info for user 1 (lfinsto) ***
+
+user_id:                   1
+user_name:                 lfinsto
+commonName:                Laurence Finston
+organizationalUnitName:    Gesellschaft fuer wissenschaftliche \
+                           Datenverarbeitung mbH
+superuser:                 0
+show_certificates:         0
+show_privileges:           0
+add_globus_site:           0
+delete_globus_site:        0
+enable_globus_site:        0
+edit_globus_site:          0
+add_globus_site_admin:     0
+delete_globus_site_admin:  0
+delegate:                  0
+
+
+WARNING!  In `zzparse':  Rule `statement:  SERVER_ZZ SHOW_ZZ \
+                               PRIVILEGES_ZZ FAILED_ZZ INTEGER_ZZ':
+User not permitted to view privileges for other users.
+Continuing.
+WARNING!  In `main':  `warnings_occurred' == 1
+(No errors)
+See error logfile `/tmp/optdbcli_error.log.I5pwAH' \
+   and/or logfile `/tmp/optdbcli.log.EoN9ru' for more information.
+Exiting function with return value 4.
+@end example
+
+See also @ref{Functions for Privileges}.
+
+@c *** (3) Retrieving Information and Installing Locally (optdbcli)
+@node Retrieving Information and Installing Locally (optdbcli), Remote Installation (optdbcli), Showing Privileges (optdbcli), Using the Client Program optdbcli
+
+@section Retrieving Information and Installing Locally 
+
+@cindex grid
+@cindex grid computer cluster
+@cindex grid computing
+@cindex grid computer
+@cindex front-end node
+@c
+Let us now assume that the user is working on the @dfn{front-end node}
+of a grid computer cluster and wishes to fetch information about
+downloading and installing the package @samp{GNU hello}, version 2.7, which
+he or she has previously had stored in the database using the following commands:
+
+@example
+start_entry
+package_name <hello>
+package_version <2.7>
+download_url <ftp://ftp.gwdg.de/pub/gnu/ftp/gnu/hello/hello-2.7.tar.gz>
+installation_script <inst_script_hello.sh>
+end_entry
+@end example
+
+@example
+optdbcli --fetch --package-name hello --package-version="2.7" \
+   optinum-srv.gwdg.de
+@result{}
+ftp://ftp.gwdg.de/pub/gnu/ftp/gnu/hello/hello-2.7.tar.gz #  \
+   # hello # 2.7
+@end example
+
+When the option @option{--fetch} is used, the download command,
+download URL and/or installation script for the packages specified
+with the @option{--package-name} and (optionally)
+@option{--package-version} options are ``fetched'' from the database
+by the server and sent to the client.  In this case, no further action
+is taken.
+
+@example
+
+optdbcli --install --package-name hello --package-version="2.7" \
+   optinum-srv.gwdg.de
+@result{}
+ftp://ftp.gwdg.de/pub/gnu/ftp/gnu/hello/hello-2.7.tar.gz #  # \
+   hello # 2.7
+Directory `/home/lfinsto/Installer/hello_2.7' doesn't exist.
+iter->download_command == 
+iter->download_url == \
+ftp://ftp.gwdg.de/pub/gnu/ftp/gnu/hello/hello-2.7.tar.gz
+@dots{} 
+`optdbcli' not creating symbolic links.
+@dots{} 
+make install succeeded
+In hello_2.7_install.sh:  Installed hello 2.7 successfully in \
+   /home/lfinsto/Installer/hello_2.7
+bin subdirectory exists
+no include subdirectory
+no lib subdirectory
+
+Execute the following commands in a shell to set its environment \
+   (if desired):
+
+export PATH=$PATH:/home/lfinsto/bin
+
+In `install_packages':  Installed hello 2.7 successfully in \
+   `/home/lfinsto/Installer/hello_2.7'.
+@end example
+
+This example differs from the last only in that the @option{--fetch}
+option has been replaced by @option{install}.  In this case, the
+client will attempt to install the packages specified with the
+@option{--package-name} and (optionally) @option{--package-version}
+options.  (@option{--install} implies @option{--fetch}.)
+
+The directories @file{$HOME/Installer/} and
+@file{$HOME/installer_work/} are created, if they don't already exist.
+In addition, the subdirectory @file{$HOME/installer_work/hello_2.7/} is
+created, overwriting any exisiting subdirectory of this name.
+
+If the entry for @samp{hello 2.7} in the database contains an
+installation script, it is copied into
+@file{$HOME/installer_work/hello_2.7/}.  Otherwise, a default
+shellscript is created in this directory.
+
+If the entry contains a ``download command'', the latter is executed
+with @file{$HOME/installer_work/hello_2.7/} as the working directory.
+Otherwise, if it contains a ``download URL'', @samp{wget} is used to
+fetch its contents, which in most cases will be a compressed
+@samp{tar} file containing the distribution of the software package
+(here, @samp{hello 2.7}).
+
+Next, the installation script is executed, either the one stored in
+the database or the default script, if there was none.  Normally, the
+script will unpack the compressed @samp{tar} file, enter the top-level
+directory of the distribution and perform any actions needed to build
+the package.  On Unix-like systems, this will typically consist of
+calls to @samp{configure}, @samp{make} and @samp{make install}.
+However, any given may require special handling.
+
+Multiple packages may be specified using @option{--package-name}.
+However, if @option{--package-version} is used, it must be used for
+all packages.  In addition, the order in which the package versions
+are specified in the command must correspond to the order in which the
+packages are specified.  For example, in this call:
+
+@example 
+optdbcli --package-name hello --package-name m4 \
+   --package-version "2.7" --package-version="1.4.15" @dots{}
+
+@end example
+ 
+@noindent
+the version of @samp{hello} to be fetched or installed is 2.7 while the
+version of @samp{m4} is 1.4.15.
+
+Since some packages may not have version numbers or the user might not
+know or care about them, the argument to @option{--package-version} is
+optional.  However, if multiple packages are specified and at least
+one of them has a ``non-empty'' @option{--package-version}, instances
+of @option{--package-version} without an argument must be specified as
+placeholders for each of the other packages, e.g.,
+
+@example 
+optdbcli --package-name hello --package-name m4 \
+    --package-name bison --package-version --package-version="1.4.15" \
+    --package-version @dots{}
+
+@end example
+
+@c !! TODO: LDF 2010.06.09.  Check that this is really true.  It may be
+@c possible to leave off empty instances of @option{--package-version} at
+@c the end.
+
+@noindent
+Here, only @samp{m4} has a non-empty package version, but empty
+instances of @option{--package-version} must be used for @samp{hello}
+and @samp{bison}.
+
+The previous examples demonstrate the rules, but it's better practice
+to keep corresponding instances of @option{--package-name} and
+@option{--package-version} together, e.g.,
+
+@example 
+optdbcli --package-name hello --package-version \ 
+   --package-name m4 --package-version="1.4.15" \ 
+   --package-name bison --package-version
+@dots{}
+
+@end example
+
+@xref{Invoking optdbcli/optdbsrv}, for more details about arguments
+and options used when invoking the client program @samp{optdbcli}.
+
+@c *** (3) Remote Installation (optdbcli)
+
+@node Remote Installation (optdbcli), Transferring Proxy Credential (optdbcli), Retrieving Information and Installing Locally (optdbcli), Using the Client Program optdbcli
+
+@section Remote Installation
+
+
+@iftex
+@tex
+\syntaxgroup
+\SetupA{statement} install_or_reinstall PACKAGE_NAME STRING\hfil\break 
+package_version_optional GLOBUS_SITE STRING\hfil\break 
+stdout_filename_optional stderr_filename_optional timeout_optional\hfil\break 
+reinstall_prerequisites_optional link_expression_list
+
+install_or_reinstall: INSTALL | REINSTALL
+
+<package_version_optional> {\Empty} | PACKAGE_VERSION STRING
+
+
+<stdout_filename_optional> {\Empty}
+                        | STDOUT_FILENAME STRING
+
+<stderr_filename_optional> {\Empty}
+                        | STDERR_FILENAME STRING
+
+<timeout_optional> {\Empty}
+                | TIMEOUT INTEGER
+
+\Setup{reinstall_prerequisites_optional} {\Empty} | REINSTALL PREREQUISITES\hfil\break 
+| NO REINSTALL PREREQUISITES
+
+<link_expression_list>: {\Empty} | link_expression_list link_expression
+
+<link_expression>: NO_LINKS | WITH_LINKS | LINK_DIRECTORY STRING
+
+
+\par
+\endgroup
+@end tex
+@end iftex 
+
+@ifnottex
+@display
+statement: install_or_reinstall PACKAGE_NAME STRING package_version_optional 
+           GLOBUS_SITE STRING stdout_filename_optional stderr_filename_optional 
+           timeout_optional reinstall_prerequisites_optional link_expression_list
+
+
+install_or_reinstall: INSTALL
+                    | REINSTALL
+
+package_version_optional: /* empty */
+                        | PACKAGE_VERSION STRING
+
+
+stdout_filename_optional: /* empty */
+                        | STDOUT_FILENAME STRING
+
+stderr_filename_optional: /* empty */
+                        | STDERR_FILENAME STRING
+
+timeout_optional: /* empty */
+                | TIMEOUT INTEGER
+
+reinstall_prerequisites_optional: /* empty */
+                                | REINSTALL PREREQUISITES
+                                | NO REINSTALL PREREQUISITES
+
+link_expression_list: /* empty */
+                    | link_expression_list link_expression
+
+link_expression: NO_LINKS
+               | WITH_LINKS
+               | LINK_DIRECTORY STRING
+@end display
+@end ifnottex 
+
+See also @ref{Remote Installation}, and @ref{Transferring Proxy Credential (optdbcli)}.
+
+@c *** (3) Transferring Proxy Credential (optdbcli)
+
+@node Transferring Proxy Credential (optdbcli), Globus Sites (optdbcli), Remote Installation (optdbcli), Using the Client Program optdbcli
+
+@section Transferring Proxy Credential
+
+@cindex proxy credential
+@cindex credential, proxy
+@c
+Remote installation (see @ref{Remote Installation}, and @ref{Remote Installation (optdbcli)}, above) requires that a @dfn{proxy credential} 
+be available on the computer where @samp{optdbsrv} is running.  The following command is used to transfer the proxy credential:
+
+@iftex
+@tex
+\syntaxgroup
+<statement>: CLIENT TO TRANSFER PROXY_CREDENTIAL STRING
+\par
+\endgroup
+@end tex
+@end iftex 
+
+@ifnottex
+@display
+statement: CLIENT TO TRANSFER PROXY_CREDENTIAL STRING
+@end display
+@end ifnottex
+
+Example:
+@example
+CLIENT TO TRANSFER PROXY_CREDENTIAL <x509up_u1000>
+@end example
+
+The proxy credential (@file{x509up_u1000} in this example) must already exist on the computer 
+where the client is running.  The shellscript @file{gen_proxy.sh}, which is included in the distribution, 
+can be used to generate a proxy credential.  @xref{Client/Server (optdbcli/optdbsrv) Shellscripts}.  
+It, in turn, uses the program @samp{grid-proxy-init}, which is part of the 
+Globus Toolkit distribution and should be located in @file{$GLOBUS_LOCATION/bin/}, e.g., 
+@file{/usr/local/globus-4.0.8/bin/grid-proxy-init}.
+
+@samp{optdbsrv} processes this command immediately, so that a proxy credential can be transferred and one or more
+remote installation commands can be executed with a single invocation of the client.  
+Please note that a proxy credential only needs to be transferred if there is no valid proxy available on the 
+computer where @samp{optdbsrv} is running;  it is not necessary to transfer proxy credentials for each 
+remote installation or each invocation of @samp{optdbcli}.
+
+@cindex Distinguished Name
+@cindex delegation
+@cindex delegate
+@c
+The proxy credential is stored in the @file{/tmp/} directory on the computer where the server is running.  The owner 
+is the user on that system corresponding to the entry in the @file{grid-mapfile} for the Distinguished Name 
+of the certificate or proxy credential passed as an argument to @samp{optdbcli} @emph{or} the Distinguished Name
+in a @samp{SET EFFECTIVE_USER} command.  @xref{Setting Effective User (optdbcli)}.  Please note that the latter case 
+is only possible for users who are authorized to act as a @dfn{delegate} for one or more other users.
+@xref{Setting Effective User (optdbcli)}, and @ref{Delegates Database Table}.
+
+@c *** (3) Globus Sites
+
+@include globssts.texi
+
+@c *** (3) Globus Site Administrators (optdbcli)
+
+@node Globus Site Administrators (optdbcli), , Globus Sites (optdbcli), Using the Client Program optdbcli
+
+@section Globus Site Administrators (optdbcli)
+
+@iftex
+@tex
+\syntaxgroup
+\Setup{statement} add_or_delete ADMIN GLOBUS_SITE STRING USER INTEGER\hfil\break
+| EDIT GLOBUS_SITE STRING SET globus_site_option_list\hfil\break
+| EDIT GLOBUS_SITE STRING UNSET globus_site_option_list_1
+
+<add_or_delete>: ADD | DELETE
+
+<globus_site_option_list_1>: {\Empty} | globus_site_option_list_1 globus_site_option_1
+
+\Setup{globus_site_option_1} INTERACTIVE_NODE | APPEND_LD_LIBRARY_PATH\hfil\break
+| APPEND_PATH | OPTDBCLI_PATH | IP_ADDRESS\hfil\break
+| INTERACTIVE_NODE_IP_ADDRESS 
+\par
+\endgroup
+@end tex
+@end iftex 
+
+@ifnottex
+@display
+statement: add_or_delete ADMIN GLOBUS_SITE STRING USER INTEGER
+         | EDIT GLOBUS_SITE STRING SET globus_site_option_list
+         | EDIT GLOBUS_SITE STRING UNSET globus_site_option_list_1
+
+add_or_delete: ADD
+             | DELETE
+
+
+globus_site_option_list_1: /* empty */
+                         | globus_site_option_list_1 globus_site_option_1
+
+globus_site_option_1: INTERACTIVE_NODE
+                    | APPEND_LD_LIBRARY_PATH
+                    | APPEND_PATH
+                    | OPTDBCLI_PATH
+                    | IP_ADDRESS
+                    | INTERACTIVE_NODE_IP_ADDRESS
+@end display
+@end ifnottex
+
+@c * (1) Local Variables for Emacs
+  
+@c Local Variables:
+@c mode:Texinfo
+@c abbrev-mode:t
+@c eval:(outline-minor-mode t)
+@c outline-regexp:"@c *\\*+"
+@c eval:(set (make-local-variable 'run-texi2dvi-on-file) "installer.texi")
+@c End:

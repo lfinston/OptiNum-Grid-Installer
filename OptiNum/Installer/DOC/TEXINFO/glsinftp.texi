@@ -1,0 +1,135 @@
+@c glstintp.texi
+
+@c This file is part of the Optinum Grid Installer User and Reference Manual.
+
+@c Copyright (C) 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbh Goettingen
+
+@c Created by Laurence D. Finston (LDF) Mon May  7 11:20:35 CEST 2012
+
+@c Author:  Laurence D. Finston (LDF)
+
+@c See the section "GNU Free Documentation License" in the file 
+@c fdl.texi for copying conditions.
+
+@c * (1) Globus_Site_Info_Type Reference
+
+@node Globus_Site_Info_Type Reference, Parser Function Reference, Scan_Parse_Parameter_Type Reference, Top
+
+@chapter Globus_Site_Info_Type Reference
+
+@cindex friend
+@tindex Globus_Site_Info_Type, class
+@tindex class Globus_Site_Info_Type
+@c
+@code{class Session_Data_Type} is defined in @file{glsinftp.web}.
+@code{class Scan_Parse_Parameter_Type} and the functions @code{main},
+@code{yyparse} and @code{check_globus_site} are @code{friends} of 
+@code{class Globus_Site_Info_Type}.  
+@xref{Scan_Parse_Parameter_Type Reference}, @ref{Parser Server Functions}, 
+and @ref{Start Remote Installation}.
+
+@code{class Scan_Parse_Parameter_Type} has a data member of type
+@code{Globus_Site_Info_Type}.  This object is used in parser rules for
+the server's parser (i.e., @code{yyparse}) for storing the values of
+options for commands such as @samp{add globus_site} and @samp{edit
+globus_site}. 
+@c !! TODO:  LDF 2012.05.07.  Add cross reference, when I've written
+@c a section describing these commands.
+
+@menu
+* Globus_Site_Info_Type Data Members::
+* Globus_Site_Info_Type Member Functions::
+@end menu
+
+@c ** (2) Globus_Site_Info_Type Data Members
+
+@node Globus_Site_Info_Type Data Members, Globus_Site_Info_Type Member Functions, , Globus_Site_Info_Type Reference
+
+@section Data Members
+
+@vindex Globus_Site_Info_Type::globus_site_id               
+@vindex Globus_Site_Info_Type::hostname                     
+@vindex Globus_Site_Info_Type::ip_address                   
+@vindex Globus_Site_Info_Type::interactive_node_name        
+@vindex Globus_Site_Info_Type::interactive_node_ip_address  
+@vindex Globus_Site_Info_Type::append_ld_library_path       
+@vindex Globus_Site_Info_Type::append_path                  
+@vindex Globus_Site_Info_Type::optdbcli_path                
+@vindex Globus_Site_Info_Type::enabled                
+@vindex Globus_Site_Info_Type::replace                 
+@c 
+@vindex (Globus_Site_Info_Type) globus_site_id               
+@vindex (Globus_Site_Info_Type) hostname
+@vindex (Globus_Site_Info_Type) ip_address        
+@vindex (Globus_Site_Info_Type) interactive_node_name        
+@vindex (Globus_Site_Info_Type) interactive_node_ip_address  
+@vindex (Globus_Site_Info_Type) append_ld_library_path       
+@vindex (Globus_Site_Info_Type) append_path                  
+@vindex (Globus_Site_Info_Type) optdbcli_path                
+@vindex (Globus_Site_Info_Type) enabled                
+@vindex (Globus_Site_Info_Type) replace                 
+@c
+@deftypevr {Private variables} int globus_site_id
+@deftypevrx {} string hostname
+@deftypevrx {} string ip_address
+@deftypevrx {} string interactive_node_name
+@deftypevrx {} string interactive_node_ip_address
+@deftypevrx {} string append_ld_library_path
+@deftypevrx {} string append_path
+@deftypevrx {} string optdbcli_path
+@deftypevrx {} bool replace
+@end deftypevr
+
+@deftypevr {Private variable} {signed short} enabled
+Using a @code{signed short} for the type of this variable makes it possible to
+determine whether it's been set or not:
+@table @asis
+@item 0
+Not set  
+
+@item -1
+Disabled
+
+@item 1
+Enabled
+@end table
+@end deftypevr
+
+
+
+@c ** (2) Globus_Site_Info_Type Functions
+
+@node Globus_Site_Info_Type Member Functions,,Globus_Site_Info_Type Data Members, Globus_Site_Info_Type Reference
+@section Member Functions
+ 
+@findex Globus_Site_Info_Type (Default constructor)
+@c
+@findex Globus_Site_Info_Type::Globus_Site_Info_Type (Default constructor)
+@c
+@deftypefn {Default constructor} {} Globus_Site_Info_Type (void)
+@end deftypefn
+
+@findex Globus_Site_Info_Type::show
+@c
+@findex show (Globus_Site_Info_Type)
+@c
+@deftypefun {int} show (string @var{s})
+@end deftypefun
+
+@findex Globus_Site_Info_Type::clear
+@c
+@findex clear (Globus_Site_Info_Type)
+@c
+@deftypefun {int} clear (void)
+@end deftypefun
+
+@c ** (1) Local Variables for Emacs
+
+@c Local Variables:
+@c mode:Texinfo
+@c abbrev-mode:t
+@c eval:(outline-minor-mode t)
+@c eval:(set (make-local-variable 'run-texi2dvi-on-file) "installer.texi")
+@c End:
+
+

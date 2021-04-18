@@ -1,0 +1,182 @@
+@c dstngnmt.texi
+@c Created by Laurence D. Finston (LDF) Wed May  5 09:59:13 CEST 2010
+
+@c This file is part of the Optinum Grid Installer User and Reference Manual.
+@c Copyright (C) 2010, 2011, 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbh Goettingen
+@c Author:  Laurence D. Finston (LDF)
+@c See the section "GNU Free Documentation License" in the file 
+@c fdl.texi for copying conditions.
+
+@c LOG
+@c LDF 2010.05.05.
+@c dstngnmt.web:  All functions, etc., added.  No global variables.
+@c ENDLOG 
+
+@c * (1) Distinguished_Name_Type Reference
+
+@node Distinguished_Name_Type Reference, Response_Type Reference, Entry_Type Reference, Top
+
+@chapter Distinguished_Name_Type Reference
+
+@tindex Distinguished_Name_Type, class 
+@tindex class Distinguished_Name_Type
+@c
+@code{class Distinguished_Name_Type} is defined in
+@file{dstngnmt.web}.
+
+@cindex X.509 certificate
+@cindex certificate, X.509
+@cindex Distinguished Name
+@cindex Name, Distinguished
+@cindex proxy credential
+@cindex credential, proxy
+@cindex grid-mapfile
+@cindex Globus Toolkit
+@cindex Globus front-end
+@cindex front-end, Globus 
+@cindex login names
+@c
+A @dfn{Distinguished Name} consists of items of information from an X.509 certificate
+(or @dfn{proxy credential}).  It is used by Globus Toolkit in the @file{grid-mapfile} 
+for associating certificates with users' login names on Globus front-end computers 
+(often referred to as @dfn{Globus front-ends}).
+
+Example:
+@example
+"/C=DE/O=GridGermany/OU=Gesellschaft fuer wissenschaftliche \
+Datenverarbeitung mbH/CN=Laurence Finston"
+@end example
+
+@code{class Distinguished_Name_Type} contains data members for storing the individual items of information
+and various functions for constructing, setting and comparing @code{Distinguished_Name_Type} objects.
+See also @ref{X509_Cert_Type Reference}.
+
+
+@cindex friend
+@tindex class Scan_Parse_Parameter_Type
+@tindex Scan_Parse_Parameter_Type, class
+@findex client_connect_non_auth
+@c
+The class @code{Scan_Parse_Parameter_Type} 
+(@pxref{Scan_Parse_Parameter_Type Reference})
+and the functions @code{client_connect_auth} and 
+@code{client_connect_non_auth} 
+(@pxref{Client Connection Function Reference}) 
+are @code{friends} of 
+@code{Distinguished_Name_Type}.
+
+@menu
+* Distinguished_Name_Type Data Members::
+* Distinguished_Name_Type Member Functions::
+@end menu
+
+@c ** (2) Distinguished_Name_Type Data Members
+
+@node Distinguished_Name_Type Data Members,  Distinguished_Name_Type Member Functions, , Distinguished_Name_Type Reference 
+
+@section Data Members
+
+@vindex Distinguished_Name_Type::organization
+@vindex Distinguished_Name_Type::organizationalUnitName
+@vindex Distinguished_Name_Type::commonName
+@vindex Distinguished_Name_Type::countryName
+@vindex Distinguished_Name_Type::localityName
+@vindex Distinguished_Name_Type::stateOrProvinceName
+@vindex Distinguished_Name_Type::user_name
+@vindex Distinguished_Name_Type::user_id
+@c
+@vindex organization (Distinguished_Name_Type)
+@vindex organizationalUnitName (Distinguished_Name_Type)
+@vindex commonName (Distinguished_Name_Type)
+@vindex countryName (Distinguished_Name_Type)
+@vindex localityName (Distinguished_Name_Type)
+@vindex stateOrProvinceName (Distinguished_Name_Type)
+@vindex user_name (Distinguished_Name_Type)
+@vindex user_id (Distinguished_Name_Type)
+@c
+@deftypevr  {Private variables} string organization
+@deftypevrx {} string organizationalUnitName
+@deftypevrx {} string commonName
+@deftypevrx {} string countryName
+@deftypevrx {} string localityName
+@deftypevrx {} string stateOrProvinceName
+@deftypevrx {} string user_name
+@deftypevrx {} int user_id
+@end deftypevr
+
+@c ** (2) Distinguished_Name_Type Member Functions
+
+@node Distinguished_Name_Type Member Functions, , Distinguished_Name_Type Data Members, Distinguished_Name_Type Reference 
+@comment  node-name,  next,  previous,  up
+
+@section Member Functions
+
+@findex Distinguished_Name_Type (Constructor)
+@findex Distinguished_Name_Type::Distinguished_Name_Type
+@c
+@deftypefn {Default constructor} void {Distinguished_Name_Type} (@code{void})
+@end deftypefn
+
+@findex Distinguished_Name_Type (Constructor)
+@findex Distinguished_Name_Type::Distinguished_Name_Type
+@c
+@deftypefn {Constructor} void Distinguished_Name_Type @*@
+                        (@code{string} oorganization, @*@
+                        @code{string} oorganizationalUnitName = @code{""}, @*@
+                        @code{string} ccommonName = @code{""}, @*@
+                        @code{string} ccountryName = @code{""}, @*@
+                        @code{string} llocalityName = @code{""}, @*@
+                        @code{string} sstateOrProvinceName = @code{""}, @*@
+                        @code{unsigned int} uuser_id = 0, @*@
+                        @code{string} uuser_name = @code{""})
+@end deftypefn
+
+@findex set (Distinguished_Name_Type)
+@findex Distinguished_Name_Type::set
+@c
+@deftypefun int set (string distinguished_name_str, string* user_name = 0)
+@end deftypefun
+
+@findex operator= (Distinguished_Name_Type)
+@findex Distinguished_Name_Type::operator=
+@c
+@deftypefn {Assignment operator} void operator= ({const X509_Cert_Type} @var{&x})  
+Defined in @file{x509cert.web}.
+@end deftypefn
+
+@findex operator== (Distinguished_Name_Type)
+@findex Distinguished_Name_Type::operator==
+@c
+@deftypefn {const Operator} bool operator== (const Distinguished_Name_Type @var{&d}) 
+Equality operator.
+@end deftypefn
+
+@findex operator!= (Distinguished_Name_Type)
+@findex Distinguished_Name_Type::operator!=
+@c
+@deftypefn {const Operator} bool operator!= (const Distinguished_Name_Type @var{&d}) 
+Inequality operator.
+@end deftypefn
+
+
+@findex clear (Distinguished_Name_Type)
+@findex Distinguished_Name_Type::clear
+@c
+@deftypefun void clear (void)
+@end deftypefun
+
+@findex show (Distinguished_Name_Type)
+@findex Distinguished_Name_Type::show
+@c
+@deftypefn {const Function} void show (string {@var{s} = ""})
+@end deftypefn
+
+@c * (1) Local Variables for Emacs
+
+@c Local Variables:
+@c mode:Texinfo
+@c abbrev-mode:t
+@c eval:(outline-minor-mode t)
+@c outline-regexp:"@c *\\*+"
+@c eval:(set (make-local-variable 'run-texi2dvi-on-file) "installer.texi")
+@c End:

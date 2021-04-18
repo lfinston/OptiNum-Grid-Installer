@@ -1,0 +1,96 @@
+@c dhprxcrt.texi
+@c This file is part of the Optinum Grid Installer User and Reference Manual.
+
+@c Copyright (C) 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbh Goettingen
+@c Author:  Laurence D. Finston (LDF)
+@c Created by Laurence D. Finston (LDF) 2012-01-25 15:03:52 +0100 (Wed, 25 Jan 2012)
+@c See the section "GNU Free Documentation License" in the file 
+@c fdl.texi for copying conditions.
+
+@c * (1) Proxy Credential Function Reference
+
+@node Proxy Credential Function Reference, Scanner Server, X509_Cert_Type Reference, Top
+@comment  node-name,  next,  previous,  up
+
+@chapter Proxy Credential Function Reference
+
+The variables, constants and functions described in this chapter are 
+declared and/or defined in @file{dhprxcrt.web}.
+
+@deftypevr {Constant} {string} certtool_path
+File-local in @file{dhprxcrt.web}.
+The value of this constant depends on conditionally compiled code.
+On @t{optinum-srv.gwdg.de}, it's @samp{/opt/optinum/dbsrvcli/bin/certtool}.
+Otherwise it's @t{certtool}, which implies that the path to the latter must be
+listed in the @samp{PATH} variable defined in the user's environment.
+@end deftypevr
+
+@deftypefun int handle_proxy_cred (string {@var{local_proxy_cred_filename} = @code{proxy_cred_filename}})
+
+Return values:
+
+@table @asis
+@item 0
+Success
+
+@item 1
+Local proxy credential filename is empty
+
+@item 2
+Failed to open local proxy credential file
+
+@item 3
+@command{popen} error:  Call to @command{certtool} failed
+
+@item 4
+@command{fread} error:  Failed to read output of @command{certtool}.
+
+@item 5
+Too many characters in @command{certtool} output (> 1048575)
+
+@item 6
+Failed to verify certificate chain:  Expired
+
+@item 7
+Failed to verify certificate chain:  Other reason
+
+@item 8
+@command{popen} error:  Call to @command{certtool -i} failed
+
+@item 9
+@command{fread} error:  Failed to read output of @command{certtool -i}
+
+@item 10
+Failed to find ``Validity'' information in proxy credential
+
+@item 11
+Failed to find ``Validity:  Not Before'' information in proxy credential
+
+@item 12
+Failed to find ``Validity:  Not After'' information in proxy credential
+
+@item 13
+@command{popen} error:  Calls to @command{date} failed
+
+@item 14
+@command{fscanf} or @command{getline} error:  Failed to read output 
+of calls to @command{date}
+
+@item 15
+Failed to set time in ``seconds since the epoch'' correctly
+
+@item 16
+proxy credential not yet valid:  Present time < ``Not Before'' value
+
+@item 17
+proxy credential expired:  Present time > ``Not After'' value
+@end table
+
+@end deftypefun
+
+@deftypefun int extract_distinguished_name (string @var{cert_filename}, string @var{&dn}, @
+                                            bool {@var{is_proxy} = @code{false}})
+
+@end deftypefun
+
+

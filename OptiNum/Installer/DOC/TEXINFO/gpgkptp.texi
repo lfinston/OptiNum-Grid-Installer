@@ -1,0 +1,84 @@
+@c gpgkptp.texi
+@c Created by Laurence D. Finston (LDF) Fri Jan 27 09:07:44 CET 2012
+@c This file is part of the Optinum Grid Installer User and Reference Manual.
+@c Copyright (C) 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbh Goettingen
+@c Author:  Laurence D. Finston (LDF)
+@c See the section "GNU Free Documentation License" in the file 
+@c fdl.texi for copying conditions.
+
+@c * (1) GPG_Key_Pair_Type Reference
+
+@node GPG_Key_Pair_Type Reference, Session_Data_Type Reference, Parser Function Reference, Top
+@chapter GPG_Key_Pair_Type Reference
+
+@tindex GPG_Key_Pair_Type, class 
+@tindex class GPG_Key_Pair_Type
+@c
+@code{class GPG_Key_Pair_Type} is defined in
+@file{scprpmtp.web}.
+As a convenience, @code{Gpg_Key_Pair_Type} is defined to be a synonym for @code{GPG_Key_Pair_Type}:
+
+@example
+@code{typedef GPG_Key_Pair_Type Gpg_Key_Pair_Type}
+@end example
+
+@cindex friend
+@tindex Scan_Parse_Parameter_Type, class
+@tindex class Scan_Parse_Parameter_Type
+@findex sub_distribute_key_pair
+@c
+The class @code{Scan_Parse_Parameter_Type} 
+(@pxref{Scan_Parse_Parameter_Type Reference}) 
+and the function 
+@code{sub_distribute_key_pair} (@pxref{GPG Key Distribution})
+are @code{friends} of @code{GPG_Key_Pair_Type}.
+
+@menu
+* GPG_Key_Pair_Type Data Members::
+* GPG_Key_Pair_Type Member Functions::
+@end menu
+
+@c ** (2) GPG_Key_Pair_Type Data Members
+
+@node GPG_Key_Pair_Type Data Members, GPG_Key_Pair_Type Member Functions, , GPG_Key_Pair_Type Reference
+@comment  node-name,  next,  previous,  up
+
+@section GPG_Key_Pair_Type Data Members
+
+@vindex GPG_Key_Pair_Type::param
+@vindex param
+@c
+@vindex param (GPG_Key_Pair_Type)
+@c
+@c
+@deftypevr  {Private variables} {Scan_Parse_Parameter_Type *} param
+@deftypevrx {} string globus_site
+@deftypevrx {} int return_value
+@deftypevrx {} {unsigned int} sub_thread_ctr
+@deftypevrx {} pthread_t ptid
+@end deftypevr
+
+@c ** (2) GPG_Key_Pair_Type Member Functions
+
+@node GPG_Key_Pair_Type Member Functions, , GPG_Key_Pair_Type Data Members, GPG_Key_Pair_Type Reference
+
+@section GPG_Key_Pair_Type Member Functions
+
+@findex GPG_Key_Pair_Type::GPG_Key_Pair_Type
+@deftypefn {Default constructor} {} GPG_Key_Pair_Type (void)
+@end deftypefn
+
+@findex GPG_Key_Pair_Type::show
+@deftypefun void show (string {@var{s} = ""}, bool {@var{show_param} = false})
+@end deftypefun
+
+
+@c * (1) Local Variables for Emacs
+
+@c Local Variables:
+@c mode:Texinfo
+@c abbrev-mode:t
+@c eval:(outline-minor-mode t)
+@c outline-regexp:"@c *\\*+"
+@c eval:(set (make-local-variable 'run-texi2dvi-on-file) "installer.texi")
+@c End:

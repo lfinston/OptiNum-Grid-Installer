@@ -1,0 +1,761 @@
+%%%% installer.texi
+%%%% Created by Laurence D. Finston (LDF) Fri Dec 4 14:33:31 CEST 2009
+
+%%%% Copyright (C) 2010, 2011, 2012, 2013 Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen
+%%%% See the section "GNU Free Documentation License" in the file 
+%%%% fdl.texi for copying conditions.
+
+\input epsf 
+\def\epsfsize#1#2{#1}
+
+\newbox\PPbox % symbol for ++
+\setbox\PPbox=\hbox{\kern.5pt\raise1pt\hbox{\sevenrm+\kern-1pt+}\kern.5pt}
+\def\PP{\copy\PPbox}
+\let\mc=\tenrm
+\def\CPLUSPLUS{{\mc C\PP\spacefactor1000}}
+
+\newbox\scratchboxa
+\newbox\scratchboxb
+\newbox\scratchboxc
+\newbox\scratchboxd
+
+\font\large=cmr12 scaled \magstep1 
+\font\largebx=cmbx12 scaled \magstep1 
+\font\largett=cmtt12 scaled \magstep1 
+\font\twelvebf=cmbx12
+
+\font\rmnine=cmr9
+
+%% ** (2) German-style quotation marks
+
+%\def\tinylgq/{{\ecrmfive\char'022}}
+%\def\tinyrgq/{{\ecrmfive\char'020}}
+
+%\def\lgq/{{\ecrm\char'022}}
+%\def\rgq/{{\ecrm\char'020}}
+
+%\def\largebflgq/{{\largebfec\char'022}}
+%\def\largebfrgq/{{\largebfec\char'020}}
+%\font\largebfec=ecbx1200
+
+
+\global\newcount\figctr
+\figctr=1
+
+\global\newwrite\figout
+\openout\figout=listfigs.aux
+\global\newlinechar = `^^J
+
+\begingroup
+\catcode`\%=12
+\global\def\commentchar{%}
+\endgroup
+
+\begingroup
+\catcode`\|=0
+|catcode`|\=12
+|global|def|bslchar{\}
+|endgroup
+
+
+
+%% Figure list entry
+
+\global\newcount\listfigctr
+\global\def\leaderfill{\leaders\hbox to .5em{\hss.\hss}\hfil}
+\global\def\FLE#1#2{\line{\the\listfigctr .\space #1\leaderfill #2}\advance\listfigctr by 1\vskip.75\baselineskip}
+
+\global\newcount\hours
+\global\newcount\minutes
+
+\global\hours=\time
+\global\divide\hours by 60
+
+\count255=\hours
+\multiply\count255 by 60
+
+\global\minutes=\time
+\global\advance\minutes by -\count255
+
+\write\figout{\commentchar\commentchar\space listfigs.aux^^J%
+\commentchar\commentchar\space Generated \the\year.\the\month.\the\day\space \the\hours:\the\minutes^^J%
+\listfigctr=1}
+
+
+\def\usc{\leavevmode\hbox{\vrule height 0pt depth .75pt width .5em}}
+\def\lra{\space$\longrightarrow$}
+\def\vrt{$\vert$}
+\def\Empty{({\tt Empty})}
+
+\begingroup
+\catcode`\:=\active
+\catcode`\_=\active
+\catcode`\<=\active  
+\catcode`\|=\active
+%
+\gdef\<#1>{\begingroup\let_=\space\leavevmode
+          \hbox{$\langle${\rm #1}$\rangle$}\endgroup}
+%
+\gdef\syntaxgroup{\begingroup
+\parindent=0pt
+\leftskip=0cm
+\advance\hsize by 3cm
+\parskip=\baselineskip
+\catcode`\:=\active
+\catcode`\_=\active
+\catcode`\<=\active
+\catcode`\|=\active
+\tt
+%
+\let<=\<
+\let_=\usc
+\let:=\lra
+\let|=\vrt
+%
+\def\Setup##1{\setbox0=\hbox{<##1>:\space\kern5pt}%
+\dimen0=\wd0
+\setbox1=\hbox{|\space}%
+\advance\dimen0 by -\wd1
+\dimen1=\wd1
+\hangindent=\dimen0
+\hangafter=1
+\leavevmode\unhbox0}
+%
+\def\SetupA##1{\setbox0=\hbox{<##1>:\space}%
+\hangindent=\wd0
+\hangafter=1
+\leavevmode\unhbox0}%
+\let\Setupa=\SetupA
+}
+\endgroup
+
+\input texinfo   @c -*-texinfo-*-
+
+@c %**start of header
+@setfilename installer.info
+@settitle OptiNum Grid Installer User and Reference Manual
+@c %**end of header
+
+@set EDITION 1.0
+@set VERSION 1.0
+@set UPDATED November 14, 2013
+@set UPDATE-MONTH November 2013
+
+@documentlanguage en
+
+@c *********************
+
+@copying
+OptiNum Grid Installer User and Reference Manual, edition @value{EDITION}.@*
+The author is Laurence D. Finston.
+
+Copyright @copyright{} 2010, 2011, 2012, 2013 Gesellschaft f@"{u}r wissenschaftliche
+Datenverarbeitung mbH, G@"{o}ttingen, Germany
+
+@quotation
+Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.2 or
+any later version published by the Free Software Foundation; with no
+Invariant Sections, with the Front-Cover Texts being 
+``GWDG Archive Interface User and Reference Manual'',
+and no Back-Cover Text.  A copy of the license is included in 
+the section entitled ``GNU Free Documentation License.''
+@end quotation
+@end copying
+
+@c *********************
+
+@dircategory non-GNU packages
+@direntry
+* OptiNum Grid Installer: (GWDG).  OptiNum Grid Installer
+@end direntry
+
+@c *********************
+
+
+@c @setchapternewpage odd
+@c @setchapternewpage off  @c For saving paper.  LDF 2003.08.20.
+
+@c *********************
+
+@titlepage
+@title OptiNum Grid Installer 
+@subtitle User and Reference Manual edition @value{EDITION}
+@subtitle Last updated @value{UPDATED}
+@author Laurence D. Finston 
+@sp 1
+@author Gesellschaft f@"ur wissenschaftliche 
+@author Datenverarbeitung mbH G@"ottingen 
+@author (GWDG)
+
+@page
+@vskip 0pt plus 1filll
+@insertcopying
+@end titlepage
+
+@headings on
+
+@c Comment-out to save paper.
+@shortcontents
+
+@contents
+
+@node Top, , (dir), (dir)
+
+@ifnottex
+@insertcopying
+@end ifnottex
+
+@menu
+* List of Figures::
+* Introduction::                
+* Invoking optdbcli/optdbsrv::
+* Using the Server Program optdbsrv::
+* Using the Client Program optdbcli::
+* Global Variables and Constants optdbcli/optdbsrv::  
+* Global Functions optdbcli/optdbsrv::  
+* Server Connection Function Reference::
+* Client Connection Function Reference::                      
+* Web Application::
+* Software Installation::
+* TLS Connections::
+* X509_Cert_Type Reference::    
+* Proxy Credential Function Reference::
+* Scanner Server::              
+* Parser Server::               
+* Scanner Client::              
+* Parser Client::               
+* Entry_Type Reference::        
+* Distinguished_Name_Type Reference::  
+* Response_Type Reference::     
+* Scan_Parse_Parameter_Type Reference::  
+* Globus_Site_Info_Type Reference::  
+* Parser Function Reference::
+* GPG_Key_Pair_Type Reference::
+* Session_Data_Type Reference::
+* Utility Function Reference::
+* Thread Function Reference::
+* Hidden Installation Reference (scrinstl)::
+* Auxiliary Program and Shellscript Reference::
+* Database Tables and Views::
+* Glossary::
+* Lists of Source Files::  
+* FDL::
+* GPL::
+* Variable Index::              
+* Data Type Index::             
+* Function Index::              
+* Concept Index::               
+
+@detailmenu
+--- The Detailed Node Listing ---
+
+List of Figures
+
+* List of Figures::
+
+Introduction
+
+* Introduction::
+
+@c * How To Read This Manual::
+
+--- Building and Installing
+
+* Building and Installing::
+
+--- Server and Client
+
+* Server and Client::              
+* Database Setup::
+* Prerequisites for Building and Installing::
+
+---
+
+Invoking optdbcli/optdbsrv
+
+* Invoking optdbcli/optdbsrv::
+
+* Command Line Arguments and Options::      
+* Help Options::
+* Connection Options::
+* X.509 Authentication/Authorization Options::
+* Input and Output Options::
+* Software Installation Options::
+* Debugging Options::
+* Session Data Options::
+* Alphabetical List of Options::
+
+* Function Reference Invoking::      
+* Variable Reference Invoking::
+* Function Reference Invoking::
+
+---
+
+Using the Server Program optdbsrv
+
+* Using the Server Program optdbsrv::
+
+---
+
+Using the Client Program optdbcli
+
+* Using the Client Program optdbcli::
+
+* How the Client and the Server Communicate::
+* How To Read Parser Rules::
+* Sample Dialogue::
+
+* Software Package Information (optdbcli)::
+* Adding Software Package Information (optdbcli)::
+* Deleting Software Package Information (optdbcli)::
+* Showing Software Package Information (optdbcli)::
+
+* Setting Effective User (optdbcli)::
+* Showing X.509 Certificates (optdbcli)::
+
+* Environment Shellscripts (optdbcli)::
+* Sending Environment Shellscripts (optdbcli)::
+* Showing Environment Shellscripts (optdbcli)::
+
+* Showing Privileges (optdbcli)::
+* Retrieving Information and Installing Locally (optdbcli)::
+* Remote Installation (optdbcli)::
+* Transferring Proxy Credential  (optdbcli)::
+
+* Globus Sites (optdbcli)::
+
+* Adding Globus Sites (optdbcli)::
+* Enabling and Disabling Globus Sites (optdbcli)::
+* Deleting and Undeleting Globus Sites (optdbcli)::
+
+* Globus Site Administrators (optdbcli)::
+
+---
+
+Global Variables and Constants optdbcli/optdbsrv
+
+* Global Variables and Constants optdbcli/optdbsrv::
+
+* Global Constants optdbcli/optdbsrv::
+* Global Variables optdbcli/optdbsrv::
+
+Global Functions optdbcli/optdbsrv
+
+* Global Functions optdbcli/optdbsrv::
+
+---
+
+Server Connection Function Reference
+
+* Server Connection Function Reference::
+
+* Exchange Data With Client::
+
+---
+
+Client Connection Function Reference
+
+* Client Connection Function Reference::
+
+* Exchange Data With Server::
+---
+
+Web Application
+
+* Web Application::
+
+* Accessing the Web Application::
+* Data Files Web Application::
+* Auxiliary_File_Type::
+* Global Variables and Constants Web Application::
+* Web Application Functions::
+* Scanner Web Application::
+* Scanner Web Application Variables::
+* Scanner Web Application Functions::
+* Parser Web Application::
+* Parser Web Application Functions::
+
+Software Installation
+
+* Normal Software Installation::
+* Hidden Software Installation::
+* Local Software Installation::
+* Remote Software Installation::
+
+TLS Connections
+
+* TLS Connections::
+
+* Preprocessor Macros for TLS::      
+* Types for TLS::
+* TLS Variables::
+* TLS Functions::
+
+X509_Cert_Type Reference
+
+* X509_Cert_Type Reference::
+
+* X509_Cert_Type Data Members::      
+* X509_Cert_Type Member Functions::
+
+Proxy Credential Function Reference
+
+* Proxy Credential Function Reference::
+
+Scanner Server
+
+* Scanner Server::
+
+* Scanner Server Variables::      
+* Scanner Server Functions::
+
+Parser Server
+
+* Parser Server::
+* Parser Server Symbols Rules and States::
+* Parser Server Functions::
+
+Scanner Client
+
+* Scanner Client::
+
+* Scanner Client Variables::
+* Scanner Client Functions::
+
+Parser Client
+
+* Parser Client::
+* Parser Client Symbols Rules and States::
+* Parser Client Functions::
+
+Entry_Type Reference
+
+* Entry_Type Reference::
+* Entry_Type Data Members::
+* Entry_Type Member Functions::
+* Entry_Type Constructors::
+* Entry_Type Operators::
+* Entry_Type Other Functions::
+* Comparison Classes for Entry_Type::
+
+Distinguished_Name_Type Reference
+
+* Distinguished_Name_Type Reference::
+
+* Distinguished_Name_Type Data Members::
+* Distinguished_Name_Type Member Functions::
+
+Response_Type Reference
+
+* Response_Type Reference::
+
+* Response_Type Data Members::
+* Response_Type Member Functions::
+
+Scan_Parse_Parameter_Type Reference
+
+* Scan_Parse_Parameter_Type Reference::
+
+* Scan_Parse_Parameter_Type Data Members::
+
+* Scan_Parse_Parameter_Type Member Functions::
+
+* Constructors and Destructor (Scan_Parse_Parameter_Type)::
+
+* Functions for Managing Users::
+
+* Functions for Entries::
+
+* Functions for Adding Entries::
+* Functions for Modifying Entries::
+* Functions for Deleting Entries::
+* Showing Entries::
+* Functions for Fetching Entry Information::
+
+* Functions for Prerequisites::
+
+* Database Functions::
+
+* Globus Site Functions::
+
+* Functions for Privileges::
+
+* Environment Shellscript Functions::
+
+* Functions for GPG Keys::
+
+* Session Data Functions::
+
+* Other Scan_Parse_Parameter_Type Member Functions::
+
+* Globus_Site_Info_Type Reference::
+
+* Globus_Site_Info_Type Data Members::
+
+* Globus_Site_Info_Type Member Functions::
+
+Parser Function Reference
+
+* Parser Function Reference::
+
+GPG_Key_Pair_Type Reference
+
+* GPG_Key_Pair_Type Reference::
+
+* GPG_Key_Pair_Type Data Members::
+* GPG_Key_Pair_Type Member Functions::
+
+Session_Data_Type Reference
+
+* Session_Data_Type Reference::
+* Session_Data_Type Data Members::
+* Session_Data_Type Member Functions::
+
+Utility Function Reference
+
+* Utility Function Reference::
+
+---
+
+Thread Function Reference
+
+* Thread Function Reference::
+* Remote Installation::
+* GPG Key Distribution::
+* Cull Database::
+
+---
+
+Hidden Installation Reference (scrinstl)
+
+* Hidden Installation Reference (scrinstl)::
+
+* Global Variables (scrinstl)::
+* Global Functions (scrinstl)::
+
+* Distinguished_Name_Type (scrinstl)::
+* Distinguished_Name_Type Data Members (scrinstl)::
+* Distinguished_Name_Type Member Functions (scrinstl)::
+
+* Parameter_Type (scrinstl)::
+* Parameter_Type Data Members (scrinstl)::
+
+Auxiliary Program and Shellscript Reference
+
+* Auxiliary Program and Shellscript Reference::
+
+* Start Remote Installation::
+* Kill Process::
+* Install GPG Key Pair::
+* Change Owner for Installed Files::
+
+* Generate Passwords or Passphrases::
+
+* optpsgen Options::
+* optpsgen Global Variables::
+* optpsgen Functions::
+
+Database Tables and Views
+
+* Database Tables and Views::
+
+* Users Database Table::
+* User_Info Database View:: 
+* Certificates Database Table::
+* Privileges Database Table::
+* Delegates Database Table:: 
+* Entries Database Table::
+* Prerequisites Database Table::
+* Globus_Sites Database Table:: 
+* Key_Pairs Database Table:: 
+* Public_Keys Database Table:: 
+* Session_Data Database Table:: 
+* Environment_Shellscripts Database Table:: 
+* Globus_Sites_Admins Database Table:: 
+
+Glossary
+
+* Glossary::
+
+Lists of Source Files
+
+* Lists of Source Files::
+
+* Client/Server (optdbcli/optdbsrv) Source File List::
+
+* Client/Server (optdbcli/optdbsrv) CWEB Files::
+* Client/Server (optdbcli/optdbsrv) Shellscripts::
+
+* Hidden Installation (scrinstl) Source File List::
+
+* Hidden Installation (scrinstl) CWEB Files::
+* Hidden Installation (scrinstl) Shellscripts::
+
+* Web Application (optwbsrv) Source File List::
+
+* Web Application (optwbsrv) CWEB Files::
+* Web Application (optwbsrv) Shellscripts::
+
+Variable Index
+
+* Variable Index::
+
+Data Type Index
+
+* Data Type Index::
+
+Function Index
+
+* Function Index::
+
+Concept Index
+
+* Concept Index::
+
+FDL
+
+* FDL::
+
+GPL
+
+* GPL::
+
+@end detailmenu
+
+@end menu
+
+@include macros.texi
+
+@include listfigs.texi
+
+@iftex
+@tex
+\global\pageno=1
+@end tex
+@end iftex
+
+@include intro.texi
+
+@include invoking.texi
+
+@include optdbsrv.texi
+
+@include optdbcli.texi
+
+@include glblvrbl.texi
+
+@include glblfncs.texi
+
+@include server.texi
+
+@include client.texi
+
+@include webapp.texi
+
+@include instlltn.texi
+
+@include tlsconn.texi
+
+@include x509cert.texi
+
+@include dhprxcrt.texi
+
+@include scnrsrvr.texi
+
+@include prsrsrvr.texi
+
+@include scnrclnt.texi 
+
+@include prsrclnt.texi
+
+@include entries.texi
+
+@include dstngnmt.texi
+
+@include rspnstp.texi
+
+@include scprpmtp.texi
+
+@include glsinftp.texi
+
+@include prsrfncs.texi
+
+@include gpgkptp.texi
+
+@include sssndttp.texi
+
+@include utilfncs.texi
+
+@include thrdfncs.texi
+
+@include hdinstrf.texi
+
+@include auxprgrf.texi
+
+@include database.texi
+
+@page
+@include glossary.texi
+
+@page
+@include lstsrcfs.texi
+
+@page
+@node FDL, GPL, Lists of Source Files, Top
+@unnumbered GNU Free Documentation License
+@include fdl.texi
+
+@page
+@node GPL, Variable Index, FDL, Top
+@unnumbered GNU General Public License
+@include gpl.texi
+
+
+@page
+@c Variable Index (v)
+@include varidx.texi 
+
+@page
+@c Data Type Index (t)
+@include dttypidx.texi   
+
+@page
+@c Function Index (f)
+@include funcidx.texi
+
+@page
+@c Concept Index (c)
+@include concidx.texi
+
+@iftex
+@tex
+\closeout\figout
+@end tex
+@end iftex
+
+@c \newwrite\pagenumout
+@c \openout\pagenumout=pageno.txt
+@c \newlinechar = `^^J
+@c \write\pagenumout{\the\pageno}
+@c \closeout\pagenumout
+
+
+@bye
+
+@c * (1)
+
+@c Emacs-Lisp code for use in indirect buffers:
+@c
+@c (progn (texinfo-mode) (outline-minor-mode t) (setq outline-regexp "@c *\\*+"))
+
+@c * (1) Local Variables for Emacs
+
+@c Local Variables:
+@c mode:Texinfo
+@c abbrev-mode:t
+@c eval:(outline-minor-mode t)
+@c eval:(set (make-local-variable 'run-texi2dvi-on-file) "installer.texi")
+@c End:
+
+
