@@ -1,0 +1,13 @@
+OptiNum-Grid
+============
+
+OptiNum-Grid
+
+Optimierung technischer Systeme und naturwissenschaftlicher Modelle mit 
+Hilfe numerischer Simulationen im Grid
+
+(Dead link) http://www.optinum.de
+
+Gesellschaft fuer wissenschaftliche Datenverarbeitung mbH Goettingen
+Am Fassberg 11
+37077 Goettingen
