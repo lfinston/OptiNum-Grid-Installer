@@ -1,0 +1,243 @@
+%% 00INFO
+
+%% Created by Laurence D. Finston (LDF) 
+
+%% $Id: 00INFO 4527 2011-07-08 14:50:10Z finston $
+
+%% * (1) Top
+
+%% ** (2)  Updating package on various machines
+
+LDF 2010.10.27.
+
+The shell script `update_all.sh' in this directory 
+
+%% ** (2)  LDF 2010.09.15.
+
+gsiftp  (port 2222, wie bei gsissh)
+
+globus-url-copy
+
+
+%% ** (2)  Simple job submission
+
+LDF 2010.09.10.
+
+Doesn't exit until job is finished.
+
+globusrun-ws -submit -F optinum-srv.gwdg.de -Ft PBS -s -c /bin/hostname
+
+%% ** (2) Submit batch job:
+
+globusrun-ws -submit -batch -o myjob.epr -F optinum-srv.gwdg.de -Ft PBS -s -c /bin/hostname
+
+globusrun-ws -submit -batch -o myjob_1.epr -F optinum-srv.gwdg.de -Ft PBS -s -c "/usr/users/dgon0015/Installer/m4/bin/m4 --version"
+
+Query status:
+
+globusrun-ws -status -j myjob.epr
+
+globusrun-ws -status -j myjob_1.epr
+
+Clean up:
+
+globusrun-ws -monitor -j myjob.epr
+
+globusrun-ws -monitor -j myjob_1.epr
+
+or 
+
+globusrun-ws -kill -j myjob.epr
+
+(monitor is better)
+
+%% ** (2) Check queue on optinum-srv:
+
+dgon0015@optinum-srv:
+
+qstat | grep dgon0015
+
+%% ** (2) Propagating changes
+
+%% ** (2) Calling Michaelas Service
+
+LDF 2010.09.10.
+
+Locally on pcfinston:
+
+source ../globus_conf.sh 
+
+grid-proxy-init
+
+In `~/InstallStarterClient>':
+
+installStarterClient.sh --globus-site=optinum-srv.gwdg.de --package-name=m4
+
+LDF 2010.05.18.
+
+LDF 2010.09.10.
+This still works in theory, but some things are done in the shell script
+`installStarterClient.sh' that one has to enter by hand if one wants 
+to call `InstallStarterClient' by hand.  Things may also have changed since
+2010.05.18, so the call below might not work.
+
+Locally (e.g., on pcfinston):
+
+In `/home/lfinsto/installstarter/':
+
+java -cp InstallStarter/build/classes/:InstallStarter/build/stubs/classes:$CLASSPATH \
+de.optinum.gwdg.installstarter.client.InstallStarterClient \
+optinum-srv.gwdg.de optinum-srv.gwdg.de cctools 3.0.1
+
+%% ** (2) 
+
+LDF 2010.04.23.
+
+This is needed for grid-ftp (on pcfinston):
+
+/etc/init.d/xinetd start
+
+%% ** (2) 
+
+%% *** (3) 
+
+LDF 2010.10.14.
+
+Use /bin/faui3.sh to log onto `faui3cluster.informatik.uni-erlangen.de'
+
+Call it using `.' or `source'.  I could write another shellscript for logging
+onto optinum-srv using `gsissh'.
+
+%% *** (3) 
+
+
+LDF 2010.05.11.
+
+## Short version:
+
+export GLOBUS_LOCATION=/usr/local/globus-4.0.8
+source $GLOBUS_LOCATION/etc/globus-user-env.sh
+source $GLOBUS_LOCATION/etc/globus-devel-env.sh
+grid-proxy-init -debug
+
+### `~/globus_conf.sh' can be used to set the variables.
+
+gsissh -Y -p 2222 optinum-srv.gwdg.de
+
+ssh -Y rocks-goegrid.gwdg.de
+
+
+%% *** (3) Upload proxy cert. to gridmon.
+
+LDF 2011.07.08.
+
+myproxy-init -s gridmon.gwdg.de -p 7512 -l myproxyname
+
+
+%% *** (3) 
+
+Log in optinum-srv:
+
+   gsissh -Y -p 2222 optinum-srv.gwdg.de
+
+   gsissh -Y -p 2222 faui3cluster.informatik.uni-erlangen.de
+
+User:  dgon0017
+
+Home directory:  /usr/users/dgon0017
+
+Log in on rocks from optinum-srv:
+
+   ssh rocks-goegrid.gwdg.de
+
+On rocks:
+
+qstat # (Works on optinum-srv, too)
+
+   qstat - show status of batch jobs
+
+Copy file from lfinsto@pcfinston.gwdg.de to dgon0015@optinum-srv.gwdg.de:
+
+   globus-url-copy file:/home/lfinsto/ttemp.txt gsiftp://optinum-srv.gwdg.de/usr/users/dgon0015/ttemp.txt
+
+DFN certificate and signing policy must be in ~/.globus/certificates/.
+
+The filenames are:
+
+1149214e.0
+1149214e.signing_policy
+
+The user certificate and user key file must be in ~/.globus/
+
+GLOBUS_LOCATION must be set to /usr/local/globus-4.0.8
+
+export GLOBUS_LOCATION=/usr/local/globus-4.0.8
+
+This needs to be run:
+
+source $GLOBUS_LOCATION/etc/globus-user-env.sh
+source $GLOBUS_LOCATION/etc/globus-devel-env.sh
+
+Create a proxy:
+
+grid-proxy-init 
+
+There were problems when this was done in `.bash_profile'.
+It's probably sufficient to just put it in `.login' (or `.profile'?).
+One must make sure that `GLOBUS_LOCATION' doesn't end up containing repeated 
+identical strings.
+
+LD_LIBRARY_PATH must contain `/usr/local/globus-4.0.8/lib/'
+
+LIBRARY_PATH is probably not needed.
+
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/globus-4.0.8/lib/
+export LIBRARY_PATH=$LIBRARY_PATH:/usr/local/globus-4.0.8/lib/
+
+Print out certificate information:
+
+   grid-cert-info -subject -f ~/.globus/usercert.pem 
+
+
+%% ** (2)  Extract a key from a p12 file
+
+openssl pkcs12 -nodes -nocerts -in usercred.p12 -out userkey.pem 
+
+%% ** (2) (protected --> unprotected key)
+
+
+To create a key without password protection from one with password protection:
+
+openssl rsa -in <protected key filename> -out <unprotected key filename>
+
+%% ** (2)
+
+grid-proxy-info
+
+Start jobs:
+
+   globusrun-ws 
+
+   Sent to optinum-srv.  
+
+Proxy certificate saved here:
+
+/tmp
+
+Name like `x509up_u1000'.
+
+
+%% ** (2)
+
+
+%% * (1) Local Variables for Emacs 
+
+%% Local Variables: 
+%% eval:(display-time) 
+%% eval:(read-abbrev-file) 
+%% indent-tabs-mode:nil 
+%% eval:(outline-minor-mode) 
+%% outline-regexp:"%% *\\*+" 
+%% End: 
+
+%% * (1) End of 00INFO
